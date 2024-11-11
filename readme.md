@@ -1,8 +1,4 @@
-Here’s a sample README file for your project, including sections for installation, usage, features, and a placeholder for the screenshot:
-
----
-
-# QuickWhisper
+# Scorchsoft QuickWhisper
 
 QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through GPT-4 for a polished, copy-edited output.
 
