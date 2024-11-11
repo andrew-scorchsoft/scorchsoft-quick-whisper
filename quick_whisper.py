@@ -104,7 +104,7 @@ class QuickWhisper(tk.Tk):
         device_menu.grid(row=0, column=1, sticky=tk.W, pady=(0,10))
 
         # Record Button
-        self.record_button = ttk.Button(main_frame, text="Start Recording", command=self.toggle_recording)
+        self.record_button = ttk.Button(main_frame, text="Start Recording (Win+J)", command=self.toggle_recording)
         self.record_button.grid(row=1, column=0, columnspan=2, pady=(0,10), sticky="ew")
 
         # Auto-Copy Checkbox
