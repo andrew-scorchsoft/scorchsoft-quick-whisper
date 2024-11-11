@@ -360,6 +360,8 @@ class QuickWhisper(tk.Tk):
             #Approach to take:
             - If the person you speak with opens the conversation with nothing but text and no instruction, please apply the standard Copy Editing Rules above to all text.
             - If someone says "please copyright in the [something] style/format" then please acknowledge concisely and ask them to provide the text to copy edit.
+
+            When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text, it should just be the edited text.
             """
 
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
