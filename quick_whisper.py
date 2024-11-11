@@ -302,12 +302,7 @@ class QuickWhisper(tk.Tk):
     def process_with_gpt_model(self, text):
         try:
             system_prompt = """
-            You are an expert copy editor. When provided with text, you provide a cleaned-up copy-edited version of that text. If a style is specified, please adopt that style.
-
-            #Copy Editing Styles:
-            1) General Business 
-            2) Books/Articles
-            3) Emails
+            You are an expert copy editor. When provided with text, you provide a cleaned-up copy-edited version of that text. 
 
             #Copy Editing Rules
 
@@ -320,6 +315,7 @@ class QuickWhisper(tk.Tk):
             - Be direct with language and avoid split infinitives. Always use active voice rather than passive voice. For example, if there is an actor in the sentence then begins with the actor of the sentence before the subject on most occasions.
             - Do not use wordy introduction sentences start with "in the", such as opening with "in a fast-paced business world", "in today's competitive landscape" or phrases of a similar style to that. Do not use the phrases "AI is a powerful tool", "imagine having", "the world of", “world of”, "comes in" or phrases of a similar style to that. 
             - Maintain consistent tense: Ensure that the verb tense is consistent throughout the text.
+            - Maintain meaning: Ensure your copy edited version doesn't lose the original nuance or meaning.
             - Proper capitalization: Check and correct the capitalization of proper nouns, product names, and brand names.
             - Use compound adjectives with hyphens: When two words are used together as an adjective before a noun, add a hyphen between them.
             - Be specific and avoid repetition: If a phrase or word is used multiple times or is not clear, revise it to provide more specific information or use a synonym.
