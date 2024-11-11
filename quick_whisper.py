@@ -302,6 +302,9 @@ class QuickWhisper(tk.Tk):
     def process_with_gpt_model(self, text):
         try:
             system_prompt = """
+
+            # Your Purpose 
+            
             You are an expert copy editor. When provided with text, you provide a cleaned-up copy-edited version of that text. 
 
             #Copy Editing Rules
@@ -357,7 +360,9 @@ class QuickWhisper(tk.Tk):
             - If the person you speak with opens the conversation with nothing but text and no instruction, please apply the standard Copy Editing Rules above to all text.
             - If someone says "please copyright in the [something] style/format" then please acknowledge concisely and ask them to provide the text to copy edit.
 
-            When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text, it should just be the edited text.
+            CRITICALLY IMPORTANT:
+            - When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text (or anything similar to preceed), it should just be the edited text.
+            - I repeat, only reply with the copy edited text.
             """
 
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
