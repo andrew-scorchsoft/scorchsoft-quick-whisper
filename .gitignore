@@ -48,3 +48,18 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Custom config
+.env
+.env_backup
+*.wav
+*.mp3
+build/
+dist/
+settings.json
+
+
+.vs
+vs/
+.zip
+
+config/

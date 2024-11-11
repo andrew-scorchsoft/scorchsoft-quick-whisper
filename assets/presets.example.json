@@ -1,0 +1,559 @@
+{
+  "presets": [
+    {
+      "category": "Greetings",
+      "phrases": [
+        {
+          "text": "Hello, how are you?",
+          "isFavourite": false
+        },
+        {
+          "text": "Good morning!",
+          "isFavourite": true
+        },
+        {
+          "text": "Good evening!",
+          "isFavourite": false
+        },
+        {
+          "text": "Nice to meet you.",
+          "isFavourite": false
+        },
+        {
+          "text": "Hi there!",
+          "isFavourite": false
+        },
+        {
+          "text": "Welcome back!",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Questions",
+      "phrases": [
+        {
+          "text": "Could you please repeat that?",
+          "isFavourite": false
+        },
+        {
+          "text": "Where is the nearest restroom?",
+          "isFavourite": true
+        },
+        {
+          "text": "What time is it?",
+          "isFavourite": true
+        },
+        {
+          "text": "Can I help you with something?",
+          "isFavourite": false
+        },
+        {
+          "text": "Testing 123",
+          "isFavourite": true
+        },
+        {
+          "text": "How does this work?",
+          "isFavourite": false
+        },
+        {
+          "text": "Can you explain that further?",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Responses",
+      "phrases": [
+        {
+          "text": "Thank you!",
+          "isFavourite": false
+        },
+        {
+          "text": "You're welcome.",
+          "isFavourite": true
+        },
+        {
+          "text": "No problem.",
+          "isFavourite": false
+        },
+        {
+          "text": "I understand.",
+          "isFavourite": false
+        },
+        {
+          "text": "Absolutely!",
+          "isFavourite": false
+        },
+        {
+          "text": "I agree.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Gaming",
+      "phrases": [
+        {
+          "text": "Watch out, behind you!",
+          "isFavourite": true
+        },
+        {
+          "text": "Need backup here.",
+          "isFavourite": false
+        },
+        {
+          "text": "Let's stick together.",
+          "isFavourite": false
+        },
+        {
+          "text": "GG (Good Game)!",
+          "isFavourite": false
+        },
+        {
+          "text": "Enemy spotted!",
+          "isFavourite": false
+        },
+        {
+          "text": "Level up!",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Directions",
+      "phrases": [
+        {
+          "text": "Go straight ahead.",
+          "isFavourite": false
+        },
+        {
+          "text": "Turn left at the next corner.",
+          "isFavourite": false
+        },
+        {
+          "text": "It's on your right.",
+          "isFavourite": false
+        },
+        {
+          "text": "Follow me, please.",
+          "isFavourite": true
+        },
+        {
+          "text": "Take the second exit.",
+          "isFavourite": false
+        },
+        {
+          "text": "You will see it on the left.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Requests",
+      "phrases": [
+        {
+          "text": "Could you assist me with this?",
+          "isFavourite": false
+        },
+        {
+          "text": "Please let me know if I can help.",
+          "isFavourite": false
+        },
+        {
+          "text": "May I have some assistance?",
+          "isFavourite": true
+        },
+        {
+          "text": "Could you lower your voice?",
+          "isFavourite": false
+        },
+        {
+          "text": "Can you pass the salt?",
+          "isFavourite": false
+        },
+        {
+          "text": "Please wait a moment.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Social",
+      "phrases": [
+        {
+          "text": "How was your day?",
+          "isFavourite": false
+        },
+        {
+          "text": "It's nice to see you!",
+          "isFavourite": false
+        },
+        {
+          "text": "I hope you're doing well.",
+          "isFavourite": true
+        },
+        {
+          "text": "Take care.",
+          "isFavourite": false
+        },
+        {
+          "text": "What's new with you?",
+          "isFavourite": false
+        },
+        {
+          "text": "Long time no see!",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Apologies",
+      "phrases": [
+        {
+          "text": "I'm sorry.",
+          "isFavourite": true
+        },
+        {
+          "text": "Excuse me, please.",
+          "isFavourite": false
+        },
+        {
+          "text": "I didn't mean to.",
+          "isFavourite": false
+        },
+        {
+          "text": "Pardon me.",
+          "isFavourite": false
+        },
+        {
+          "text": "My apologies.",
+          "isFavourite": false
+        },
+        {
+          "text": "Sorry for the inconvenience.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Encouragement",
+      "phrases": [
+        {
+          "text": "Great job!",
+          "isFavourite": false
+        },
+        {
+          "text": "You can do it!",
+          "isFavourite": true
+        },
+        {
+          "text": "Keep going!",
+          "isFavourite": false
+        },
+        {
+          "text": "Well done!",
+          "isFavourite": false
+        },
+        {
+          "text": "Don't give up!",
+          "isFavourite": false
+        },
+        {
+          "text": "You're making progress.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Emergency",
+      "phrases": [
+        {
+          "text": "I need help immediately!",
+          "isFavourite": true
+        },
+        {
+          "text": "Call 999!",
+          "isFavourite": false
+        },
+        {
+          "text": "I'm not feeling well.",
+          "isFavourite": false
+        },
+        {
+          "text": "Please get help.",
+          "isFavourite": false
+        },
+        {
+          "text": "There's been an accident.",
+          "isFavourite": false
+        },
+        {
+          "text": "I require urgent assistance.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Farewells",
+      "phrases": [
+        {
+          "text": "Goodbye!",
+          "isFavourite": false
+        },
+        {
+          "text": "Take care!",
+          "isFavourite": true
+        },
+        {
+          "text": "See you later.",
+          "isFavourite": false
+        },
+        {
+          "text": "Have a great day!",
+          "isFavourite": false
+        },
+        {
+          "text": "Farewell!",
+          "isFavourite": false
+        },
+        {
+          "text": "Until next time.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Business",
+      "phrases": [
+        {
+          "text": "Let's schedule a meeting.",
+          "isFavourite": false
+        },
+        {
+          "text": "I will get back to you on that.",
+          "isFavourite": true
+        },
+        {
+          "text": "Could you send me the report?",
+          "isFavourite": false
+        },
+        {
+          "text": "Thank you for your cooperation.",
+          "isFavourite": false
+        },
+        {
+          "text": "Let's discuss this further.",
+          "isFavourite": false
+        },
+        {
+          "text": "Please review the attached document.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Travel",
+      "phrases": [
+        {
+          "text": "Where is the nearest bus stop?",
+          "isFavourite": true
+        },
+        {
+          "text": "I need a taxi.",
+          "isFavourite": false
+        },
+        {
+          "text": "What is the flight status?",
+          "isFavourite": false
+        },
+        {
+          "text": "Can you help me with my luggage?",
+          "isFavourite": false
+        },
+        {
+          "text": "Where can I buy a ticket?",
+          "isFavourite": false
+        },
+        {
+          "text": "Is this seat taken?",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Healthcare",
+      "phrases": [
+        {
+          "text": "I need to see a doctor.",
+          "isFavourite": true
+        },
+        {
+          "text": "I have a headache.",
+          "isFavourite": false
+        },
+        {
+          "text": "Where is the nearest hospital?",
+          "isFavourite": false
+        },
+        {
+          "text": "I need medication.",
+          "isFavourite": false
+        },
+        {
+          "text": "I'm feeling dizzy.",
+          "isFavourite": false
+        },
+        {
+          "text": "I need an ambulance.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Education",
+      "phrases": [
+        {
+          "text": "Can you help me with my homework?",
+          "isFavourite": true
+        },
+        {
+          "text": "What is the assignment due date?",
+          "isFavourite": false
+        },
+        {
+          "text": "I need tutoring in math.",
+          "isFavourite": false
+        },
+        {
+          "text": "Where is the library?",
+          "isFavourite": false
+        },
+        {
+          "text": "Can I join the study group?",
+          "isFavourite": false
+        },
+        {
+          "text": "When is the next exam?",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Shopping",
+      "phrases": [
+        {
+          "text": "How much does this cost?",
+          "isFavourite": true
+        },
+        {
+          "text": "Do you have this in a different size?",
+          "isFavourite": false
+        },
+        {
+          "text": "I'd like to return this item.",
+          "isFavourite": false
+        },
+        {
+          "text": "Can I pay with a credit card?",
+          "isFavourite": false
+        },
+        {
+          "text": "Where is the fitting room?",
+          "isFavourite": false
+        },
+        {
+          "text": "Do you offer a warranty?",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Technology",
+      "phrases": [
+        {
+          "text": "How do I reset my password?",
+          "isFavourite": true
+        },
+        {
+          "text": "My device is not working.",
+          "isFavourite": false
+        },
+        {
+          "text": "Can you help me install this software?",
+          "isFavourite": false
+        },
+        {
+          "text": "Where can I find the user manual?",
+          "isFavourite": false
+        },
+        {
+          "text": "The screen is frozen.",
+          "isFavourite": false
+        },
+        {
+          "text": "I forgot my username.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Personal",
+      "phrases": [
+        {
+          "text": "I need to buy groceries.",
+          "isFavourite": true
+        },
+        {
+          "text": "I'm going to the gym.",
+          "isFavourite": false
+        },
+        {
+          "text": "Can we meet up later?",
+          "isFavourite": false
+        },
+        {
+          "text": "I need some alone time.",
+          "isFavourite": false
+        },
+        {
+          "text": "I'm cooking dinner.",
+          "isFavourite": false
+        },
+        {
+          "text": "I have a doctor's appointment.",
+          "isFavourite": false
+        }
+      ]
+    },
+    {
+      "category": "Entertainment",
+      "phrases": [
+        {
+          "text": "Let's watch a movie.",
+          "isFavourite": true
+        },
+        {
+          "text": "I'm listening to music.",
+          "isFavourite": false
+        },
+        {
+          "text": "Do you want to play a game?",
+          "isFavourite": false
+        },
+        {
+          "text": "I'm reading a book.",
+          "isFavourite": false
+        },
+        {
+          "text": "Let's go to a concert.",
+          "isFavourite": false
+        },
+        {
+          "text": "I'm streaming a new series.",
+          "isFavourite": false
+        }
+      ]
+    }
+  ]
+}
