@@ -29,7 +29,7 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Simple Speech to Text")
+        self.title("Scorchsoft Quick Whisper (Speech to text)")
         self.geometry("600x400")
         self.version = "1.0.0"
         self.resizable(False, False)
