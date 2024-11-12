@@ -7,6 +7,7 @@ import os
 import sys
 import openai
 import pyperclip
+import webbrowser
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
@@ -33,7 +34,7 @@ class QuickWhisper(tk.Tk):
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         self.geometry("600x440")
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.resizable(False, False)
 
         load_env_file()
@@ -135,9 +136,17 @@ class QuickWhisper(tk.Tk):
         self.status_label = ttk.Label(main_frame, text="Status: Idle", foreground="blue")
         self.status_label.grid(row=7, column=0, columnspan=2, sticky=tk.W)
 
+
+        info_label = tk.Label(main_frame, text="Created by Scorchsoft.com App Development", fg="blue", cursor="hand2")
+        info_label.grid(column=0, row=8, columnspan=2, pady=(0, 0))
+        info_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
+
         # Configure grid
         for i in range(2):
             main_frame.columnconfigure(i, weight=1)
+
+    def open_scorchsoft(self, event=None):
+        webbrowser.open('https://www.scorchsoft.com')
 
     def create_menu(self):
         self.menubar = Menu(self)
@@ -393,7 +402,7 @@ class QuickWhisper(tk.Tk):
             - Use subject-verb-object in most scenarios.
             - use active voice rather than passive voice.
             - Eliminate Redundancies: Remove redundant words, phrases, or sentences to tighten the prose without losing meaning or emphasis.
-            - Adjust the emotional tone and persuasive elements to match the intended impact on the reader, whether it’s to inform, persuade, entertain, or inspire.
+            - Adjust the emotional tone and persuasive elements to match the intended impact on the reader, whether it’s to inform, be friendly, persuade, entertain, or inspire. 
             - Ensure that terminology and naming conventions are consistent throughout the document. For example, if a term is introduced with a specific definition, use that term consistently without introducing synonyms that might confuse the reader.
             - Tailor the complexity and tone of the language to the target audience's knowledge level and expectations. For instance, content for a general audience should avoid jargon, whereas content for specialists can include more technical language.
             - Avoid Nominalisations: Convert nouns derived from verbs (nominalisations) back into their verb forms to make sentences more direct. For example, use "decide" instead of "make a decision".
@@ -402,12 +411,14 @@ class QuickWhisper(tk.Tk):
             - Limit Sentence Complexity: Break down overly complex or compound sentences into simpler, shorter sentences to maintain clarity and readability. Again, apply this rule where shortening doesn't impact sentence meaning or impact of the sentence.
 
             # Other Considerations
+
             - Ensure consistent use of formatting elements like bullet points, headers, and fonts. 
             - Reply as plain text without markdown tags that would look out of place if viewed without a markdown viewer.
             - Tailor your language and content to the intended audience and purpose of the document. For instance, the tone and complexity of language in an internal email may differ from that in a public-facing article.
             - Inclusivity and Sensitivity: Be mindful of inclusive language, avoiding terms that might be considered outdated or offensive. This also includes being aware of gender-neutral language, especially in a business context.
             - Optimizing for Different Media if defined: For example, if you are told that the content is intended for online use, consider principles of SEO (Search Engine Optimization) and readability on digital platforms, like shorter paragraphs and the use of subheadings.
             - Clarity in Complex Information: When dealing with complex or technical subjects, ensure clarity and accessibility for the lay reader without oversimplifying the content.
+            - Soften directness in coversational language: If you detect that the nature of the content being copy edited is likely for an instant message or email, then please make sure to use friendly language, it's ok to soften the directness a little in this case to ensure the edited copy doesn't come across as rude or angry. You may also choose to retain more colloquial terms used in the transcript for emails, chat replies or other message-based content than if you think the content is to be used in other formats.
 
             # CRITICALLY IMPORTANT:
             - When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text (or anything similar to preceed), it should just be the edited text.
@@ -463,7 +474,7 @@ class QuickWhisper(tk.Tk):
 
     def show_terms_of_use(self):
         # Get the path to the LICENSE.md file using the resource_path method
-        license_path = self.resource_path("LICENSE.md")
+        license_path = self.resource_path("assets/LICENSE.md")
 
         # Attempt to read the content of the LICENSE.md file
         try:
