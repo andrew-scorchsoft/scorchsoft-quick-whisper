@@ -58,6 +58,9 @@ dist/
 settings.json
 
 
+temp_recording.wav
+
+
 .vs
 vs/
 .zip

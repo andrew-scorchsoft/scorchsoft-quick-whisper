@@ -31,7 +31,7 @@ class QuickWhisper(tk.Tk):
 
         self.title("Scorchsoft Quick Whisper (Speech to text)")
         self.geometry("600x400")
-        self.version = "1.0.0"
+        self.version = "1.0.1"
         self.resizable(False, False)
 
         load_env_file()
@@ -49,7 +49,7 @@ class QuickWhisper(tk.Tk):
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
-
+        self.tmp_dir = Path("tmp")
         
 
         self.recording = False
@@ -142,7 +142,10 @@ class QuickWhisper(tk.Tk):
         self.menubar.add_cascade(label="Settings", menu=settings_menu)
         settings_menu.add_command(label="Change API Key", command=self.change_api_key)
 
-
+        # Play Menu
+        play_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Play", menu=play_menu)
+        play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
 
         # Help menu
         help_menu = Menu(self.menubar, tearoff=0)
@@ -207,6 +210,8 @@ class QuickWhisper(tk.Tk):
                 print(f"Recording error: {e}")
                 break
 
+
+    # Inside your class definition, replace stop_recording with the following:
     def stop_recording(self):
         self.recording = False
         self.record_thread.join()
@@ -214,23 +219,47 @@ class QuickWhisper(tk.Tk):
         self.stream.stop_stream()
         self.stream.close()
 
-        self.record_button.config(text="Start Recording")
+        self.record_button.config(text="Start Recording (Win+J)")
         self.status_label.config(text="Status: Processing...", foreground="green")
 
         # Play stop recording sound
-        threading.Thread(target=lambda:  self.play_sound("assets/pop.wav")).start()
+        threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
 
-        # Save the recorded data to a temporary WAV file
-        self.audio_file = "temp_recording.wav"
-        wf = wave.open(self.audio_file, 'wb')
-        wf.setnchannels(1)
-        wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
-        wf.setframerate(16000)
-        wf.writeframes(b''.join(self.frames))
-        wf.close()
+        # Ensure tmp folder exists
+        
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save the recorded data to the tmp folder as temp_recording.wav
+        self.audio_file = self.tmp_dir / "temp_recording.wav"
+    
+        print(f"Saving Recording to {self.audio_file}")
+        with wave.open(self.resource_path(self.audio_file), 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+            wf.setframerate(16000)
+            wf.writeframes(b''.join(self.frames))
 
         # Start transcription in a separate thread
         threading.Thread(target=self.transcribe_audio).start()
+
+    def retry_last_recording(self):
+
+        last_recording = self.tmp_dir / "temp_recording.wav"
+
+        if last_recording.exists():
+
+            # Play start recording sound
+            threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
+
+            self.audio_file = last_recording
+            self.status_label.config(text="Status: Retrying transcription...", foreground="orange")
+            
+            # Re-attempt transcription in a separate thread
+            threading.Thread(target=self.transcribe_audio).start()
+        else:
+            messagebox.showerror("Retry Failed", "No previous recording found to retry in tmp folder.")
+
+
 
     def transcribe_audio(self):
         file_path = self.audio_file
@@ -251,6 +280,12 @@ class QuickWhisper(tk.Tk):
             # Process transcription with or without GPT as per the checkbox setting
             if auto_apply_ai:
                 print("Applying AI to transcription")
+
+                # set input box to transcription text first, just incase there is a failure
+                self.transcription_text.delete("1.0", tk.END)
+                self.transcription_text.insert("1.0", transcription_text)
+
+                # Then GPT edit that transcribed text and insert
                 play_text = self.process_with_gpt_model(transcription_text)
                 self.transcription_text.delete("1.0", tk.END)
                 self.transcription_text.insert("1.0", play_text)
@@ -272,12 +307,17 @@ class QuickWhisper(tk.Tk):
             threading.Thread(target=lambda:  self.play_sound("assets/pop.wav")).start()
 
         except Exception as e:
+            # Play failure sound
+            threading.Thread(target=lambda:  self.play_sound("assets/wrong-short.wav")).start()
+
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
             self.status_label.config(text="Status: Error during transcription", foreground="red")
+
         finally:
             self.status_label.config(text="Status: Idle", foreground="blue")
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            # No longer remove temp file
+            # if os.path.exists(file_path):
+            #    os.remove(file_path)
 
 
     def auto_copy_text(self, text):
@@ -305,13 +345,18 @@ class QuickWhisper(tk.Tk):
 
             # Your Purpose 
             
-            You are an expert copy editor. When provided with text, you provide a cleaned-up copy-edited version of that text. 
+            You are an expert Copy Editor. 
+            
+            When provided with text, you provide a cleaned-up copy-edited version of that text in response. 
 
-            #Copy Editing Rules
+            Sometimes the text you are provided with will provide instructions for the output format, style or tone. If you detect such instructions then please apply them to the copy edited text, and do not write out the instructions in the returned copy-edited text. For example, if the text starts "this is for an email", or similar, then the format and structure of the copy editing should match that of an email.
 
-            Please apply the following rules to the reply or any modified text:
+            # Copy Editing Rules
+
+            Please apply the following rules to the reply or any modified text (only deviate if asked otherwise):
+
             - Reply using UK spelling and grammar conventions, not US conventions (very important!). 
-            - Please provide responses that emulate the described writing style: clear, engaging, informative, and conversational, using anecdotes and examples to illustrate points, with a friendly and approachable tone. 
+            - Please provide responses that are clear, engaging, informative, and conversational, using anecdotes and examples to illustrate points, with a friendly and approachable tone. 
             - Make use of proper grammar, spelling, and punctuation. 
             - Avoid using filter words or unnecessary words in replies. You don't have to re-write sentences or phrases where the copy is already clear, concise and effective.
             - Use simple, short and concise words that are easy to understand by the average non-technical reader. Avoid long, elaborate words where a shorter word can be used instead.
@@ -343,24 +388,19 @@ class QuickWhisper(tk.Tk):
             - Ensure that terminology and naming conventions are consistent throughout the document. For example, if a term is introduced with a specific definition, use that term consistently without introducing synonyms that might confuse the reader.
             - Tailor the complexity and tone of the language to the target audience's knowledge level and expectations. For instance, content for a general audience should avoid jargon, whereas content for specialists can include more technical language.
             - Avoid Nominalisations: Convert nouns derived from verbs (nominalisations) back into their verb forms to make sentences more direct. For example, use "decide" instead of "make a decision".
-            - Replace passive voice constructions with active voice wherever possible. For example, change "The report was written by the team" to "The team wrote the report".
+            - Replace passive voice constructions with active voice wherever possible if it doesn't deminish meaning or impact to do so. For example, change "The report was written by the team" to "The team wrote the report".
             - Direct Statement of Purpose: State the main purpose or action of a sentence directly and early. Avoid burying the main verb or action deep in the sentence.
-            - Limit Sentence Complexity: Break down overly complex or compound sentences into simpler, shorter sentences to maintain clarity and readability.
+            - Limit Sentence Complexity: Break down overly complex or compound sentences into simpler, shorter sentences to maintain clarity and readability. Again, apply this rule where shortening doesn't impact sentence meaning or impact of the sentence.
 
-            #Other Considerations
+            # Other Considerations
             - Ensure consistent use of formatting elements like bullet points, headers, and fonts. 
+            - Reply as plain text without markdown tags that would look out of place if viewed without a markdown viewer.
             - Tailor your language and content to the intended audience and purpose of the document. For instance, the tone and complexity of language in an internal email may differ from that in a public-facing article.
             - Inclusivity and Sensitivity: Be mindful of inclusive language, avoiding terms that might be considered outdated or offensive. This also includes being aware of gender-neutral language, especially in a business context.
-            - Fact-Checking and Accuracy: Especially for non-fiction books and articles, ensure that all factual statements are accurate and sourced appropriately. This includes checking dates, names, statistics, and quotations.
-            - Optimizing for Different Media: If the content is intended for online use, consider principles of SEO (Search Engine Optimization) and readability on digital platforms, like shorter paragraphs and the use of subheadings.
-            - Legal Compliance: Be aware of any legal implications of the content, especially regarding copyright, libel, and compliance with industry-specific regulations.
-            -Clarity in Complex Information: When dealing with complex or technical subjects, ensure clarity and accessibility for the lay reader without oversimplifying the content.
+            - Optimizing for Different Media if defined: For example, if you are told that the content is intended for online use, consider principles of SEO (Search Engine Optimization) and readability on digital platforms, like shorter paragraphs and the use of subheadings.
+            - Clarity in Complex Information: When dealing with complex or technical subjects, ensure clarity and accessibility for the lay reader without oversimplifying the content.
 
-            #Approach to take:
-            - If the person you speak with opens the conversation with nothing but text and no instruction, please apply the standard Copy Editing Rules above to all text.
-            - If someone says "please copyright in the [something] style/format" then please acknowledge concisely and ask them to provide the text to copy edit.
-
-            CRITICALLY IMPORTANT:
+            # CRITICALLY IMPORTANT:
             - When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text (or anything similar to preceed), it should just be the edited text.
             - I repeat, only reply with the copy edited text.
             """
@@ -373,11 +413,13 @@ class QuickWhisper(tk.Tk):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=4000
+                max_tokens=8000
             )
             gpt_text = response.choices[0].message.content
             return gpt_text
         except Exception as e:
+            # Play failure sound
+            threading.Thread(target=lambda:  self.play_sound("assets/wrong-short.wav")).start()
             messagebox.showerror("GPT Processing Error", f"An error occurred while processing with GPT: {e}")
             return None
         
