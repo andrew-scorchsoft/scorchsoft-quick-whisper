@@ -71,10 +71,10 @@ This project is licensed under the terms specified in the LICENSE.md file.
 ## Making an installer
 
 Windows:
-`python -m PyInstaller --onefile --windowed --add-data "assets;assets" quick_whisper.py`
+`python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" quick_whisper.py`
 
 Windows with terminal:
-`python -m PyInstaller --onefile --add-data "assets;assets" quick_whisper.py`
+`python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" quick_whisper.py`
 
 Mac:
 `pyinstaller --onefile --add-data "assets:assets" quick_whisper.py`
