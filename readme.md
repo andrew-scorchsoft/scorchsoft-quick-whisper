@@ -15,7 +15,17 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 2. Ensure you have Python 3.x installed. Install the required dependencies with the following command:
 
-    pip install tkinter pyaudio openai python-dotenv pydub keyboard playsound pyperclip audioplayer wave pystray pygame
+    pip install tkinter  # (built-in, usually no installation needed)
+    pip install pystray
+    pip install pyaudio
+    pip install wave  # (built-in with Python, no installation needed)
+    pip install openai
+    pip install pyperclip
+    pip install python-dotenv
+    pip install pydub
+    pip install audioplayer
+    pip install keyboard
+
 
 3. Place your OpenAI API key in a `.env` file located in the `config` folder or enter it directly in the app.
 
@@ -42,7 +52,8 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Screenshot
 
-![QuickWhisper Interface](assets/quick-whisper-v1-0-0.png)
+![QuickWhisper Interface](assets/quick-whisper-v1-0-1.png)
+
 
 ## License
 

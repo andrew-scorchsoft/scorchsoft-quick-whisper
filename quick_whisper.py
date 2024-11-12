@@ -30,6 +30,10 @@ class QuickWhisper(tk.Tk):
         super().__init__()
 
         self.title("Scorchsoft Quick Whisper (Speech to text)")
+
+        icon_path = self.resource_path("assets/icon-32.png")
+        self.iconphoto(False, tk.PhotoImage(file=icon_path))
+
         self.geometry("600x400")
         self.version = "1.0.1"
         self.resizable(False, False)
