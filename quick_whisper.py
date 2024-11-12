@@ -50,7 +50,10 @@ class QuickWhisper(tk.Tk):
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
         self.process_with_gpt = tk.BooleanVar(value=True)
-        self.tmp_dir = Path("tmp")
+
+
+        self.tmp_dir = Path.cwd() / "tmp"
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
         
 
         self.recording = False
@@ -77,8 +80,9 @@ class QuickWhisper(tk.Tk):
         if new_key:
             self.save_api_key(new_key)
             self.api_key = new_key
+            openai.api_key = self.api_key
             self.client = OpenAI(api_key=self.api_key)
-            messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.")
+            messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.\nYou may need to restart the app for it to take effect ")
 
     def save_api_key(self, api_key):
         """Save the API key to config/.env"""
@@ -208,6 +212,7 @@ class QuickWhisper(tk.Tk):
                 self.frames.append(data)
             except Exception as e:
                 print(f"Recording error: {e}")
+                messagebox.showerror("Recording error", f"An error occurred while Recording: {e}")
                 break
 
 
@@ -231,9 +236,9 @@ class QuickWhisper(tk.Tk):
 
         # Save the recorded data to the tmp folder as temp_recording.wav
         self.audio_file = self.tmp_dir / "temp_recording.wav"
-    
         print(f"Saving Recording to {self.audio_file}")
-        with wave.open(self.resource_path(self.audio_file), 'wb') as wf:
+
+        with wave.open(str(self.audio_file), 'wb') as wf:
             wf.setnchannels(1)
             wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
             wf.setframerate(16000)
@@ -312,6 +317,8 @@ class QuickWhisper(tk.Tk):
 
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
             self.status_label.config(text="Status: Error during transcription", foreground="red")
+
+            messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
 
         finally:
             self.status_label.config(text="Status: Idle", foreground="blue")

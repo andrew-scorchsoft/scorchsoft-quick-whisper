@@ -32,7 +32,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
     `pip install pydub`
 
     `pip install audioplayer`
-    
+
     `pip install keyboard`
 
 
@@ -72,6 +72,9 @@ This project is licensed under the terms specified in the LICENSE.md file.
 
 Windows:
 `python -m PyInstaller --onefile --windowed --add-data "assets;assets" quick_whisper.py`
+
+Windows with terminal:
+`python -m PyInstaller --onefile --add-data "assets;assets" quick_whisper.py`
 
 Mac:
 `pyinstaller --onefile --add-data "assets:assets" quick_whisper.py`
