@@ -49,6 +49,7 @@ class QuickWhisper(tk.Tk):
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
+        self.process_with_gpt = tk.BooleanVar(value=True)
         self.tmp_dir = Path("tmp")
         
 
@@ -121,7 +122,6 @@ class QuickWhisper(tk.Tk):
         self.transcription_text.grid(row=5, column=0, columnspan=2, pady=(0,10))
 
         # Optional GPT Processing
-        self.process_with_gpt = tk.BooleanVar()
         gpt_cb = ttk.Checkbutton(main_frame, text="Auto Copy-edit with gpt-4o", variable=self.process_with_gpt)
         gpt_cb.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
