@@ -51,8 +51,6 @@ Thumbs.db
 # Custom config
 .env
 .env_backup
-*.wav
-*.mp3
 build/
 dist/
 settings.json
