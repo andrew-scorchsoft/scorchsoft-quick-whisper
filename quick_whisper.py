@@ -5,15 +5,11 @@ import pyaudio
 import wave
 import os
 import sys
-import json
-import platform
-import webbrowser
 import openai
 import pyperclip
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
-from pydub import AudioSegment
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
@@ -34,7 +30,7 @@ class QuickWhisper(tk.Tk):
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
 
-        self.geometry("600x400")
+        self.geometry("600x440")
         self.version = "1.0.1"
         self.resizable(False, False)
 
