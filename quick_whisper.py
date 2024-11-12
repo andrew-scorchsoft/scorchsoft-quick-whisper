@@ -94,7 +94,7 @@ class QuickWhisper(tk.Tk):
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Input Device Selection
-        ttk.Label(main_frame, text="Select Input Device:").grid(row=0, column=0, sticky=tk.W, pady=(0,10))
+        ttk.Label(main_frame, text="Input Device (mic):").grid(row=0, column=0, sticky=tk.W, pady=(0,10))
         devices = self.get_input_devices()
         if not devices:
             messagebox.showerror("No Input Devices", "No input audio devices found.")
@@ -108,22 +108,22 @@ class QuickWhisper(tk.Tk):
         self.record_button = ttk.Button(main_frame, text="Start Recording (Win+J)", command=self.toggle_recording)
         self.record_button.grid(row=1, column=0, columnspan=2, pady=(0,10), sticky="ew")
 
-        # Auto-Copy Checkbox
-        auto_copy_cb = ttk.Checkbutton(main_frame, text="Auto-Copy to Clipboard on Transcription", variable=self.auto_copy)
-        auto_copy_cb.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
-
-        # Auto-Paste Checkbox
-        auto_paste_cb = ttk.Checkbutton(main_frame, text="Auto-Paste Clipboard on Transcription", variable=self.auto_paste)
-        auto_paste_cb.grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
-
         # Transcription Text Area
-        ttk.Label(main_frame, text="Transcription:").grid(row=4, column=0, sticky=tk.W)
+        ttk.Label(main_frame, text="Transcription:").grid(row=2, column=0, sticky=tk.W)
         self.transcription_text = tk.Text(main_frame, height=10, width=70)
-        self.transcription_text.grid(row=5, column=0, columnspan=2, pady=(0,10))
+        self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
 
         # Optional GPT Processing
-        gpt_cb = ttk.Checkbutton(main_frame, text="Auto Copy-edit with gpt-4o", variable=self.process_with_gpt)
-        gpt_cb.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+        gpt_cb = ttk.Checkbutton(main_frame, text="Auto Copy-Edit With GPT-4o", variable=self.process_with_gpt)
+        gpt_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+
+        # Auto-Copy Checkbox
+        auto_copy_cb = ttk.Checkbutton(main_frame, text="Auto-Copy to Clipboard on Completion", variable=self.auto_copy)
+        auto_copy_cb.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+
+        # Auto-Paste Checkbox
+        auto_paste_cb = ttk.Checkbutton(main_frame, text="Auto-Paste Clipboard on Completion", variable=self.auto_paste)
+        auto_paste_cb.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
         # Status Label
         self.status_label = ttk.Label(main_frame, text="Status: Idle", foreground="blue")
