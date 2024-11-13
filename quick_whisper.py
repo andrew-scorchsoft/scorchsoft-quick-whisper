@@ -23,14 +23,14 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Quick Whisper (Speech to text) by Scorchsoft.com")
+        self.title("Quick Whisper by Scorchsoft.com (Speech to Copyedited Text) ")
 
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         self.geometry("600x690")
-        self.version = "1.0.2"
+        self.version = "1.1.0"
         self.resizable(False, False)
         self.banner_visible = True
 
