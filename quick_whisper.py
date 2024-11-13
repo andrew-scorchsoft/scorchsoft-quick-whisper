@@ -10,7 +10,7 @@ import pyperclip
 import webbrowser
 from PIL import Image, ImageTk 
 from openai import OpenAI
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from pathlib import Path
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
@@ -119,6 +119,7 @@ class QuickWhisper(tk.Tk):
         env_path = config_dir / ".env"
         with open(env_path, 'w') as f:
             f.write(f"OPENAI_API_KEY={api_key}\n")
+            f.write(f"HIDE_BANNER=false\n")
         load_dotenv(dotenv_path=env_path)
 
     def create_widgets(self):
@@ -187,7 +188,7 @@ class QuickWhisper(tk.Tk):
             main_frame.columnconfigure(i, weight=1)
 
     def open_scorchsoft(self, event=None):
-        webbrowser.open('https://www.scorchsoft.com')
+        webbrowser.open('https://www.scorchsoft.com/contact-scorchsoft')
 
     def create_menu(self):
         self.menubar = Menu(self)
@@ -197,6 +198,7 @@ class QuickWhisper(tk.Tk):
         settings_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Settings", menu=settings_menu)
         settings_menu.add_command(label="Change API Key", command=self.change_api_key)
+        settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
 
         # Play Menu
         play_menu = Menu(self.menubar, tearoff=0)
@@ -214,7 +216,7 @@ class QuickWhisper(tk.Tk):
     def toggle_banner(self):
         """Toggle the visibility of the banner image and adjust the window height."""
         current_height = self.winfo_height()
-        new_height = current_height + 257 if not self.banner_visible else current_height - 257
+        new_height = current_height + 263 if not self.banner_visible else current_height - 263
 
         if self.banner_visible:
             self.banner_label.grid_remove()  # Hide the banner
@@ -227,6 +229,71 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{self.winfo_width()}x{new_height}")
         
         self.banner_visible = not self.banner_visible  # Toggle the visibility flag
+
+    def adjust_models(self):
+        # Create pop-up window for adjusting models
+        model_dialog = tk.Toplevel(self)
+        model_dialog.title("Adjust AI Models")
+        model_dialog.geometry("450x420")
+
+        # Transcription Model Entry
+        tk.Label(model_dialog, text="OpenAI Transcription Model:").pack(anchor="w", padx=10, pady=(10, 0))
+        transcription_entry = tk.Entry(model_dialog)
+        transcription_entry.insert(0, self.transcription_model)  # Default to current model
+        transcription_entry.pack(fill="x", padx=10)
+        tk.Label(model_dialog, text="e.g., whisper-1", font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", padx=10)
+
+        # AI Model Entry
+        tk.Label(model_dialog, text="OpenAI Copyediting Model:").pack(anchor="w", padx=10, pady=(10, 0))
+        ai_entry = tk.Entry(model_dialog)
+        ai_entry.insert(0, self.ai_model)  # Default to current model
+        ai_entry.pack(fill="x", padx=10)
+        tk.Label(model_dialog, text="e.g., gpt-4o, gpt-4o-mini, o1-mini, o1-preview", font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", padx=10)
+
+        # Save button
+        save_button = ttk.Button(model_dialog, text="Save", command=lambda: self.save_model_settings(transcription_entry.get(), ai_entry.get(), model_dialog))
+        save_button.pack(pady=10)
+
+        # Link to OpenAI Pricing
+        link = tk.Label(model_dialog, text="View Available OpenAI Models and Pricing", fg="blue", cursor="hand2")
+        link.pack(pady=(10, 0))
+        link.bind("<Button-1>", lambda e: webbrowser.open("https://openai.com/api/pricing/"))
+
+        # Instructional text
+        instructional_text = ("How to find and set model names:\n\nEnsure you input model names exactly as they appear in the OpenAI documentation, "
+                            "considering they are case-sensitive. Incorrect model names may cause the application to "
+                            "malfunction due to an inability to perform relevant functions. As of this implementation, "
+                            "gpt-4o is the more capable model but is more expensive. gpt-4o-mini offers a cost-effective "
+                            "alternative (upto 20x cheaper) with less comprehensive world knowledge yet remains suitable for copyediting tasks. "
+                            "This information will help you optimise performance and cost. We've added the ability to change models to future proof "
+                            " the app and give users more control.")
+        tk.Label(model_dialog, text=instructional_text, wraplength=430, justify="left", font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(pady=(10, 0), padx=10)
+        
+
+    def save_model_settings(self, transcription_model, ai_model, model_dialog):
+        env_path = Path("config") / ".env"
+        
+        # Load existing .env settings into a dictionary
+        if env_path.exists():
+            env_vars = dotenv_values(env_path)
+        else:
+            env_vars = {}
+
+        # Update model values in the dictionary
+        env_vars["TRANSCRIPTION_MODEL"] = transcription_model
+        env_vars["AI_MODEL"] = ai_model
+
+        # Write each environment variable to the .env file, overwriting existing values
+        with open(env_path, "w") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+
+        # Update instance variables
+        self.transcription_model = transcription_model
+        self.ai_model = ai_model
+        model_dialog.destroy()
+
+
 
 
     def get_input_devices(self):

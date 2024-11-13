@@ -4,7 +4,7 @@ Quick Whisper was made by Scorchsoft.com.
 
 # Use at Your Own Risk
 
-By using Text to Mic, you acknowledge and agree that you assume full responsibility for your use of the software, and that any information you send or receive during your use of the software may not be secure and may be intercepted or later acquired by unauthorised parties. Use of Text to Mic is at your sole risk.
+By using Quick Whisper by Scorchsoft, you acknowledge and agree that you assume full responsibility for your use of the software, and that any information you send or receive during your use of the software may not be secure and may be intercepted or later acquired by unauthorised parties. Use of Quick Whisper is at your sole risk.
 
 # Trademark Notice
 
