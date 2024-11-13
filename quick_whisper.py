@@ -30,7 +30,7 @@ class QuickWhisper(tk.Tk):
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         self.geometry("600x690")
-        self.version = "1.1.0"
+        self.version = "1.2.0"
         self.resizable(False, False)
         self.banner_visible = True
 
@@ -93,49 +93,99 @@ class QuickWhisper(tk.Tk):
             self.ai_model = ai_model
 
     def get_api_key(self):
+        """Get the OpenAI API key, prompting if not found."""
         api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            # Prompt the user for API key
-            api_key = simpledialog.askstring("OpenAI API Key", "Enter your OpenAI API Key:", show='*', parent=self)
+        if not api_key:  # Prompt for the key if it's not set
+            api_key = self.openai_key_dialog()  # Call custom dialog
             if api_key:
                 self.save_api_key(api_key)
             else:
-                return None
+                messagebox.showwarning("API Key Missing", "OpenAI API key is required to continue.")
+                self.destroy()  # Exit if no key is provided
         return api_key
     
     def change_api_key(self):
-        new_key = simpledialog.askstring("API Key", "Enter new OpenAI API Key:", parent=self)
+        """Open the dialog to change the OpenAI API key."""
+        new_key = self.openai_key_dialog()
         if new_key:
             self.save_api_key(new_key)
             self.api_key = new_key
-            openai.api_key = self.api_key
-            self.client = OpenAI(api_key=self.api_key)
-            messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.\nYou may need to restart the app for it to take effect ")
+            messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.")
+        else:
+            messagebox.showinfo("Update Cancelled", "The OpenAI API Key was not changed.")
+
+
+    def openai_key_dialog(self):
+        """Custom dialog for entering a new OpenAI API key with guidance link."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Enter New OpenAI API Key")
+        dialog.geometry("400x200")
+        dialog.resizable(False, False)
+
+        # Label for instructions
+        instruction_label = ttk.Label(dialog, text="Please enter your new OpenAI API Key below:")
+        instruction_label.pack(pady=(10, 5))
+
+        # Entry field for the API key
+        api_key_entry = ttk.Entry(dialog, show='*', width=50)
+        api_key_entry.pack(pady=(5, 10))
+
+        # Link to guidance
+        link_label = tk.Label(dialog, text="How to obtain an OpenAI API key", fg="blue", cursor="hand2", font=("Arial", 9))
+        link_label.pack()
+        link_label.bind("<Button-1>", lambda e: webbrowser.open("https://scorchsoft.com/howto-get-openai-api-key"))
+
+        # Variable to store the API key input
+        entered_key = None
+
+        # Save action to capture API key input
+        def save_and_close():
+            nonlocal entered_key  # Use nonlocal to modify the outer variable
+            entered_key = api_key_entry.get().strip()
+            if entered_key:
+                dialog.destroy()  # Close dialog after saving input
+            else:
+                messagebox.showwarning("Input Required", "Please enter a valid API key.")
+
+        # Buttons for saving and cancelling
+        save_button = ttk.Button(dialog, text="Save", command=save_and_close)
+        save_button.pack(pady=(10, 5))
+        cancel_button = ttk.Button(dialog, text="Cancel", command=dialog.destroy)
+        cancel_button.pack(pady=(0, 10))
+
+        # Set focus to the entry field and make dialog modal
+        api_key_entry.focus()
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        # Return the entered key or None if cancelled
+        return entered_key if entered_key else None
 
 
     def save_api_key(self, api_key):
-        """Save the API key to config/.env without overwriting other settings."""
+        """Save the API key to config/.env without overwriting existing variables."""
         config_dir = Path("config")
         config_dir.mkdir(parents=True, exist_ok=True)
         env_path = config_dir / ".env"
-        
-        # Load existing environment variables into a dictionary
+
+        # Read existing settings to preserve them
+        env_vars = {}
         if env_path.exists():
-            env_vars = dotenv_values(env_path)
-        else:
-            env_vars = {}
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        key, val = line.strip().split('=', 1)
+                        env_vars[key] = val
 
-        # Update only the API key in the dictionary
+        # Update or add the OPENAI_API_KEY
         env_vars["OPENAI_API_KEY"] = api_key
-        env_vars["HIDE_BANNER"] = False
+        env_vars["HIDE_BANNER"] = self.hide_banner_on_load
 
-        # Write all environment variables back to the .env file
+        # Write back all variables
         with open(env_path, 'w') as f:
-            for key, value in env_vars.items():
-                f.write(f"{key}={value}\n")
-        
-        # Reload the environment variables so the current session reflects changes
-        load_dotenv(dotenv_path=env_path)
+            for key, val in env_vars.items():
+                f.write(f"{key}={val}\n")
 
     def create_widgets(self):
         main_frame = ttk.Frame(self, padding="20")
