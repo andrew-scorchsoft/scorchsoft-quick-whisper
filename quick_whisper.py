@@ -8,6 +8,7 @@ import sys
 import openai
 import pyperclip
 import webbrowser
+from PIL import Image, ImageTk 
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
@@ -16,28 +17,28 @@ import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
 
 
-# Load environment variables from config/.env
-def load_env_file():
-    env_path = Path("config") / ".env"
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path)
+
 
 class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Scorchsoft Quick Whisper (Speech to text)")
+        self.title("Quick Whisper (Speech to text) by Scorchsoft.com")
 
         icon_path = self.resource_path("assets/icon-32.png")
-        
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        self.geometry("600x440")
+        self.geometry("600x690")
         self.version = "1.0.2"
         self.resizable(False, False)
+        self.banner_visible = True
 
-        load_env_file()
+        # Initial model settings
+        self.transcription_model = "whisper-1"
+        self.ai_model = "gpt-4o"
+
+        self.load_env_file()
         self.api_key = self.get_api_key()
         if not self.api_key:
             messagebox.showerror("API Key Missing", "Please set your OpenAI API Key in config/.env or input it now.")
@@ -66,6 +67,30 @@ class QuickWhisper(tk.Tk):
 
         self.create_menu()
         self.create_widgets()
+
+        # Hide the banner on load if HIDE_BANNER is set to true in .env
+        if self.hide_banner_on_load:
+            self.toggle_banner()
+
+    # Load environment variables from config/.env
+    def load_env_file(self):
+
+        env_path = Path("config") / ".env"
+        if env_path.exists():
+            load_dotenv(dotenv_path=env_path)
+
+        # Check the HIDE_BANNER setting and set initial visibility
+        self.hide_banner_on_load = os.getenv("HIDE_BANNER", "false").lower() == "true"
+
+        # Overwrite transcription model if set
+        transcription_model = os.getenv("TRANSCRIPTION_MODEL")
+        if transcription_model:
+            self.transcription_model = transcription_model
+
+        # Overwrite AI model if set
+        ai_model = os.getenv("AI_MODEL")
+        if ai_model:
+            self.ai_model = ai_model
 
     def get_api_key(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -120,6 +145,10 @@ class QuickWhisper(tk.Tk):
         self.transcription_text = tk.Text(main_frame, height=10, width=70)
         self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
 
+        # Model Label
+        self.model_label = ttk.Label(main_frame, text=f"{self.transcription_model}, {self.ai_model}", foreground="grey")
+        self.model_label.grid(row=4, column=0, columnspan=2, sticky=tk.E, pady=(0,10))
+
         # Optional GPT Processing
         gpt_cb = ttk.Checkbutton(main_frame, text="Auto Copy-Edit With GPT-4o", variable=self.process_with_gpt)
         gpt_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
@@ -133,13 +162,25 @@ class QuickWhisper(tk.Tk):
         auto_paste_cb.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
         # Status Label
-        self.status_label = ttk.Label(main_frame, text="Status: Idle", foreground="blue")
+        self.status_label = ttk.Label(main_frame, text=f"Status: Idle", foreground="blue")
         self.status_label.grid(row=7, column=0, columnspan=2, sticky=tk.W)
 
 
-        info_label = tk.Label(main_frame, text="Created by Scorchsoft.com App Development", fg="blue", cursor="hand2")
-        info_label.grid(column=0, row=8, columnspan=2, pady=(0, 0))
-        info_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
+        # Load and display the banner image
+        banner_image_path = self.resource_path("assets/banner-00-560.png")
+        banner_image = Image.open(banner_image_path)
+
+        # Hardcode the banner width to 600 and adjust the height proportionally
+        #banner_image = banner_image.resize((600, int(banner_image.height * (600 / 261))), Image.LANCZOS)
+        self.banner_photo = ImageTk.PhotoImage(banner_image)  # Store to prevent garbage collection
+
+        # Display the image in a label with clickability
+        self.banner_label = tk.Label(main_frame, image=self.banner_photo, cursor="hand2")
+        self.banner_label.grid(column=0, row=8, columnspan=2, pady=(10, 0), sticky="ew")
+        self.banner_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind the click event
+
+
+
 
         # Configure grid
         for i in range(2):
@@ -163,10 +204,30 @@ class QuickWhisper(tk.Tk):
         play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
 
         # Help menu
-        help_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Help", menu=help_menu)
-        help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
-        help_menu.add_command(label="Version", command=self.show_version)
+        self.help_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
+        self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
+        self.help_menu.add_command(label="Version", command=self.show_version)
+
+
+    def toggle_banner(self):
+        """Toggle the visibility of the banner image and adjust the window height."""
+        current_height = self.winfo_height()
+        new_height = current_height + 257 if not self.banner_visible else current_height - 257
+
+        if self.banner_visible:
+            self.banner_label.grid_remove()  # Hide the banner
+            self.help_menu.entryconfig("Hide Banner", label="Show Banner")  # Update menu text
+        else:
+            self.banner_label.grid()  # Show the banner
+            self.help_menu.entryconfig("Show Banner", label="Hide Banner")  # Update menu text
+
+        # Set the new height and keep the current width
+        self.geometry(f"{self.winfo_width()}x{new_height}")
+        
+        self.banner_visible = not self.banner_visible  # Toggle the visibility flag
+
 
     def get_input_devices(self):
         devices = {}
@@ -283,9 +344,11 @@ class QuickWhisper(tk.Tk):
         try:
             with open(str(file_path), "rb") as audio_file:
                 # Use OpenAI's transcription API as intended
+
+                print(f"About to transcrible model {self.transcription_model}")
                 transcription = self.client.audio.transcriptions.create(
                     file=audio_file,
-                    model="whisper-1",
+                    model=self.transcription_model,
                     response_format="verbose_json"
                 )
 
@@ -427,8 +490,9 @@ class QuickWhisper(tk.Tk):
 
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
 
+            print(f"About to process with AI Model {self.ai_model}")
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.ai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
