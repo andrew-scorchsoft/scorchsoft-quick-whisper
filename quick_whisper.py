@@ -17,8 +17,6 @@ import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
 
 
-
-
 class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -30,13 +28,16 @@ class QuickWhisper(tk.Tk):
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         self.geometry("600x690")
-        self.version = "1.2.0"
+        self.version = "1.3.0"
         self.resizable(False, False)
         self.banner_visible = True
 
         # Initial model settings
         self.transcription_model = "whisper-1"
         self.ai_model = "gpt-4o"
+
+        self.last_trancription = "NO LATEST TRANSCRIPTION"
+        self.last_edit = "NO LATEST EDIT"
 
         self.load_env_file()
         self.api_key = self.get_api_key()
@@ -53,17 +54,20 @@ class QuickWhisper(tk.Tk):
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
-        self.process_with_gpt = tk.BooleanVar(value=True)
+        #self.process_with_gpt = tk.BooleanVar(value=True)
+
+        # "transcribe" or "edit"
+        self.current_button_mode = "transcribe"
 
 
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
         
-
         self.recording = False
         self.frames = []
 
-        keyboard.add_hotkey('win+j', self.toggle_recording)
+        keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
+        keyboard.add_hotkey('win+shift+j', lambda: self.toggle_recording("transcribe"))
 
         self.create_menu()
         self.create_widgets()
@@ -192,22 +196,37 @@ class QuickWhisper(tk.Tk):
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Input Device Selection
-        ttk.Label(main_frame, text="Input Device (mic):").grid(row=0, column=0, sticky=tk.W, pady=(0,10))
+        ttk.Label(main_frame, text="Input Device (mic):").grid(row=0, column=0, sticky="ew", pady=(0,10))
         devices = self.get_input_devices()
         if not devices:
             messagebox.showerror("No Input Devices", "No input audio devices found.")
             self.destroy()
             return
         self.selected_device.set(list(devices.keys())[0])  # Default selection
-        device_menu = ttk.OptionMenu(main_frame, self.selected_device, self.selected_device.get(), *devices.keys())
-        device_menu.grid(row=0, column=1, sticky=tk.W, pady=(0,10))
 
-        # Record Button
-        self.record_button = ttk.Button(main_frame, text="Start Recording (Win+J)", command=self.toggle_recording)
-        self.record_button.grid(row=1, column=0, columnspan=2, pady=(0,10), sticky="ew")
+        device_menu = ttk.OptionMenu(main_frame, self.selected_device, self.selected_device.get(), *devices.keys())
+        #device_menu.config(width=20)  # Set a fixed width for consistency
+        device_menu.grid(row=0, column=1, sticky="ew", pady=(0,10))
+
+        button_width = 110
+
+        # Record Transcript Only Button with green background and padding on the right
+        self.record_button_transcribe = tk.Button(
+            main_frame, text="Rec + Transcript (Win+Shift+J)", command=lambda: self.toggle_recording("transcribe"),
+            bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
+        )
+        self.record_button_transcribe.grid(row=1, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
+
+        # Record Transcript and Edit Button with green background and padding on the left
+        self.record_button_edit = tk.Button(
+            main_frame, text="Rec + AI Edit (Win+J)", command=lambda: self.toggle_recording("edit"),
+            bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
+        )
+        self.record_button_edit.grid(row=1, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
+
 
         # Transcription Text Area
-        ttk.Label(main_frame, text="Transcription:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(main_frame, text="Transcription:").grid(row=2, column=0, sticky="ew")
         self.transcription_text = tk.Text(main_frame, height=10, width=70)
         self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
 
@@ -215,42 +234,33 @@ class QuickWhisper(tk.Tk):
         self.model_label = ttk.Label(main_frame, text=f"{self.transcription_model}, {self.ai_model}", foreground="grey")
         self.model_label.grid(row=4, column=0, columnspan=2, sticky=tk.E, pady=(0,10))
 
-        # Optional GPT Processing
-        gpt_cb = ttk.Checkbutton(main_frame, text="Auto Copy-Edit With GPT-4o", variable=self.process_with_gpt)
-        gpt_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
         # Auto-Copy Checkbox
         auto_copy_cb = ttk.Checkbutton(main_frame, text="Auto-Copy to Clipboard on Completion", variable=self.auto_copy)
-        auto_copy_cb.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+        auto_copy_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
         # Auto-Paste Checkbox
         auto_paste_cb = ttk.Checkbutton(main_frame, text="Auto-Paste Clipboard on Completion", variable=self.auto_paste)
-        auto_paste_cb.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+        auto_paste_cb.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
 
         # Status Label
         self.status_label = ttk.Label(main_frame, text=f"Status: Idle", foreground="blue")
-        self.status_label.grid(row=7, column=0, columnspan=2, sticky=tk.W)
-
+        self.status_label.grid(row=6, column=0, columnspan=2, sticky=tk.W)
 
         # Load and display the banner image
         banner_image_path = self.resource_path("assets/banner-00-560.png")
         banner_image = Image.open(banner_image_path)
-
-        # Hardcode the banner width to 600 and adjust the height proportionally
-        #banner_image = banner_image.resize((600, int(banner_image.height * (600 / 261))), Image.LANCZOS)
         self.banner_photo = ImageTk.PhotoImage(banner_image)  # Store to prevent garbage collection
 
         # Display the image in a label with clickability
         self.banner_label = tk.Label(main_frame, image=self.banner_photo, cursor="hand2")
-        self.banner_label.grid(column=0, row=8, columnspan=2, pady=(10, 0), sticky="ew")
+        self.banner_label.grid(column=0, row=7, columnspan=2, pady=(10, 0), sticky="ew")
         self.banner_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind the click event
 
-
-
-
         # Configure grid
-        for i in range(2):
-            main_frame.columnconfigure(i, weight=1)
+        main_frame.columnconfigure(0, weight=1, minsize=150)  # Set minsize to ensure equal width
+        main_frame.columnconfigure(1, weight=1, minsize=150)
+
 
     def open_scorchsoft(self, event=None):
         webbrowser.open('https://www.scorchsoft.com/contact-scorchsoft')
@@ -269,6 +279,14 @@ class QuickWhisper(tk.Tk):
         play_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Play", menu=play_menu)
         play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
+
+        #Copy Menu
+        copy_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Copy", menu=copy_menu)
+        copy_menu.add_command(label="Last Transcript", command=self.copy_last_transcription)
+        copy_menu.add_command(label="Last Edit", command=self.copy_last_edit)
+
+        
 
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
@@ -377,19 +395,28 @@ class QuickWhisper(tk.Tk):
                 return i
         raise ValueError(f"Device '{device_name}' not found.")
 
-    def toggle_recording(self):
+    def toggle_recording(self,mode="transcribe"):
+
         if not self.recording:
+            # Set globally so the app knows when recording stops whether 
+            # transcript or edit mode was selected
+            self.current_button_mode = mode
+            print(f"\nAbout to start recording. mode = {mode}")
             self.start_recording()
         else:
+            print(f"About to stop recording. mode = {self.current_button_mode}")
             self.stop_recording()
 
-    def start_recording(self):
+    def start_recording(self, mode="edit"):
+
+        print("Getting Device Index")
         try:
             self.device_index = self.get_device_index_by_name(self.selected_device.get())
         except ValueError as e:
             messagebox.showerror("Device Error", str(e))
             return
 
+        print("Starting Stream")
         self.stream = self.audio.open(format=pyaudio.paInt16,
                                       channels=1,
                                       rate=16000,
@@ -399,14 +426,20 @@ class QuickWhisper(tk.Tk):
 
         self.frames = []
         self.recording = True
-        self.record_button.config(text="Stop Recording")
+
+        self.record_button_transcribe.config(text="Stop and Process", bg="red")
+        self.record_button_edit.config(text="Stop and Process", bg="red")
+
+        print("Update status label")
         self.status_label.config(text="Status: Recording...", foreground="red")
 
         # Play start recording sound
         threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
 
         # Start recording in a separate thread
-        self.record_thread = threading.Thread(target=self.record)
+        print("Starting Recording")
+        self.record_thread = threading.Thread(target=self.record, daemon=True)
+        print("Starting Recording thread")
         self.record_thread.start()
 
     def record(self):
@@ -422,14 +455,21 @@ class QuickWhisper(tk.Tk):
 
     # Inside your class definition, replace stop_recording with the following:
     def stop_recording(self):
+
         self.recording = False
         self.record_thread.join()
 
         self.stream.stop_stream()
         self.stream.close()
 
-        self.record_button.config(text="Start Recording (Win+J)")
-        self.status_label.config(text="Status: Processing...", foreground="green")
+        print(f"Stopping, about to trigger '{self.current_button_mode}' mode...")
+
+
+        self.record_button_transcribe.config(text="Rec + Transcript (Win+Shift+J)", bg="#058705")
+        self.record_button_edit.config(text="Rec + AI Edit (Win+J)", bg="#058705")
+
+        self.status_label.config(text="Status: Processing - Audio File...", foreground="green")
+
 
         # Play stop recording sound
         threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
@@ -474,6 +514,9 @@ class QuickWhisper(tk.Tk):
         file_path = self.audio_file
 
         try:
+
+            self.status_label.config(text="Status: Processing - Transcript...", foreground="green")
+
             with open(str(file_path), "rb") as audio_file:
                 # Use OpenAI's transcription API as intended
 
@@ -486,22 +529,28 @@ class QuickWhisper(tk.Tk):
 
             # Retrieve the transcription text correctly
             transcription_text = transcription.get("text", "") if isinstance(transcription, dict) else transcription.text
-            auto_apply_ai = self.process_with_gpt.get()
+            self.last_trancription = transcription_text
 
             # Process transcription with or without GPT as per the checkbox setting
-            if auto_apply_ai:
-                print("Applying AI to transcription")
+            if self.current_button_mode == "edit":
+                print("AI Editing Transcription")
 
                 # set input box to transcription text first, just incase there is a failure
                 self.transcription_text.delete("1.0", tk.END)
                 self.transcription_text.insert("1.0", transcription_text)
 
                 # Then GPT edit that transcribed text and insert
-                play_text = self.process_with_gpt_model(transcription_text)
+                self.status_label.config(text="Status: Processing - AI Editing...", foreground="green")
+
+                # AI Edit the transcript
+                edited_text = self.process_with_gpt_model(transcription_text)
+                self.last_edit = edited_text
+                play_text = edited_text
+
                 self.transcription_text.delete("1.0", tk.END)
                 self.transcription_text.insert("1.0", play_text)
             else:
-                print("Outputting raw transcription")
+                print("Outputting Raw Transcription Only")
                 self.transcription_text.delete("1.0", tk.END)
                 self.transcription_text.insert("1.0", transcription_text)
                 play_text = transcription_text
@@ -533,6 +582,23 @@ class QuickWhisper(tk.Tk):
             #    os.remove(file_path)
 
 
+
+    def copy_last_transcription(self):
+        try:
+            # Copy text to clipboard
+            pyperclip.copy(self.last_trancription)
+
+        except Exception as e:
+            messagebox.showerror("Auto-Copy Error", f"Failed to copy the transcription to clipboard: {e}")
+    
+    def copy_last_edit(self):
+        try:
+            # Copy text to clipboard
+            pyperclip.copy(self.last_edit)
+
+        except Exception as e:
+            messagebox.showerror("Auto-Copy Error", f"Failed to copy the last edit to clipboard: {e}")
+        
     def auto_copy_text(self, text):
         try:
             # Copy text to clipboard
@@ -568,13 +634,14 @@ class QuickWhisper(tk.Tk):
 
             Please apply the following rules to the reply or any modified text (only deviate if asked otherwise):
 
-            - Reply using UK spelling and grammar conventions, not US conventions (very important!). 
-            - Please provide responses that are clear, engaging, informative, and conversational, using anecdotes and examples to illustrate points, with a friendly and approachable tone. 
-            - Make use of proper grammar, spelling, and punctuation. 
-            - Avoid using filter words or unnecessary words in replies. You don't have to re-write sentences or phrases where the copy is already clear, concise and effective.
-            - Use simple, short and concise words that are easy to understand by the average non-technical reader. Avoid long, elaborate words where a shorter word can be used instead.
-            - Be direct with language and avoid split infinitives. Always use active voice rather than passive voice. For example, if there is an actor in the sentence then begins with the actor of the sentence before the subject on most occasions.
-            - Do not use wordy introduction sentences start with "in the", such as opening with "in a fast-paced business world", "in today's competitive landscape" or phrases of a similar style to that. Do not use the phrases "AI is a powerful tool", "imagine having", "the world of", “world of”, "comes in" or phrases of a similar style to that. 
+            - Spelling and grammar convention: Reply using UK spelling and grammar conventions, not US conventions (very important!). 
+            - Spelling and grammar: Make use of proper grammar, spelling, and punctuation. 
+            - Response Clarity: Please provide responses that are clear, engaging, informative, and conversational, using anecdotes and examples to illustrate points, with a friendly and approachable tone. 
+            - Use of fillers: Avoid using filler words or unnecessary words in replies. You don't have to re-write sentences or phrases where the copy is already clear, concise and effective.
+            - Optimise for understanding: Use simple, short and concise words that are easy to understand by the average non-technical reader. Avoid long, elaborate words where a shorter word can be used instead.
+            - Directness of Language: Be direct with language and avoid split infinitives. Always use active voice rather than passive voice. For example, if there is an actor in the sentence then begins with the actor of the sentence before the subject on most occasions.
+            - Soften directness in coversational language: If you detect that the nature of the content being copy edited is likely for an instant message or email, then please make sure to use friendly language, it's ok to soften the directness a little in this case to ensure the edited copy doesn't come across as rude or angry. You may also choose to retain more colloquial terms used in the transcript for emails, chat replies or other message-based content than if you think the content is to be used in other formats.
+            - Avoid wordy intros: Do not use wordy introduction sentences start with "in the", such as opening with "in a fast-paced business world", "in today's competitive landscape" or phrases of a similar style to that. Do not use the phrases "AI is a powerful tool", "imagine having", "the world of", “world of”, "comes in" or phrases of a similar style to that. 
             - Maintain consistent tense: Ensure that the verb tense is consistent throughout the text.
             - Maintain meaning: Ensure your copy edited version doesn't lose the original nuance or meaning.
             - Proper capitalization: Check and correct the capitalization of proper nouns, product names, and brand names.
@@ -587,33 +654,34 @@ class QuickWhisper(tk.Tk):
             - Check and correct spelling: Ensure that all words are spelt correctly (based on UK spelling and grammar conventions) and, if applicable, follow the preferred spelling or regional variation.
             - Ensure subject-verb agreement: Check that the subject of a sentence agrees with the verb in terms of plurality.
             - Vary sentence length and structure: Aim for a balanced mix of short, medium, and long sentences in your writing. This helps create a more engaging and comfortable reading experience.
+            - Split text onto paragraphs where appropriate: Try to interpret the format fromt the trasncript and split content across multiple line breaks where appopriate. This may be unneccessary for small text exerpts, but work well for long ones. Also breaks may be more appropriate to be more frequent for some formats, such as email replies, than others, such as prose intented for a wiki, blog, or book copy.
             - Use concrete and sensory language: Use words and phrases that convey specific, vivid imagery or appeal to the reader's senses. This can make your writing more evocative, memorable, and persuasive.
             - Avoid cliches and overused expressions: Replace cliches with more original, striking phrases to keep the reader's interest.
-            - Use appropriate tone and level of formality for the desired context.
+            - Adjust tone and formatlit for desired context: Use appropriate tone and level of formality for the desired context. For example, If you see the transcript is spoken in a friendly tone then try to replicate that.
             - Use transitions effectively: Connect ideas and paragraphs by using transitional words, phrases, or sentences. This helps guide the reader through your argument and creates a more coherent text.
             - Be cautious with jargon and technical terms: If you need to use specialized vocabulary, make sure to explain it clearly or provide context for your reader, especially if they're likely to be unfamiliar with the terminology.
             - Avoid overuse of qualifiers and intensifiers: Words like "very- Avoid overuse of qualifiers and intensifiers: Words like "very," "quite," "rather," and "really" can weaken your writing if they're overused. Focus on strong, descriptive language instead.
-            - Avoid overly flamboyant language and words. Concise and muted language is more appropriate.
-            - Use subject-verb-object in most scenarios.
-            - use active voice rather than passive voice.
+            - Avoid flamboyant: Avoid overly flamboyant language and words. Concise and muted language is more appropriate, however if a word in the transcript just fits really well for the desired context then it's fine to continue to use it.
+            - Use appropriate complexity and tone: Tailor the complexity and tone of the language to the target audience's knowledge level and expectations. For instance, content for a general audience should avoid jargon, whereas content for specialists can include more technical language.
+            - SVO Sentence Structure: Use subject-verb-object in most scenarios.
+            - Use Active Voice: use active voice rather than passive voice. E.g. Replace passive voice constructions with active voice wherever possible if it doesn't deminish meaning or impact to do so. For example, change "The report was written by the team" to "The team wrote the report". The execpetion being in the narrow set of times when passive voice can be used to add more ephasis or impact to a sentence.
             - Eliminate Redundancies: Remove redundant words, phrases, or sentences to tighten the prose without losing meaning or emphasis.
-            - Adjust the emotional tone and persuasive elements to match the intended impact on the reader, whether it’s to inform, be friendly, persuade, entertain, or inspire. 
-            - Ensure that terminology and naming conventions are consistent throughout the document. For example, if a term is introduced with a specific definition, use that term consistently without introducing synonyms that might confuse the reader.
-            - Tailor the complexity and tone of the language to the target audience's knowledge level and expectations. For instance, content for a general audience should avoid jargon, whereas content for specialists can include more technical language.
+            - Match emptional tone to likely intended reader use case: Adjust the emotional tone and persuasive elements to match the intended impact on the reader, whether it’s to inform, be friendly, persuade, entertain, or inspire. 
+            - Consistency of edit: Ensure that terminology and naming conventions are consistent throughout the edit. For example, if a term is introduced with a specific definition, use that term consistently without introducing synonyms that might confuse the reader.
             - Avoid Nominalisations: Convert nouns derived from verbs (nominalisations) back into their verb forms to make sentences more direct. For example, use "decide" instead of "make a decision".
-            - Replace passive voice constructions with active voice wherever possible if it doesn't deminish meaning or impact to do so. For example, change "The report was written by the team" to "The team wrote the report".
             - Direct Statement of Purpose: State the main purpose or action of a sentence directly and early. Avoid burying the main verb or action deep in the sentence.
-            - Limit Sentence Complexity: Break down overly complex or compound sentences into simpler, shorter sentences to maintain clarity and readability. Again, apply this rule where shortening doesn't impact sentence meaning or impact of the sentence.
+            - Limit Sentence Complexity: Break down overly complex or compound sentences into simpler, shorter sentences to maintain clarity and readability. Again, apply this rule where shortening doesn't impact sentence meaning or impact of the sentence. It's fine to have longer sentences if these enhance the quality of the edit, it's impact or intended tone. 
+            - Appropriate use of filler of fluff: You can retain filler or fluff sentences from the trasncript if appropriate to enhance effectiveness of the use case. E.g. In emails it's common to say "I hope you are well" or similar openings to set the tone before writing the rest of the email, so in contexts like this you would not want to remove that sentence to acheive the above rule about directness as it would actually make the quality of the edit for the intended use case worse.
 
             # Other Considerations
 
-            - Ensure consistent use of formatting elements like bullet points, headers, and fonts. 
-            - Reply as plain text without markdown tags that would look out of place if viewed without a markdown viewer.
+            - Formatting: Ensure consistent use of formatting elements like bullet points, headers, and fonts. 
+            - Markup: Reply as plain text without markdown tags that would look out of place if viewed without a markdown viewer.
             - Tailor your language and content to the intended audience and purpose of the document. For instance, the tone and complexity of language in an internal email may differ from that in a public-facing article.
             - Inclusivity and Sensitivity: Be mindful of inclusive language, avoiding terms that might be considered outdated or offensive. This also includes being aware of gender-neutral language, especially in a business context.
             - Optimizing for Different Media if defined: For example, if you are told that the content is intended for online use, consider principles of SEO (Search Engine Optimization) and readability on digital platforms, like shorter paragraphs and the use of subheadings.
             - Clarity in Complex Information: When dealing with complex or technical subjects, ensure clarity and accessibility for the lay reader without oversimplifying the content.
-            - Soften directness in coversational language: If you detect that the nature of the content being copy edited is likely for an instant message or email, then please make sure to use friendly language, it's ok to soften the directness a little in this case to ensure the edited copy doesn't come across as rude or angry. You may also choose to retain more colloquial terms used in the transcript for emails, chat replies or other message-based content than if you think the content is to be used in other formats.
+            
 
             # CRITICALLY IMPORTANT:
             - When you give your reply, give just the copy edited text. For example don't reply with "hey this is your text:" followed by the text (or anything similar to preceed), it should just be the edited text.
