@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog, Menu
+from tkinter import ttk, messagebox, Menu
 import threading
 import pyaudio
 import wave
@@ -8,6 +8,7 @@ import sys
 import openai
 import pyperclip
 import webbrowser
+
 from PIL import Image, ImageTk 
 from openai import OpenAI
 from dotenv import load_dotenv, dotenv_values, set_key
@@ -15,6 +16,8 @@ from pathlib import Path
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
+
+from utils.tooltip import ToolTip
 
 
 class QuickWhisper(tk.Tk):
@@ -47,19 +50,16 @@ class QuickWhisper(tk.Tk):
             return
 
         openai.api_key = self.api_key
-
         self.client = OpenAI(api_key=self.api_key)
 
         self.audio = pyaudio.PyAudio()
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
-        #self.process_with_gpt = tk.BooleanVar(value=True)
-
-        # "transcribe" or "edit"
-        self.current_button_mode = "transcribe"
-
-
+        self.history = []  # Stores up to 50 items of transcription or edited text
+        self.history_index = -1  # -1 indicates no history selected yet
+        self.max_history_length = 10,000
+        self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
         
@@ -67,7 +67,7 @@ class QuickWhisper(tk.Tk):
         self.frames = []
 
         keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
-        keyboard.add_hotkey('win+shift+j', lambda: self.toggle_recording("transcribe"))
+        keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe"))
 
         self.create_menu()
         self.create_widgets()
@@ -212,7 +212,7 @@ class QuickWhisper(tk.Tk):
 
         # Record Transcript Only Button with green background and padding on the right
         self.record_button_transcribe = tk.Button(
-            main_frame, text="Record + Transcript (Win+Shift+J)", command=lambda: self.toggle_recording("transcribe"),
+            main_frame, text="Record + Transcript (Win+Ctrl+J)", command=lambda: self.toggle_recording("transcribe"),
             bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
         )
         self.record_button_transcribe.grid(row=1, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
@@ -225,8 +225,41 @@ class QuickWhisper(tk.Tk):
         self.record_button_edit.grid(row=1, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
 
 
+        # Assuming you've converted the SVG files to PNG with the same names
+        self.icon_first_page = tk.PhotoImage(file=self.resource_path("assets/first-page.png"))
+        self.icon_arrow_left = tk.PhotoImage(file=self.resource_path("assets/arrow-left.png"))
+        self.icon_arrow_right = tk.PhotoImage(file=self.resource_path("assets/arrow-right.png"))
+
+        # Create a dedicated frame for the transcription section
+        self.transcription_frame = ttk.Frame(main_frame)
+        self.transcription_frame.grid(row=2, column=0, columnspan=2, pady=(0, 0), padx=0, sticky="ew")
+
+        # Add the Transcription label to the transcription frame
+        ttk.Label(self.transcription_frame, text="Transcription:").grid(row=0, column=0, sticky="w", pady=(0, 0), padx=(0, 0))
+
+        # Create navigation buttons and place them next to the label within the transcription frame
+        self.button_first_page = tk.Button(self.transcription_frame, image=self.icon_first_page, command=self.go_to_first_page, state=tk.DISABLED, borderwidth=0)
+        self.button_arrow_left = tk.Button(self.transcription_frame, image=self.icon_arrow_left, command=self.navigate_left, state=tk.DISABLED, borderwidth=0)
+        self.button_arrow_right = tk.Button(self.transcription_frame, image=self.icon_arrow_right, command=self.navigate_right, state=tk.DISABLED, borderwidth=0)
+
+        # Add tooltips to navigation buttons
+        ToolTip(self.button_first_page, "Go to the latest entry")
+        ToolTip(self.button_arrow_left, "Navigate to the more recent entry")
+        ToolTip(self.button_arrow_right, "Navigate to the older entry")
+
+        # Grid placement for navigation buttons in the transcription frame
+        self.button_first_page.grid(row=0, column=1, sticky="e", padx=(0, 0))
+        self.button_arrow_left.grid(row=0, column=2, sticky="e", padx=(0, 0))
+        self.button_arrow_right.grid(row=0, column=3, sticky="e", padx=(0, 0))
+
+        # Configure the columns within the transcription frame for proper alignment
+        self.transcription_frame.columnconfigure(0, weight=1)  # Allow text area to expand
+        self.transcription_frame.columnconfigure(1, minsize=30)  # Set a minimum size for each button column
+        self.transcription_frame.columnconfigure(2, minsize=30)
+        self.transcription_frame.columnconfigure(3, minsize=30)
+
+
         # Transcription Text Area
-        ttk.Label(main_frame, text="Transcription:").grid(row=2, column=0, sticky="ew")
         self.transcription_text = tk.Text(main_frame, height=10, width=70)
         self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
 
@@ -312,6 +345,24 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{self.winfo_width()}x{new_height}")
         
         self.banner_visible = not self.banner_visible  # Toggle the visibility flag
+
+
+    def navigate_right(self):
+        self.history_index -= 1
+        self.update_transcription_text()
+        self.update_navigation_buttons()
+
+    def navigate_left(self):
+        self.history_index += 1
+        self.update_transcription_text()
+        self.update_navigation_buttons()
+
+    def go_to_first_page(self):
+    
+        self.history_index = len(self.history) - 1  # Set to most recent
+        self.update_transcription_text()
+        self.update_navigation_buttons()
+
 
     def adjust_models(self):
         # Create pop-up window for adjusting models
@@ -465,7 +516,7 @@ class QuickWhisper(tk.Tk):
         print(f"Stopping, about to trigger '{self.current_button_mode}' mode...")
 
 
-        self.record_button_transcribe.config(text="Rec + Transcript (Win+Shift+J)", bg="#058705")
+        self.record_button_transcribe.config(text="Rec + Transcript (Win+Ctrl+J)", bg="#058705")
         self.record_button_edit.config(text="Rec + AI Edit (Win+J)", bg="#058705")
 
         self.status_label.config(text="Status: Processing - Audio File...", foreground="green")
@@ -529,6 +580,7 @@ class QuickWhisper(tk.Tk):
 
             # Retrieve the transcription text correctly
             transcription_text = transcription.get("text", "") if isinstance(transcription, dict) else transcription.text
+            self.add_to_history(transcription_text)
             self.last_trancription = transcription_text
 
             # Process transcription with or without GPT as per the checkbox setting
@@ -544,6 +596,7 @@ class QuickWhisper(tk.Tk):
 
                 # AI Edit the transcript
                 edited_text = self.process_with_gpt_model(transcription_text)
+                self.add_to_history(edited_text)
                 self.last_edit = edited_text
                 play_text = edited_text
 
@@ -791,6 +844,41 @@ class QuickWhisper(tk.Tk):
         
         # Add a button to close the window
         ttk.Button(instruction_window, text="Close", command=instruction_window.destroy).pack(pady=(10, 0))
+
+    def add_to_history(self, text):
+        # Append new text to the end of the list
+        self.history.append(text)
+
+        # Enforce max history length by removing the oldest element if necessary
+        if len(self.history) > self.max_history_length:
+            self.history.pop(0)  # Removes the oldest (first) item in the array
+
+        # Update the index to the last entry (most recent)
+        self.history_index = len(self.history) - 1
+        self.update_transcription_text()
+        self.update_navigation_buttons()
+        
+    def update_transcription_text(self):
+        # Display the current history entry in the transcription text box
+        if 0 <= self.history_index < len(self.history):
+            self.transcription_text.delete("1.0", tk.END)
+            self.transcription_text.insert("1.0", self.history[self.history_index])
+
+    def update_navigation_buttons(self):
+        # Disable 'first page' and 'left' buttons if we're on the latest (last) entry
+        if self.history_index >= len(self.history) - 1:
+            self.button_first_page.config(state=tk.DISABLED)
+            self.button_arrow_left.config(state=tk.DISABLED)
+        else:
+            self.button_first_page.config(state=tk.NORMAL)
+            self.button_arrow_left.config(state=tk.NORMAL)
+
+        # Disable 'right' button if we're on the oldest (first) entry
+        if self.history_index <= 0:
+            self.button_arrow_right.config(state=tk.DISABLED)
+        else:
+            self.button_arrow_right.config(state=tk.NORMAL)
+
 
 if __name__ == "__main__":
     app = QuickWhisper()
