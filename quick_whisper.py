@@ -58,7 +58,7 @@ class QuickWhisper(tk.Tk):
         self.auto_paste = tk.BooleanVar(value=True)
         self.history = []  # Stores up to 50 items of transcription or edited text
         self.history_index = -1  # -1 indicates no history selected yet
-        self.max_history_length = 10,000
+        self.max_history_length = 10000
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
