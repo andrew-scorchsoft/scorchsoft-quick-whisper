@@ -8,6 +8,8 @@ import sys
 import openai
 import pyperclip
 import webbrowser
+import json
+from tkinter import filedialog
 
 from PIL import Image, ImageTk 
 from openai import OpenAI
@@ -24,13 +26,13 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Quick Whisper by Scorchsoft.com (Speech to Copyedited Text) ")
+        self.title("Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) ")
 
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        self.geometry("600x690")
+        self.geometry("600x675")
         self.version = "1.3.0"
         self.resizable(False, False)
         self.banner_visible = True
@@ -260,7 +262,7 @@ class QuickWhisper(tk.Tk):
 
 
         # Transcription Text Area
-        self.transcription_text = tk.Text(main_frame, height=10, width=70)
+        self.transcription_text = tk.Text(main_frame, height=10, width=70, wrap="word")
         self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
 
         # Model Label
@@ -301,6 +303,12 @@ class QuickWhisper(tk.Tk):
     def create_menu(self):
         self.menubar = Menu(self)
         self.config(menu=self.menubar)
+
+        # File menu
+        file_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Save Session History", command=self.save_session_history)
+
 
         # File or settings menu
         settings_menu = Menu(self.menubar, tearoff=0)
@@ -878,6 +886,33 @@ class QuickWhisper(tk.Tk):
             self.button_arrow_right.config(state=tk.DISABLED)
         else:
             self.button_arrow_right.config(state=tk.NORMAL)
+    
+    def save_session_history(self):
+        if not self.history:
+            messagebox.showinfo("No History", "There is no history to save.")
+            return
+
+        # Open a file save dialog
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json")],
+            title="Save Session History"
+        )
+
+        if not file_path:
+            # User cancelled the save dialog
+            return
+
+        try:
+            # Serialize history to JSON and save to file
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(self.history, f, indent=4, ensure_ascii=False)
+
+            messagebox.showinfo("Success", f"Session history saved successfully to {file_path}")
+        except Exception as e:
+            # Handle errors during the save process
+            messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
+
 
 
 if __name__ == "__main__":
