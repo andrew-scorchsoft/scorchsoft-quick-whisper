@@ -212,14 +212,14 @@ class QuickWhisper(tk.Tk):
 
         # Record Transcript Only Button with green background and padding on the right
         self.record_button_transcribe = tk.Button(
-            main_frame, text="Rec + Transcript (Win+Shift+J)", command=lambda: self.toggle_recording("transcribe"),
+            main_frame, text="Record + Transcript (Win+Shift+J)", command=lambda: self.toggle_recording("transcribe"),
             bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
         )
         self.record_button_transcribe.grid(row=1, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
 
         # Record Transcript and Edit Button with green background and padding on the left
         self.record_button_edit = tk.Button(
-            main_frame, text="Rec + AI Edit (Win+J)", command=lambda: self.toggle_recording("edit"),
+            main_frame, text="Record + AI Edit (Win+J)", command=lambda: self.toggle_recording("edit"),
             bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
         )
         self.record_button_edit.grid(row=1, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
@@ -472,7 +472,7 @@ class QuickWhisper(tk.Tk):
 
 
         # Play stop recording sound
-        threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
+        threading.Thread(target=lambda: self.play_sound("assets/pop-down.wav")).start()
 
         # Ensure tmp folder exists
         
@@ -564,7 +564,7 @@ class QuickWhisper(tk.Tk):
 
             print("Transcription Complete: The audio has been transcribed and the text has been placed in the input area.")
             # Play stop recording sound
-            threading.Thread(target=lambda:  self.play_sound("assets/pop.wav")).start()
+            threading.Thread(target=lambda:  self.play_sound("assets/double-pop-down.wav")).start()
 
         except Exception as e:
             # Play failure sound
