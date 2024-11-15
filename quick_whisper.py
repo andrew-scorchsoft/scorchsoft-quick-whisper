@@ -33,7 +33,7 @@ class QuickWhisper(tk.Tk):
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         self.geometry("600x675")
-        self.version = "1.3.0"
+        self.version = "1.4.0"
         self.resizable(False, False)
         self.banner_visible = True
 
