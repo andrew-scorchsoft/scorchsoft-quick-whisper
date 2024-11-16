@@ -10,7 +10,7 @@ import pyperclip
 import webbrowser
 import json
 from tkinter import filedialog
-
+import customtkinter as ctk
 from PIL import Image, ImageTk 
 from openai import OpenAI
 from dotenv import load_dotenv, dotenv_values, set_key
@@ -32,8 +32,8 @@ class QuickWhisper(tk.Tk):
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        self.geometry("600x675")
-        self.version = "1.4.0"
+        self.geometry("600x700")
+        self.version = "1.5.0"
         self.resizable(False, False)
         self.banner_visible = True
 
@@ -64,7 +64,7 @@ class QuickWhisper(tk.Tk):
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
-        
+        self.record_thread = None
         self.recording = False
         self.frames = []
 
@@ -197,8 +197,10 @@ class QuickWhisper(tk.Tk):
         main_frame = ttk.Frame(self, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        row = 0;
+
         # Input Device Selection
-        ttk.Label(main_frame, text="Input Device (mic):").grid(row=0, column=0, sticky="ew", pady=(0,10))
+        ttk.Label(main_frame, text="Input Device (mic):").grid(row=row, column=0, sticky="ew", pady=(0,10))
         devices = self.get_input_devices()
         if not devices:
             messagebox.showerror("No Input Devices", "No input audio devices found.")
@@ -208,24 +210,9 @@ class QuickWhisper(tk.Tk):
 
         device_menu = ttk.OptionMenu(main_frame, self.selected_device, self.selected_device.get(), *devices.keys())
         #device_menu.config(width=20)  # Set a fixed width for consistency
-        device_menu.grid(row=0, column=1, sticky="ew", pady=(0,10))
+        device_menu.grid(row=row, column=1, sticky="ew", pady=(0,10))
 
-        button_width = 110
-
-        # Record Transcript Only Button with green background and padding on the right
-        self.record_button_transcribe = tk.Button(
-            main_frame, text="Record + Transcript (Win+Ctrl+J)", command=lambda: self.toggle_recording("transcribe"),
-            bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
-        )
-        self.record_button_transcribe.grid(row=1, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
-
-        # Record Transcript and Edit Button with green background and padding on the left
-        self.record_button_edit = tk.Button(
-            main_frame, text="Record + AI Edit (Win+J)", command=lambda: self.toggle_recording("edit"),
-            bg="#058705", fg="white", width=button_width  # Set background to green and text color to white
-        )
-        self.record_button_edit.grid(row=1, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
-
+        row +=1
 
         # Assuming you've converted the SVG files to PNG with the same names
         self.icon_first_page = tk.PhotoImage(file=self.resource_path("assets/first-page.png"))
@@ -234,7 +221,7 @@ class QuickWhisper(tk.Tk):
 
         # Create a dedicated frame for the transcription section
         self.transcription_frame = ttk.Frame(main_frame)
-        self.transcription_frame.grid(row=2, column=0, columnspan=2, pady=(0, 0), padx=0, sticky="ew")
+        self.transcription_frame.grid(row=row, column=0, columnspan=2, pady=(0, 0), padx=0, sticky="ew")
 
         # Add the Transcription label to the transcription frame
         ttk.Label(self.transcription_frame, text="Transcription:").grid(row=0, column=0, sticky="w", pady=(0, 0), padx=(0, 0))
@@ -259,28 +246,68 @@ class QuickWhisper(tk.Tk):
         self.transcription_frame.columnconfigure(1, minsize=30)  # Set a minimum size for each button column
         self.transcription_frame.columnconfigure(2, minsize=30)
         self.transcription_frame.columnconfigure(3, minsize=30)
-
+        
+        row +=1
 
         # Transcription Text Area
         self.transcription_text = tk.Text(main_frame, height=10, width=70, wrap="word")
-        self.transcription_text.grid(row=3, column=0, columnspan=2, pady=(0,10))
+        self.transcription_text.grid(row=row, column=0, columnspan=2, pady=(0,5))
+
+        row +=1
 
         # Model Label
         self.model_label = ttk.Label(main_frame, text=f"{self.transcription_model}, {self.ai_model}", foreground="grey")
-        self.model_label.grid(row=4, column=0, columnspan=2, sticky=tk.E, pady=(0,10))
-
-
-        # Auto-Copy Checkbox
-        auto_copy_cb = ttk.Checkbutton(main_frame, text="Auto-Copy to Clipboard on Completion", variable=self.auto_copy)
-        auto_copy_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
-
-        # Auto-Paste Checkbox
-        auto_paste_cb = ttk.Checkbutton(main_frame, text="Auto-Paste Clipboard on Completion", variable=self.auto_paste)
-        auto_paste_cb.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(0,10))
+        self.model_label.grid(row=row, column=0, columnspan=2, sticky=tk.E, pady=(0,20))
 
         # Status Label
         self.status_label = ttk.Label(main_frame, text=f"Status: Idle", foreground="blue")
-        self.status_label.grid(row=6, column=0, columnspan=2, sticky=tk.W)
+        self.status_label.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0,20))
+
+        row +=1
+
+        # Auto-Copy Checkbox
+        auto_copy_cb = ttk.Checkbutton(main_frame, text="Copy to clipboard when done", variable=self.auto_copy)
+        auto_copy_cb.grid(row=row, column=0, columnspan=1, sticky=tk.W, pady=(0,20))
+
+        # Auto-Paste Checkbox
+        auto_paste_cb = ttk.Checkbutton(main_frame, text="Paste from clipboard when done", variable=self.auto_paste)
+        auto_paste_cb.grid(row=row, column=1, columnspan=1, sticky=tk.W, pady=(0,20))
+
+        row +=1
+
+
+
+        button_width =50
+
+        ctk.set_appearance_mode("light")  # Options: "light" or "dark"
+        ctk.set_default_color_theme("green")  # Options: "blue", "dark-blue", "green"
+
+        # Record Transcript Only Button with green background and padding on the right
+        self.record_button_transcribe = ctk.CTkButton(
+            main_frame, 
+            text="Record + Transcript (Win+Ctrl+J)", 
+            corner_radius=20, 
+            height=35,
+            width=button_width,
+            fg_color="#058705",
+            font=("Arial", 13, "bold"),
+            command=lambda: self.toggle_recording("transcribe")
+        )
+        self.record_button_transcribe.grid(row=row, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
+
+        self.record_button_edit = ctk.CTkButton(
+            main_frame, 
+            text="Record + AI Edit (Win+J)", 
+            corner_radius=20,
+            height=35,
+            width=button_width,
+            fg_color="#058705",
+            font=("Arial", 13, "bold"),
+            command=lambda: self.toggle_recording("edit")
+        )
+        self.record_button_edit.grid(row=row, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
+
+        row +=1
 
         # Load and display the banner image
         banner_image_path = self.resource_path("assets/banner-00-560.png")
@@ -289,12 +316,37 @@ class QuickWhisper(tk.Tk):
 
         # Display the image in a label with clickability
         self.banner_label = tk.Label(main_frame, image=self.banner_photo, cursor="hand2")
-        self.banner_label.grid(column=0, row=7, columnspan=2, pady=(10, 0), sticky="ew")
+        self.banner_label.grid(column=0, row=row, columnspan=2, pady=(10, 0), sticky="ew")
         self.banner_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind the click event
 
+        row +=1
+
+        self.hide_banner_link = tk.Label(
+            main_frame, 
+            text="Hide Banner", 
+            fg="blue", 
+            cursor="hand2", 
+            font=("Arial", 10, "underline")
+        )
+        self.hide_banner_link.grid(row=row, column=0, columnspan=2, pady=(5, 0), sticky="ew")
+        self.hide_banner_link.bind("<Button-1>", lambda e: self.toggle_banner())
+
+
+        # Add a "Powered by Scorchsoft.com" link to replace the banner when hidden
+        self.powered_by_label = tk.Label(
+            main_frame,
+            text="Powered by Scorchsoft.com",
+            fg="black",
+            cursor="hand2",
+            font=("Arial", 8, "underline")
+        )
+        self.powered_by_label.grid(column=0, row=row, columnspan=2, pady=(5, 0), sticky="ew")
+        self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind click to open website
+        self.powered_by_label.grid_remove()  # Hide the label initially
+
         # Configure grid
-        main_frame.columnconfigure(0, weight=1, minsize=150)  # Set minsize to ensure equal width
-        main_frame.columnconfigure(1, weight=1, minsize=150)
+        main_frame.columnconfigure(0, weight=1, minsize=280)  # Set minsize to ensure equal width
+        main_frame.columnconfigure(1, weight=1, minsize=280)
 
 
     def open_scorchsoft(self, event=None):
@@ -327,8 +379,7 @@ class QuickWhisper(tk.Tk):
         copy_menu.add_command(label="Last Transcript", command=self.copy_last_transcription)
         copy_menu.add_command(label="Last Edit", command=self.copy_last_edit)
 
-        
-
+    
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
@@ -340,14 +391,17 @@ class QuickWhisper(tk.Tk):
     def toggle_banner(self):
         """Toggle the visibility of the banner image and adjust the window height."""
         current_height = self.winfo_height()
-        new_height = current_height + 263 if not self.banner_visible else current_height - 263
+        new_height = current_height + 260 if not self.banner_visible else current_height - 260
 
         if self.banner_visible:
             self.banner_label.grid_remove()  # Hide the banner
+            self.hide_banner_link.grid_remove()
+            self.powered_by_label.grid()
             self.help_menu.entryconfig("Hide Banner", label="Show Banner")  # Update menu text
         else:
             self.banner_label.grid()  # Show the banner
             self.help_menu.entryconfig("Show Banner", label="Hide Banner")  # Update menu text
+            self.powered_by_label.grid_remove() 
 
         # Set the new height and keep the current width
         self.geometry(f"{self.winfo_width()}x{new_height}")
@@ -486,8 +540,8 @@ class QuickWhisper(tk.Tk):
         self.frames = []
         self.recording = True
 
-        self.record_button_transcribe.config(text="Stop and Process", bg="red")
-        self.record_button_edit.config(text="Stop and Process", bg="red")
+        self.record_button_transcribe.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
+        self.record_button_edit.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
 
         print("Update status label")
         self.status_label.config(text="Status: Recording...", foreground="red")
@@ -524,8 +578,9 @@ class QuickWhisper(tk.Tk):
         print(f"Stopping, about to trigger '{self.current_button_mode}' mode...")
 
 
-        self.record_button_transcribe.config(text="Rec + Transcript (Win+Ctrl+J)", bg="#058705")
-        self.record_button_edit.config(text="Rec + AI Edit (Win+J)", bg="#058705")
+        self.record_button_transcribe.configure(text="Record + Transcript (Win+Ctrl+J)", fg_color="#058705", hover_color="#046a38")
+        self.record_button_edit.configure(text="Record + AI Edit (Win+J)", fg_color="#058705", hover_color="#046a38")
+
 
         self.status_label.config(text="Status: Processing - Audio File...", foreground="green")
 

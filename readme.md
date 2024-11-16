@@ -35,6 +35,8 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
     `pip install keyboard`
 
+    `pip install customtkinter`
+
 
 3. Place your OpenAI API key in a `.env` file located in the `config` folder or enter it directly in the app.
 
@@ -61,7 +63,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Screenshot
 
-![QuickWhisper Interface](assets/quick-whisper-v1-0-1.png)
+![QuickWhisper Interface](assets/quick-whisper-v1-5-0.png)
 
 
 ## License
