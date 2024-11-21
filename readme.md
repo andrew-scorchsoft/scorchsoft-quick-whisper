@@ -1,5 +1,8 @@
 # Scorchsoft QuickWhisper
 
+You can find more information about Quick Whisper here:
+[Scorchsoft Quick Whisper](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
+
 QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through GPT-4 for a polished, copy-edited output.
 
 ## Features
@@ -81,4 +84,9 @@ Windows with terminal:
 Mac:
 `pyinstaller --onefile --add-data "assets:assets" quick_whisper.py`
 
+# About Scorchsoft
 
+We can deliver your innovative, technically complex project, using the latest web and mobile application development technologies.
+Scorchsoft develops online portals, applications, web and mobile apps, and AI projects. With over fourteen years experience working with hundreds of small, medium, and large enterprises, in a diverse range of sectors, we'd love to discover how we can apply our expertise to your project.
+
+[Scorchsoft App Developers](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
