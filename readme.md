@@ -1,7 +1,7 @@
 # Scorchsoft QuickWhisper
 
 You can find more information about Quick Whisper here:
-[Scorchsoft Quick Whisper](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
+[Scorchsoft Quick Whisper - Free Speech-to-Copy-Edited-Text AI App for Desktop](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
 
 QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through GPT-4 for a polished, copy-edited output.
 
