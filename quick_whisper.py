@@ -70,6 +70,7 @@ class QuickWhisper(tk.Tk):
 
         keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
         keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe"))
+        keyboard.add_hotkey('win+x', self.cancel_recording)
 
         self.create_menu()
         self.create_widgets()
@@ -372,6 +373,7 @@ class QuickWhisper(tk.Tk):
         play_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Play", menu=play_menu)
         play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
+        play_menu.add_command(label="Cancel Recording (Win+X)", command=self.cancel_recording)
 
         #Copy Menu
         copy_menu = Menu(self.menubar, tearoff=0)
@@ -967,6 +969,34 @@ class QuickWhisper(tk.Tk):
         except Exception as e:
             # Handle errors during the save process
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
+
+    def cancel_recording(self):
+        """Cancels the current recording without processing."""
+        if self.recording:
+            self.recording = False
+            if self.record_thread:
+                self.record_thread.join()
+
+            self.stream.stop_stream()
+            self.stream.close()
+
+            # Reset buttons back to original state
+            self.record_button_transcribe.configure(
+                text="Record + Transcript (Win+Ctrl+J)", 
+                fg_color="#058705", 
+                hover_color="#046a38"
+            )
+            self.record_button_edit.configure(
+                text="Record + AI Edit (Win+J)", 
+                fg_color="#058705", 
+                hover_color="#046a38"
+            )
+
+            # Reset status
+            self.status_label.config(text="Status: Idle", foreground="blue")
+
+            # Play failure sound
+            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
 
 
 
