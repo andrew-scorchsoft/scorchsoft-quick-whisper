@@ -14,11 +14,30 @@ class ManagePromptsDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
+        # Center the dialog on the screen
+        self.center_dialog()
+        
         # Add a variable to track the currently selected prompt
         self.current_selected_prompt = None
         
         self.create_dialog()
         self.parent.after(100, self.update_content)
+
+    def center_dialog(self):
+        # Get the parent window position and dimensions
+        parent_x = self.parent.winfo_x()
+        parent_y = self.parent.winfo_y()
+        parent_width = self.parent.winfo_width()
+        parent_height = self.parent.winfo_height()
+
+        # Calculate position for the dialog
+        dialog_width = 800  # Width from geometry
+        dialog_height = 650  # Height from geometry
+        position_x = parent_x + (parent_width - dialog_width) // 2
+        position_y = parent_y + (parent_height - dialog_height) // 2
+
+        # Set the position
+        self.dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
 
     def create_dialog(self):
         # Main container frame with padding
@@ -168,6 +187,13 @@ class ManagePromptsDialog:
         prompt_dialog.geometry("600x400")
         prompt_dialog.transient(self.dialog)
         prompt_dialog.grab_set()
+        
+        # Center the new prompt dialog
+        dialog_width = 600
+        dialog_height = 400
+        position_x = self.dialog.winfo_x() + (self.dialog.winfo_width() - dialog_width) // 2
+        position_y = self.dialog.winfo_y() + (self.dialog.winfo_height() - dialog_height) // 2
+        prompt_dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
         
         # Name entry
         name_frame = ttk.Frame(prompt_dialog, padding="10")

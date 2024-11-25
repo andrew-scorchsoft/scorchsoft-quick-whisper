@@ -37,9 +37,23 @@ class QuickWhisper(tk.Tk):
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        self.geometry("600x700")
-        self.version = "1.5.0"
+        # Set window size
+        window_width = 600
+        window_height = 700
+        
+        # Get screen dimensions
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        
+        # Calculate center position
+        center_x = int((screen_width - window_width) / 2)
+        center_y = int((screen_height - window_height) / 2)
+        
+        # Set window geometry
+        self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
+        
+        self.version = "1.5.0"
         self.banner_visible = True
 
         # Initial model settings
@@ -148,7 +162,14 @@ class QuickWhisper(tk.Tk):
         """Custom dialog for entering a new OpenAI API key with guidance link."""
         dialog = tk.Toplevel(self)
         dialog.title("Enter New OpenAI API Key")
-        dialog.geometry("400x200")
+        dialog_width = 400
+        dialog_height = 200
+        
+        # Calculate center position relative to parent
+        position_x = self.winfo_x() + (self.winfo_width() - dialog_width) // 2
+        position_y = self.winfo_y() + (self.winfo_height() - dialog_height) // 2
+        
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
 
         # Label for instructions
@@ -735,12 +756,22 @@ class QuickWhisper(tk.Tk):
         player.play(block=True) 
 
     def show_terms_of_use(self):
+        # Create a new window to display the terms of use
+        instruction_window = tk.Toplevel(self)
+        instruction_window.title("Terms of Use")
+        
+        # Set size and center the window
+        window_width = 800
+        window_height = 700
+        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
+        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
+        instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+
         # Get the path to the LICENSE.md file using the resource_path method
         license_path = self.resource_path("assets/LICENSE.md")
 
         # Attempt to read the content of the LICENSE.md file
         try:
-            # Open the file with 'r' (read mode) and specify 'utf-8' encoding
             with open(license_path, "r", encoding="utf-8") as file:
                 license_content = file.read()
         except FileNotFoundError:
@@ -751,11 +782,6 @@ class QuickWhisper(tk.Tk):
             license_content = f"Error reading license file due to encoding issue: {e}"
         except Exception as e:
             license_content = f"An unexpected error occurred while reading the license file: {e}"
-
-        # Create a new window to display the terms of use
-        instruction_window = tk.Toplevel(self)
-        instruction_window.title("Terms of Use")
-        instruction_window.geometry("800x700")  # Width x Height
 
         # Create a frame to contain the text widget and scrollbar
         frame = ttk.Frame(instruction_window)
@@ -780,8 +806,15 @@ class QuickWhisper(tk.Tk):
     def show_version(self):
         instruction_window = tk.Toplevel(self)
         instruction_window.title("App Version")
-        instruction_window.geometry("300x150")  # Width x Height
-
+        instruction_window.geometry("300x150")
+        
+        # Center the window
+        window_width = 300
+        window_height = 150
+        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
+        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
+        instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        
         instructions = f"""Version {self.version}\n\n App by Scorchsoft.com"""
         
         tk.Label(instruction_window, text=instructions, justify=tk.LEFT, wraplength=280).pack(padx=10, pady=10)
@@ -967,7 +1000,3 @@ class QuickWhisper(tk.Tk):
                 return i
         raise ValueError(f"Device '{device_name}' not found.")
 
-if __name__ == "__main__":
-    app = QuickWhisper()
-    app.protocol("WM_DELETE_WINDOW", app.on_closing)
-    app.mainloop()

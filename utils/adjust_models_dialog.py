@@ -10,7 +10,24 @@ class AdjustModelsDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Adjust AI Models")
         self.dialog.geometry("450x420")
+        self.center_dialog()
         self.create_dialog()
+
+    def center_dialog(self):
+        # Get the parent window position and dimensions
+        parent_x = self.parent.winfo_x()
+        parent_y = self.parent.winfo_y()
+        parent_width = self.parent.winfo_width()
+        parent_height = self.parent.winfo_height()
+
+        # Calculate position for the dialog
+        dialog_width = 450  # Width from geometry
+        dialog_height = 420  # Height from geometry
+        position_x = parent_x + (parent_width - dialog_width) // 2
+        position_y = parent_y + (parent_height - dialog_height) // 2
+
+        # Set the position
+        self.dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
 
     def create_dialog(self):
         # Transcription Model Entry
