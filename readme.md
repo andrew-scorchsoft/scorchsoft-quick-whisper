@@ -90,3 +90,20 @@ We can deliver your innovative, technically complex project, using the latest we
 Scorchsoft develops online portals, applications, web and mobile apps, and AI projects. With over fourteen years experience working with hundreds of small, medium, and large enterprises, in a diverse range of sectors, we'd love to discover how we can apply our expertise to your project.
 
 [Scorchsoft App Developers](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
+
+## Mac-Specific Setup
+
+For Mac users:
+1. Install portaudio first:
+   ```bash
+   brew install portaudio
+   ```
+
+2. You may need to grant accessibility permissions to the app for keyboard shortcuts:
+   - Go to System Preferences > Security & Privacy > Privacy > Accessibility
+   - Add QuickWhisper to the list of allowed apps
+
+3. The app uses Command (⌘) instead of Windows key for shortcuts:
+   - ⌘+J: Record + AI Edit
+   - ⌘+Ctrl+J: Record + Transcript
+   - ⌘+X: Cancel Recording

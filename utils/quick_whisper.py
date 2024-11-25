@@ -18,6 +18,7 @@ from pathlib import Path
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
+import platform
 
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
@@ -28,7 +29,9 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) ")
+        self.is_mac = platform.system() == 'Darwin'
+
+        self.title("Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)")
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
@@ -53,7 +56,7 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
         
-        self.version = "1.5.0"
+        self.version = "1.6.0"
         self.banner_visible = True
 
         # Initial model settings
@@ -87,9 +90,14 @@ class QuickWhisper(tk.Tk):
         self.recording = False
         self.frames = []
 
-        keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
-        keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe"))
-        keyboard.add_hotkey('win+x', self.cancel_recording)
+        if self.is_mac:
+            keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit"))
+            keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe"))
+            keyboard.add_hotkey('command+x', self.cancel_recording)
+        else:
+            keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
+            keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe"))
+            keyboard.add_hotkey('win+x', self.cancel_recording)
 
         self.create_menu()
         self.create_widgets()
@@ -324,10 +332,14 @@ class QuickWhisper(tk.Tk):
         ctk.set_appearance_mode("light")  # Options: "light" or "dark"
         ctk.set_default_color_theme("green")  # Options: "blue", "dark-blue", "green"
 
+        # Update button text to show proper OS-specific shortcuts
+        shortcut_text = "Cmd+J" if self.is_mac else "Win+J"
+        ctrl_shortcut_text = "Cmd+Ctrl+J" if self.is_mac else "Win+Ctrl+J"
+
         # Record Transcript Only Button with green background and padding on the right
         self.record_button_transcribe = ctk.CTkButton(
             main_frame, 
-            text="Record + Transcript (Win+Ctrl+J)", 
+            text=f"Record + Transcript ({ctrl_shortcut_text})", 
             corner_radius=20, 
             height=35,
             width=button_width,
@@ -339,7 +351,7 @@ class QuickWhisper(tk.Tk):
 
         self.record_button_edit = ctk.CTkButton(
             main_frame, 
-            text="Record + AI Edit (Win+J)", 
+            text=f"Record + AI Edit ({shortcut_text})", 
             corner_radius=20,
             height=35,
             width=button_width,
@@ -693,11 +705,11 @@ class QuickWhisper(tk.Tk):
 
     def auto_paste_text(self, text):
         try:
-            # no needt to copy twice
-            #pyperclip.copy(text)
-            
-            # Simulate Ctrl+V to paste from clipboard
-            keyboard.press_and_release('ctrl+v')
+            # Use OS-specific keyboard shortcuts
+            if self.is_mac:
+                keyboard.press_and_release('command+v')
+            else:
+                keyboard.press_and_release('ctrl+v')
         except Exception as e:
             messagebox.showerror("Auto-Paste Error", f"Failed to auto-paste the transcription: {e}")
 
@@ -729,20 +741,17 @@ class QuickWhisper(tk.Tk):
 
     def resource_path(self, relative_path):
         """Get the absolute path to the resource, works for both development and PyInstaller environments."""
-
         try:
-            # When running in a PyInstaller bundle, use the '_MEIPASS' directory
             base_path = sys._MEIPASS
         except AttributeError:
-            # When running normally (not bundled), use the directory where the main script is located
             base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-        # Resolve the absolute path
+        # Handle icon files differently for Mac
+        if self.is_mac and relative_path.endswith('.ico'):
+            # Use .png version instead of .ico for Mac
+            relative_path = relative_path.replace('.ico', '.png')
+
         abs_path = os.path.join(base_path, relative_path)
-
-        # Debugging: Print the absolute path to check if it's correct
-        print(f"Resolved path for {relative_path}: {abs_path}")
-
         return abs_path
 
     def on_closing(self):
@@ -752,8 +761,14 @@ class QuickWhisper(tk.Tk):
         self.destroy()
 
     def play_sound(self, sound_file):
-        player = AudioPlayer(self.resource_path(sound_file))
-        player.play(block=True) 
+        """Play sound with fallback for Mac compatibility"""
+        try:
+            player = AudioPlayer(self.resource_path(sound_file))
+            player.play(block=True)
+        except Exception as e:
+            print(f"Warning: Could not play sound: {e}")
+            # Silently fail if sound doesn't work on Mac
+            pass
 
     def show_terms_of_use(self):
         # Create a new window to display the terms of use
