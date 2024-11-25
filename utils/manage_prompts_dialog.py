@@ -107,12 +107,21 @@ class ManagePromptsDialog:
         self.edit_status_label = ttk.Label(content_frame, foreground="red")
         self.edit_status_label.pack(anchor=tk.W, padx=5, pady=(5,0))
 
-        self.content_text = tk.Text(content_frame, wrap=tk.WORD)
-        content_scrollbar = ttk.Scrollbar(content_frame, orient=tk.VERTICAL, command=self.content_text.yview)
-        self.content_text.config(yscrollcommand=content_scrollbar.set)
-        
-        self.content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
-        content_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        # Create a frame to contain the text widget and scrollbar
+        text_frame = ttk.Frame(content_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # Create vertical scrollbar only
+        v_scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create the text widget with word wrap and vertical scrollbar
+        self.content_text = tk.Text(text_frame, wrap=tk.WORD,
+                                  yscrollcommand=v_scrollbar.set)
+        self.content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Configure the scrollbar
+        v_scrollbar.config(command=self.content_text.yview)
 
         self.save_changes_button = ttk.Button(self.right_panel, text="Save Changes", 
                                             command=self.save_content_changes, state='disabled')
@@ -206,8 +215,21 @@ class ManagePromptsDialog:
         prompt_frame = ttk.LabelFrame(prompt_dialog, text="System Prompt", padding="10")
         prompt_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        new_prompt_text = tk.Text(prompt_frame, wrap=tk.WORD, height=15)
-        new_prompt_text.pack(fill=tk.BOTH, expand=True)
+        # Create a frame for the text widget and scrollbar
+        text_frame = ttk.Frame(prompt_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create vertical scrollbar only
+        v_scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create the text widget with word wrap and vertical scrollbar
+        new_prompt_text = tk.Text(text_frame, wrap=tk.WORD, height=15,
+                                yscrollcommand=v_scrollbar.set)
+        new_prompt_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Configure the scrollbar
+        v_scrollbar.config(command=new_prompt_text.yview)
 
         def save_new_prompt():
             new_name = name_entry.get().strip()
@@ -238,6 +260,9 @@ class ManagePromptsDialog:
             self.prompt_list.selection_clear(0, tk.END)
             self.prompt_list.selection_set(new_prompt_index)
             self.prompt_list.see(new_prompt_index)
+            
+            # Set the current selected prompt and update content
+            self.current_selected_prompt = new_name
             self.update_content()
 
             prompt_dialog.destroy()

@@ -56,7 +56,7 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
         
-        self.version = "1.6.0"
+        self.version = "1.6.1"
         self.banner_visible = True
 
         # Initial model settings
