@@ -19,6 +19,7 @@ from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
 from pystray import Icon as icon, MenuItem as item, Menu as menu
 import platform
+import time
 
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
@@ -56,12 +57,13 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
         
-        self.version = "1.6.1"
+        self.version = "1.7"
         self.banner_visible = True
 
         # Initial model settings
         self.transcription_model = "whisper-1"
         self.ai_model = "gpt-4o"
+        self.whisper_language = "auto"
 
         self.last_trancription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
@@ -90,14 +92,12 @@ class QuickWhisper(tk.Tk):
         self.recording = False
         self.frames = []
 
-        if self.is_mac:
-            keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit"))
-            keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe"))
-            keyboard.add_hotkey('command+x', self.cancel_recording)
-        else:
-            keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit"))
-            keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe"))
-            keyboard.add_hotkey('win+x', self.cancel_recording)
+        # Add hotkey tracking variables
+        self.hotkeys = []
+        self.register_hotkeys()
+        
+        # Start hotkey monitoring
+        self.check_hotkeys()
 
         self.create_menu()
         self.create_widgets()
@@ -142,6 +142,11 @@ class QuickWhisper(tk.Tk):
         ai_model = os.getenv("AI_MODEL")
         if ai_model:
             self.ai_model = ai_model
+
+        # Load whisper language setting
+        whisper_language = os.getenv("WHISPER_LANGUAGE")
+        if whisper_language:
+            self.whisper_language = whisper_language
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
@@ -415,7 +420,6 @@ class QuickWhisper(tk.Tk):
         self.menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Save Session History", command=self.save_session_history)
 
-
         # File or settings menu
         settings_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Settings", menu=settings_menu)
@@ -435,14 +439,117 @@ class QuickWhisper(tk.Tk):
         copy_menu.add_command(label="Last Transcript", command=self.copy_last_transcription)
         copy_menu.add_command(label="Last Edit", command=self.copy_last_edit)
 
-    
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        self.help_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
+        self.help_menu.add_separator()
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
         self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
         self.help_menu.add_command(label="Version", command=self.show_version)
 
+    def check_keyboard_shortcuts(self):
+        """Test keyboard shortcuts and show status."""
+        shortcut_window = tk.Toplevel(self)
+        shortcut_window.title("Keyboard Shortcuts Status")
+        shortcut_window.geometry("400x300")
+        
+        # Center the window
+        window_width = 400
+        window_height = 300
+        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
+        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
+        shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+
+        # Create main frame with padding
+        main_frame = ttk.Frame(shortcut_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Add title
+        title_label = ttk.Label(
+            main_frame, 
+            text="Keyboard Shortcuts Status", 
+            font=("Arial", 12, "bold")
+        )
+        title_label.pack(pady=(0, 10))
+
+        # Show current shortcuts and their status
+        shortcuts_text = "Current Shortcuts:\n\n"
+        if self.is_mac:
+            shortcuts_text += "• Record + AI Edit: Cmd+J\n"
+            shortcuts_text += "• Record + Transcript: Cmd+Ctrl+J\n"
+            shortcuts_text += "• Cancel Recording: Cmd+X"
+        else:
+            shortcuts_text += "• Record + AI Edit: Win+J\n"
+            shortcuts_text += "• Record + Transcript: Win+Ctrl+J\n"
+            shortcuts_text += "• Cancel Recording: Win+X"
+
+        ttk.Label(main_frame, text=shortcuts_text, justify=tk.LEFT).pack(pady=10)
+
+        # Add status information
+        try:
+            keyboard.is_pressed('shift')
+            status_text = "Status: Keyboard shortcuts are working correctly"
+            status_color = "green"
+        except:
+            status_text = "Status: Keyboard shortcuts may not be working"
+            status_color = "red"
+
+        status_label = ttk.Label(
+            main_frame, 
+            text=status_text,
+            foreground=status_color,
+            font=("Arial", 10, "bold")
+        )
+        status_label.pack(pady=10)
+
+        # Add refresh button
+        def refresh_status():
+            try:
+                keyboard.is_pressed('shift')
+                status_label.config(
+                    text="Status: Keyboard shortcuts are working correctly",
+                    foreground="green"
+                )
+                self.register_hotkeys()  # Re-register hotkeys
+            except:
+                status_label.config(
+                    text="Status: Keyboard shortcuts may not be working",
+                    foreground="red"
+                )
+
+        refresh_button = ctk.CTkButton(
+            main_frame,
+            text="Refresh Status",
+            corner_radius=20,
+            height=35,
+            fg_color="#058705",
+            hover_color="#046a38",
+            font=("Arial", 13, "bold"),
+            command=refresh_status
+        )
+        refresh_button.pack(pady=10)
+
+        # Add troubleshooting information
+        trouble_text = ("\nTroubleshooting:\n"
+                       "• If shortcuts aren't working, click 'Refresh Status'\n"
+                       "• Try restarting the application\n"
+                       "• Ensure no other application is using these shortcuts")
+        
+        ttk.Label(
+            main_frame, 
+            text=trouble_text,
+            justify=tk.LEFT,
+            wraplength=350
+        ).pack(pady=10)
+
+        # Close button
+        close_button = ttk.Button(
+            main_frame,
+            text="Close",
+            command=shortcut_window.destroy
+        )
+        close_button.pack(pady=(10, 0))
 
     def toggle_banner(self):
         """Toggle the visibility of the banner image and adjust the window height."""
@@ -612,12 +719,11 @@ class QuickWhisper(tk.Tk):
             self.status_label.config(text="Status: Processing - Transcript...", foreground="green")
 
             with open(str(file_path), "rb") as audio_file:
-                # Use OpenAI's transcription API as intended
-
-                print(f"About to transcrible model {self.transcription_model}")
+                # Use OpenAI's transcription API with language setting
                 transcription = self.client.audio.transcriptions.create(
                     file=audio_file,
                     model=self.transcription_model,
+                    language=None if self.whisper_language == "auto" else self.whisper_language,
                     response_format="verbose_json"
                 )
 
@@ -755,6 +861,15 @@ class QuickWhisper(tk.Tk):
         return abs_path
 
     def on_closing(self):
+        """Clean up hotkeys before closing."""
+        # Remove all hotkeys
+        for hotkey in self.hotkeys:
+            try:
+                keyboard.remove_hotkey(hotkey)
+            except:
+                pass
+        self.hotkeys.clear()
+        
         if self.recording:
             self.stop_recording()
         self.audio.terminate()
@@ -926,8 +1041,11 @@ class QuickWhisper(tk.Tk):
             threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
 
     def update_model_label(self):
-        """Update the model label to include the prompt name."""
-        self.model_label.config(text=f"{self.transcription_model}, {self.ai_model}, {self.current_prompt_name}")
+        """Update the model label to include the prompt name and language setting."""
+        language_display = "Auto Detect" if self.whisper_language == "auto" else self.whisper_language.upper()
+        self.model_label.config(
+            text=f"{self.transcription_model} ({language_display}), {self.ai_model}, {self.current_prompt_name}"
+        )
 
     def load_prompts(self):
         """Load custom prompts from JSON file."""
@@ -1014,4 +1132,40 @@ class QuickWhisper(tk.Tk):
             if info['name'] == device_name:
                 return i
         raise ValueError(f"Device '{device_name}' not found.")
+
+    def register_hotkeys(self):
+        """Register all hotkeys and store them for monitoring."""
+        # Clear existing hotkeys
+        for hotkey in self.hotkeys:
+            try:
+                keyboard.remove_hotkey(hotkey)
+            except:
+                pass
+        self.hotkeys.clear()
+
+        # Register hotkeys based on platform
+        if self.is_mac:
+            self.hotkeys.append(keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit")))
+            self.hotkeys.append(keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe")))
+            self.hotkeys.append(keyboard.add_hotkey('command+x', self.cancel_recording))
+        else:
+            self.hotkeys.append(keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit")))
+            self.hotkeys.append(keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe")))
+            self.hotkeys.append(keyboard.add_hotkey('win+x', self.cancel_recording))
+
+    def check_hotkeys(self):
+        """Periodically check if hotkeys are working and re-register if needed."""
+        try:
+            # Test if keyboard module is still responding
+            keyboard.is_pressed('shift')
+            
+            # If the test passes but no hotkeys are registered, re-register them
+            if not self.hotkeys:
+                self.register_hotkeys()
+        except:
+            # If there's any error, re-register the hotkeys
+            self.register_hotkeys()
+        
+        # Schedule the next check in 30 seconds
+        self.after(30000, self.check_hotkeys)
 
