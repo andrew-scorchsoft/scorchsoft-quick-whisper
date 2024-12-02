@@ -9,6 +9,7 @@ import openai
 import pyperclip
 import webbrowser
 import json
+import pyttsx3
 from tkinter import filedialog
 import customtkinter as ctk
 from PIL import Image, ImageTk 
@@ -122,6 +123,13 @@ class QuickWhisper(tk.Tk):
 
         # After loading the prompt from env, update the model label
         self.update_model_label()
+
+        # Add TTS engine, lock, and current speech thread tracking
+        self.tts_engine = None
+        self.tts_lock = threading.Lock()
+        self.current_speech_thread = None
+        self.speech_should_stop = threading.Event()
+        self.init_tts_engine()
 
     # Load environment variables from config/.env
     def load_env_file(self):
@@ -426,6 +434,8 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_command(label="Change API Key", command=self.change_api_key)
         settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
+        settings_menu.add_separator()
+        settings_menu.add_command(label="Refresh Keyboard Shortcuts", command=self.force_hotkey_refresh)
 
         # Play Menu
         play_menu = Menu(self.menubar, tearoff=0)
@@ -452,11 +462,11 @@ class QuickWhisper(tk.Tk):
         """Test keyboard shortcuts and show status."""
         shortcut_window = tk.Toplevel(self)
         shortcut_window.title("Keyboard Shortcuts Status")
-        shortcut_window.geometry("400x300")
+        shortcut_window.geometry("400x350")
         
         # Center the window
         window_width = 400
-        window_height = 300
+        window_height = 350
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -478,69 +488,75 @@ class QuickWhisper(tk.Tk):
         if self.is_mac:
             shortcuts_text += "• Record + AI Edit: Cmd+J\n"
             shortcuts_text += "• Record + Transcript: Cmd+Ctrl+J\n"
-            shortcuts_text += "• Cancel Recording: Cmd+X"
+            shortcuts_text += "• Cancel Recording: Cmd+X\n"
+            shortcuts_text += "• Cycle Prompts: Cmd+[, Cmd+]\n"
         else:
             shortcuts_text += "• Record + AI Edit: Win+J\n"
             shortcuts_text += "• Record + Transcript: Win+Ctrl+J\n"
-            shortcuts_text += "• Cancel Recording: Win+X"
+            shortcuts_text += "• Cancel Recording: Win+X\n"
+            shortcuts_text += "• Cycle Prompts: Win+[, Win+]\n"
 
         ttk.Label(main_frame, text=shortcuts_text, justify=tk.LEFT).pack(pady=10)
 
-        # Add status information
-        try:
-            keyboard.is_pressed('shift')
-            status_text = "Status: Keyboard shortcuts are working correctly"
-            status_color = "green"
-        except:
-            status_text = "Status: Keyboard shortcuts may not be working"
-            status_color = "red"
-
+        # Add status information and refresh button
         status_label = ttk.Label(
             main_frame, 
-            text=status_text,
-            foreground=status_color,
-            font=("Arial", 10, "bold")
+            text="Click refresh to re-register shortcuts",
+            font=("Arial", 10)
         )
         status_label.pack(pady=10)
 
-        # Add refresh button
-        def refresh_status():
+        def refresh_shortcuts():
             try:
-                keyboard.is_pressed('shift')
+                self.force_hotkey_refresh()
                 status_label.config(
-                    text="Status: Keyboard shortcuts are working correctly",
-                    foreground="green"
+                    text="Attempting to refresh shortcuts...",
+                    foreground="orange"
                 )
-                self.register_hotkeys()  # Re-register hotkeys
-            except:
+                # Check status after a short delay
+                shortcut_window.after(500, lambda: check_refresh_status(status_label))
+            except Exception as e:
                 status_label.config(
-                    text="Status: Keyboard shortcuts may not be working",
+                    text=f"Error refreshing shortcuts: {e}",
                     foreground="red"
                 )
 
+        def check_refresh_status(label):
+            if self.hotkeys:
+                label.config(
+                    text="Shortcuts have been refreshed successfully",
+                    foreground="green"
+                )
+            else:
+                label.config(
+                    text="Failed to refresh shortcuts. Try closing and reopening the app.",
+                    foreground="red"
+                )
+
+        # Add refresh button
         refresh_button = ctk.CTkButton(
             main_frame,
-            text="Refresh Status",
+            text="Refresh Shortcuts",
             corner_radius=20,
             height=35,
             fg_color="#058705",
             hover_color="#046a38",
             font=("Arial", 13, "bold"),
-            command=refresh_status
+            command=refresh_shortcuts
         )
         refresh_button.pack(pady=10)
 
-        # Add troubleshooting information
-        trouble_text = ("\nTroubleshooting:\n"
-                       "• If shortcuts aren't working, click 'Refresh Status'\n"
-                       "• Try restarting the application\n"
-                       "• Ensure no other application is using these shortcuts")
+        # Add note about Windows lock
+        note_text = ("Note: If shortcuts stop working after unlocking Windows,\n"
+                    "use this dialog to refresh them. If refresh doesn't work,\n"
+                    "try closing and reopening the application.")
         
         ttk.Label(
             main_frame, 
-            text=trouble_text,
-            justify=tk.LEFT,
-            wraplength=350
+            text=note_text,
+            justify=tk.CENTER,
+            font=("Arial", 9),
+            foreground="#666666"
         ).pack(pady=10)
 
         # Close button
@@ -861,7 +877,14 @@ class QuickWhisper(tk.Tk):
         return abs_path
 
     def on_closing(self):
-        """Clean up hotkeys before closing."""
+        """Clean up resources before closing."""
+        # Signal any speech to stop
+        self.speech_should_stop.set()
+        
+        # Wait briefly for speech to stop
+        if self.current_speech_thread and self.current_speech_thread.is_alive():
+            self.current_speech_thread.join(0.2)
+        
         # Remove all hotkeys
         for hotkey in self.hotkeys:
             try:
@@ -869,6 +892,15 @@ class QuickWhisper(tk.Tk):
             except:
                 pass
         self.hotkeys.clear()
+        
+        # Clean up TTS engine
+        if self.tts_engine:
+            with self.tts_lock:
+                try:
+                    self.tts_engine.stop()
+                    self.tts_engine = None
+                except:
+                    pass
         
         if self.recording:
             self.stop_recording()
@@ -1135,37 +1167,231 @@ class QuickWhisper(tk.Tk):
 
     def register_hotkeys(self):
         """Register all hotkeys and store them for monitoring."""
-        # Clear existing hotkeys
-        for hotkey in self.hotkeys:
-            try:
-                keyboard.remove_hotkey(hotkey)
-            except:
-                pass
-        self.hotkeys.clear()
-
-        # Register hotkeys based on platform
-        if self.is_mac:
-            self.hotkeys.append(keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit")))
-            self.hotkeys.append(keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe")))
-            self.hotkeys.append(keyboard.add_hotkey('command+x', self.cancel_recording))
-        else:
-            self.hotkeys.append(keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit")))
-            self.hotkeys.append(keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe")))
-            self.hotkeys.append(keyboard.add_hotkey('win+x', self.cancel_recording))
+        try:
+            # Register hotkeys based on platform
+            if self.is_mac:
+                self.hotkeys.append(keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit")))
+                self.hotkeys.append(keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe")))
+                self.hotkeys.append(keyboard.add_hotkey('command+x', self.cancel_recording))
+                self.hotkeys.append(keyboard.add_hotkey('command+[', self.cycle_prompt_backward))
+                self.hotkeys.append(keyboard.add_hotkey('command+]', self.cycle_prompt_forward))
+            else:
+                self.hotkeys.append(keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit")))
+                self.hotkeys.append(keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe")))
+                self.hotkeys.append(keyboard.add_hotkey('win+x', self.cancel_recording))
+                self.hotkeys.append(keyboard.add_hotkey('win+[', self.cycle_prompt_backward))
+                self.hotkeys.append(keyboard.add_hotkey('win+]', self.cycle_prompt_forward))
+            
+            print(f"Registered {len(self.hotkeys)} hotkeys successfully")
+            return True
+        except Exception as e:
+            print(f"Error registering hotkeys: {e}")
+            return False
 
     def check_hotkeys(self):
         """Periodically check if hotkeys are working and re-register if needed."""
         try:
-            # Test if keyboard module is still responding
-            keyboard.is_pressed('shift')
-            
-            # If the test passes but no hotkeys are registered, re-register them
             if not self.hotkeys:
-                self.register_hotkeys()
-        except:
-            # If there's any error, re-register the hotkeys
-            self.register_hotkeys()
+                print("No hotkeys registered - forcing refresh")
+                self.force_hotkey_refresh()
+        except Exception as e:
+            print(f"Hotkey check failed: {e}")
+            self.force_hotkey_refresh()
         
-        # Schedule the next check in 30 seconds
+        # Schedule the next check (every 30 seconds)
         self.after(30000, self.check_hotkeys)
+
+    def force_hotkey_refresh(self):
+        """Force a complete refresh of all hotkeys."""
+        print("Forcing hotkey refresh")
+        try:
+            # Kill all keyboard hooks
+            keyboard.unhook_all()
+            
+            # Clear our tracking
+            self.hotkeys.clear()
+            
+            # Try to reset the keyboard module's internal state
+            try:
+                keyboard._recording = False  # Stop any active recordings
+                keyboard._pressed_events.clear()  # Clear pressed keys
+                keyboard._physically_pressed_keys.clear()  # Clear physical key states
+                keyboard._logically_pressed_keys.clear()  # Clear logical key states
+            except:
+                pass
+            
+            # Small delay to ensure cleanup is complete
+            self.after(100, self._complete_hotkey_refresh)
+            
+        except Exception as e:
+            print(f"Error during hotkey refresh: {e}")
+            messagebox.showerror("Hotkey Error", 
+                "Failed to refresh hotkeys. Try closing and reopening the application.")
+
+    def _complete_hotkey_refresh(self):
+        """Complete the hotkey refresh after cleanup."""
+        try:
+            # Re-register all hotkeys
+            success = self.register_hotkeys()
+            
+            if not success or not self.hotkeys:
+                print("Failed to register hotkeys")
+                messagebox.showerror("Hotkey Error", 
+                    "Failed to re-register hotkeys. Try closing and reopening the application.")
+            else:
+                print(f"Hotkey refresh completed successfully with {len(self.hotkeys)} hotkeys")
+            
+        except Exception as e:
+            print(f"Error completing hotkey refresh: {e}")
+            messagebox.showerror("Hotkey Error", 
+                "Error re-registering hotkeys. Try closing and reopening the application.")
+
+    def verify_hotkeys(self):
+        """Verify that hotkeys are working."""
+        try:
+            # Simple check if hotkeys are registered
+            return len(self.hotkeys) > 0
+        except:
+            return False
+
+    def cycle_prompt_forward(self):
+        """Cycle to the next prompt in the list."""
+        # Create list of prompt names including "Default"
+        prompt_names = ["Default"] + list(self.prompts.keys())
+        
+        # Find current index
+        try:
+            current_index = prompt_names.index(self.current_prompt_name)
+        except ValueError:
+            current_index = 0  # Default to the first prompt if not found
+        
+        # Calculate next index (cycle back to start if at end)
+        next_index = (current_index + 1) % len(prompt_names)
+        
+        # Update current prompt
+        self.current_prompt_name = prompt_names[next_index]
+        self.save_prompt_to_env(self.current_prompt_name)
+        
+        # Update UI
+        self.update_model_label()
+        
+        # Show notification
+        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+
+    def cycle_prompt_backward(self):
+        """Cycle to the previous prompt in the list."""
+        # Create list of prompt names including "Default"
+        prompt_names = ["Default"] + list(self.prompts.keys())
+        
+        # Find current index
+        try:
+            current_index = prompt_names.index(self.current_prompt_name)
+        except ValueError:
+            current_index = 0  # Default to the first prompt if not found
+        
+        # Calculate previous index (cycle to end if at start)
+        prev_index = (current_index - 1) % len(prompt_names)
+        
+        # Update current prompt
+        self.current_prompt_name = prompt_names[prev_index]
+        self.save_prompt_to_env(self.current_prompt_name)
+        
+        # Update UI
+        self.update_model_label()
+        
+        # Show notification
+        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+
+    def show_prompt_notification(self, message):
+        """Show a temporary notification message in the status label and speak the prompt name."""
+        # Store the current status
+        current_status = self.status_label.cget("text")
+        current_color = self.status_label.cget("foreground")
+        
+        # Show the notification
+        self.status_label.config(text=message, foreground="green")
+        
+        # Play a sound
+        #threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
+        
+        # Create a clean version of the message for speech
+        speech_message = message.replace("Prompt: ", "")
+        
+        # Use text-to-speech in a separate thread
+        if platform.system() == 'Windows':
+            # Signal any existing speech to stop
+            self.speech_should_stop.set()
+            
+            # If there's a current speech thread, wait briefly for it to stop
+            if self.current_speech_thread and self.current_speech_thread.is_alive():
+                self.current_speech_thread.join(0.1)  # Wait max 100ms
+            
+            # Reset the stop flag
+            self.speech_should_stop.clear()
+            
+            def speak_prompt():
+                with self.tts_lock:
+                    try:
+                        # Reinitialize engine if needed
+                        if not self.tts_engine:
+                            self.init_tts_engine()
+                        
+                        if self.tts_engine and not self.speech_should_stop.is_set():
+                            try:
+                                self.tts_engine.stop()
+                            except:
+                                self.init_tts_engine()
+                            
+                            if self.tts_engine:
+                                self.tts_engine.say(speech_message)
+                                
+                                # Break runAndWait into smaller chunks to check for interruption
+                                while not self.speech_should_stop.is_set():
+                                    try:
+                                        self.tts_engine.startLoop(False)
+                                        # Run a short iteration
+                                        if not self.tts_engine.iterate():
+                                            break
+                                        self.tts_engine.endLoop()
+                                    except:
+                                        break
+                                
+                                # If we were interrupted, stop the engine
+                                if self.speech_should_stop.is_set():
+                                    try:
+                                        self.tts_engine.stop()
+                                    except:
+                                        pass
+                                
+                    except Exception as e:
+                        print(f"TTS error: {e}")
+                        self.init_tts_engine()
+            
+            # Create and start new speech thread
+            self.current_speech_thread = threading.Thread(target=speak_prompt, daemon=True)
+            self.current_speech_thread.start()
+        
+        # Schedule restoration of original status after 2 seconds
+        def restore_status():
+            self.status_label.config(text=current_status, foreground=current_color)
+        
+        self.after(2000, restore_status)
+
+    def init_tts_engine(self):
+        """Initialize or reinitialize the TTS engine."""
+        if platform.system() == 'Windows':
+            try:
+                # Clean up existing engine if it exists
+                if self.tts_engine:
+                    try:
+                        self.tts_engine.stop()
+                    except:
+                        pass
+                
+                self.tts_engine = pyttsx3.init()
+                self.tts_engine.setProperty('rate', 175)  # Adjust speed
+                print("TTS engine initialized successfully")
+            except Exception as e:
+                print(f"TTS initialization error: {e}")
+                self.tts_engine = None
 
