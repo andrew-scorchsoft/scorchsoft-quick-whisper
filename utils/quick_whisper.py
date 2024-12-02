@@ -58,7 +58,7 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
         
-        self.version = "1.7"
+        self.version = "1.7.1"
         self.banner_visible = True
 
         # Initial model settings
@@ -497,7 +497,7 @@ class QuickWhisper(tk.Tk):
             shortcuts_text += "• Record + AI Edit: Win+J\n"
             shortcuts_text += "• Record + Transcript: Win+Ctrl+J\n"
             shortcuts_text += "• Cancel Recording: Win+X\n"
-            shortcuts_text += "• Cycle Prompts: Win+[, Win+]\n"
+            shortcuts_text += "• Cycle Prompts: Alt+Left, Alt+Right\n"
 
         ttk.Label(main_frame, text=shortcuts_text, justify=tk.LEFT).pack(pady=10)
 
@@ -1182,8 +1182,9 @@ class QuickWhisper(tk.Tk):
                 self.hotkeys.append(keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit")))
                 self.hotkeys.append(keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe")))
                 self.hotkeys.append(keyboard.add_hotkey('win+x', self.cancel_recording))
-                self.hotkeys.append(keyboard.add_hotkey('win+[', self.cycle_prompt_backward))
-                self.hotkeys.append(keyboard.add_hotkey('win+]', self.cycle_prompt_forward))
+                # Use arrow keys instead of brackets
+                self.hotkeys.append(keyboard.add_hotkey('alt+left', self.cycle_prompt_backward))
+                self.hotkeys.append(keyboard.add_hotkey('alt+right', self.cycle_prompt_forward))
             
             print(f"Registered {len(self.hotkeys)} hotkeys successfully")
             return True
@@ -1266,7 +1267,7 @@ class QuickWhisper(tk.Tk):
         # Update UI
         self.update_model_label()
         
-        # Show notification
+        # Show notification and trigger text-to-speech
         self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
 
     def cycle_prompt_backward(self):
@@ -1290,7 +1291,7 @@ class QuickWhisper(tk.Tk):
         # Update UI
         self.update_model_label()
         
-        # Show notification
+        # Show notification and trigger text-to-speech
         self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
 
     def show_prompt_notification(self, message):
@@ -1298,12 +1299,6 @@ class QuickWhisper(tk.Tk):
         # Store the current status
         current_status = self.status_label.cget("text")
         current_color = self.status_label.cget("foreground")
-        
-        # Show the notification
-        self.status_label.config(text=message, foreground="green")
-        
-        # Play a sound
-        #threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
         
         # Create a clean version of the message for speech
         speech_message = message.replace("Prompt: ", "")
@@ -1334,7 +1329,7 @@ class QuickWhisper(tk.Tk):
                                 self.init_tts_engine()
                             
                             if self.tts_engine:
-                                self.tts_engine.say(speech_message)
+                                self.tts_engine.say(speech_message)  # Now speech_message is in scope
                                 
                                 # Break runAndWait into smaller chunks to check for interruption
                                 while not self.speech_should_stop.is_set():
@@ -1361,12 +1356,8 @@ class QuickWhisper(tk.Tk):
             # Create and start new speech thread
             self.current_speech_thread = threading.Thread(target=speak_prompt, daemon=True)
             self.current_speech_thread.start()
-        
-        # Schedule restoration of original status after 2 seconds
-        def restore_status():
-            self.status_label.config(text=current_status, foreground=current_color)
-        
-        self.after(2000, restore_status)
+
+
 
     def init_tts_engine(self):
         """Initialize or reinitialize the TTS engine."""
