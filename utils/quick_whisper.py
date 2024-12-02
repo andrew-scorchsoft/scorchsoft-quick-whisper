@@ -97,8 +97,6 @@ class QuickWhisper(tk.Tk):
         self.hotkeys = []
         self.register_hotkeys()
         
-        # Start hotkey monitoring
-        self.check_hotkeys()
 
         self.create_menu()
         self.create_widgets()
@@ -130,6 +128,11 @@ class QuickWhisper(tk.Tk):
         self.current_speech_thread = None
         self.speech_should_stop = threading.Event()
         self.init_tts_engine()
+
+        # Add binding for window state changes
+        self.bind('<Unmap>', self._handle_minimize)
+        self.bind('<Map>', self._handle_restore)
+        self.was_minimized = False
 
     # Load environment variables from config/.env
     def load_env_file(self):
@@ -1188,18 +1191,6 @@ class QuickWhisper(tk.Tk):
             print(f"Error registering hotkeys: {e}")
             return False
 
-    def check_hotkeys(self):
-        """Periodically check if hotkeys are working and re-register if needed."""
-        try:
-            if not self.hotkeys:
-                print("No hotkeys registered - forcing refresh")
-                self.force_hotkey_refresh()
-        except Exception as e:
-            print(f"Hotkey check failed: {e}")
-            self.force_hotkey_refresh()
-        
-        # Schedule the next check (every 30 seconds)
-        self.after(30000, self.check_hotkeys)
 
     def force_hotkey_refresh(self):
         """Force a complete refresh of all hotkeys."""
@@ -1395,3 +1386,13 @@ class QuickWhisper(tk.Tk):
                 print(f"TTS initialization error: {e}")
                 self.tts_engine = None
 
+    def _handle_minimize(self, event):
+        """Track when window is minimized"""
+        self.was_minimized = True
+
+    def _handle_restore(self, event):
+        """Handle window restore from minimized state"""
+        if self.was_minimized:
+            self.was_minimized = False
+            print("Window restored from minimized state - refreshing hotkeys")
+            self.force_hotkey_refresh()
