@@ -58,7 +58,7 @@ class QuickWhisper(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
         
-        self.version = "1.7.1"
+        self.version = "1.8.0"
         self.banner_visible = True
 
         # Initial model settings
@@ -158,6 +158,25 @@ class QuickWhisper(tk.Tk):
         whisper_language = os.getenv("WHISPER_LANGUAGE")
         if whisper_language:
             self.whisper_language = whisper_language
+
+        # Load keyboard shortcuts with defaults
+        self.shortcuts = {
+            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'win+j' if not self.is_mac else 'command+j'),
+            'record_transcribe': os.getenv('SHORTCUT_RECORD_TRANSCRIBE', 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j'),
+            'cancel_recording': os.getenv('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
+            'cycle_prompt_back': os.getenv('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
+            'cycle_prompt_forward': os.getenv('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
+        }
+        
+        # Schedule UI update and hotkey registration after main window is initialized
+        def after_init():
+            # Update UI with loaded shortcuts
+            self.update_shortcut_displays()
+            # Register the loaded shortcuts
+            self.force_hotkey_refresh()
+
+        # Delay slightly to ensure UI is ready
+        self.after(100, after_init)
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
@@ -438,13 +457,13 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
         settings_menu.add_separator()
-        settings_menu.add_command(label="Refresh Keyboard Shortcuts", command=self.force_hotkey_refresh)
+        settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
 
         # Play Menu
         play_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Play", menu=play_menu)
         play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
-        play_menu.add_command(label="Cancel Recording (Win+X)", command=self.cancel_recording)
+        play_menu.add_command(label=f"Cancel Recording ({self.shortcuts['cancel_recording']})", command=self.cancel_recording)
 
         #Copy Menu
         copy_menu = Menu(self.menubar, tearoff=0)
@@ -455,8 +474,7 @@ class QuickWhisper(tk.Tk):
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
-        self.help_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
-        self.help_menu.add_separator()
+    
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
         self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
         self.help_menu.add_command(label="Version", command=self.show_version)
@@ -464,90 +482,243 @@ class QuickWhisper(tk.Tk):
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
         shortcut_window = tk.Toplevel(self)
-        shortcut_window.title("Keyboard Shortcuts Status")
-        shortcut_window.geometry("400x350")
+        shortcut_window.title("Keyboard Shortcuts")
+        shortcut_window.geometry("500x400")
         
         # Center the window
-        window_width = 400
-        window_height = 350
+        window_width = 500
+        window_height = 400
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
-        # Create main frame with padding
         main_frame = ttk.Frame(shortcut_window, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Add title
         title_label = ttk.Label(
             main_frame, 
-            text="Keyboard Shortcuts Status", 
+            text="Keyboard Shortcuts", 
             font=("Arial", 12, "bold")
         )
         title_label.pack(pady=(0, 10))
 
-        # Show current shortcuts and their status
-        shortcuts_text = "Current Shortcuts:\n\n"
-        if self.is_mac:
-            shortcuts_text += "• Record + AI Edit: Cmd+J\n"
-            shortcuts_text += "• Record + Transcript: Cmd+Ctrl+J\n"
-            shortcuts_text += "• Cancel Recording: Cmd+X\n"
-            shortcuts_text += "• Cycle Prompts: Cmd+[, Cmd+]\n"
-        else:
-            shortcuts_text += "• Record + AI Edit: Win+J\n"
-            shortcuts_text += "• Record + Transcript: Win+Ctrl+J\n"
-            shortcuts_text += "• Cancel Recording: Win+X\n"
-            shortcuts_text += "• Cycle Prompts: Alt+Left, Alt+Right\n"
+        # Create frame for shortcuts
+        shortcuts_frame = ttk.Frame(main_frame)
+        shortcuts_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(main_frame, text=shortcuts_text, justify=tk.LEFT).pack(pady=10)
+        # Function to handle shortcut editing
+        def start_shortcut_edit(shortcut_name, button, label):
+            # Add check for valid button
+            if not button or not button.winfo_exists():
+                print("Warning: Button no longer exists")
+                return
+            
+            button.config(text="Press new shortcut...")
+            
+            # Track pressed keys and modifiers
+            pressed_keys = set()
+            currently_pressed = set()  # Track keys that are currently held down
+            last_state = 0  # Track the last event state
+            
+            def on_key_press(event):
+                nonlocal last_state
+                last_state = event.state
+                
+                # Convert key to lowercase
+                key = event.keysym.lower()
+                
+                # Debug print
+                print(f"Key press - key: {key}")
+                print(f"State bits: {format(event.state, '016b')}")
+                print(f"State value: {event.state}")
+                print(f"Currently pressed keys before: {currently_pressed}")
+                
+                # Map left/right modifier variants to their base form
+                modifier_map = {
+                    'control_l': 'ctrl', 'control_r': 'ctrl',
+                    'alt_l': 'alt', 'alt_r': 'alt',
+                    'shift_l': 'shift', 'shift_r': 'shift',
+                    'super_l': 'win', 'super_r': 'win',
+                    'win_l': 'win', 'win_r': 'win'
+                }
+                
+                # Add to currently pressed keys
+                if key in modifier_map:
+                    mod_key = modifier_map[key]
+                    currently_pressed.add(mod_key)
+                else:
+                    # Only add non-modifier keys if they're actual keys (not just state changes)
+                    if len(key) == 1 or key in ('left', 'right', 'up', 'down', 'space', 'tab', 'return', 
+                                               'backspace', 'delete', 'escape', 'home', 'end', 'pageup', 
+                                               'pagedown', 'insert', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6',
+                                               'f7', 'f8', 'f9', 'f10', 'f11', 'f12'):
+                        currently_pressed.add(key)
+                
+                # Update pressed_keys with all current keys
+                pressed_keys.clear()
+                pressed_keys.update(currently_pressed)
+                
+                # Add modifiers based on state
+                if event.state & 0x4:
+                    pressed_keys.add('ctrl')
+                if event.state & 0x1:
+                    pressed_keys.add('shift')
+                if event.state & 0x20000:
+                    pressed_keys.add('alt')
+                if event.state & 0x40000 or 'win' in currently_pressed:
+                    pressed_keys.add('win')
+                
+                print(f"Currently pressed keys after: {pressed_keys}")
+                
+                # Update button text to show current combination
+                current_combo = "+".join(sorted(pressed_keys))
+                button.config(text=f"Press: {current_combo}")
+                
+                return "break"
+            
+            def on_key_release(event):
+                nonlocal currently_pressed
+                key = event.keysym.lower()
+                
+                print(f"Key release - key: {key}")
+                print(f"Currently pressed before release: {currently_pressed}")
+                
+                # Remove released key from currently pressed set
+                if key in currently_pressed:
+                    currently_pressed.remove(key)
+                
+                # Handle modifier key releases
+                modifier_map = {
+                    'control_l': 'ctrl', 'control_r': 'ctrl',
+                    'alt_l': 'alt', 'alt_r': 'alt',
+                    'shift_l': 'shift', 'shift_r': 'shift',
+                    'super_l': 'win', 'super_r': 'win',
+                    'win_l': 'win', 'win_r': 'win'
+                }
+                if key in modifier_map:
+                    mod_key = modifier_map[key]
+                    if mod_key in currently_pressed:
+                        currently_pressed.remove(mod_key)
+                
+                print(f"Currently pressed after release: {currently_pressed}")
+                
+                # Only process the shortcut when all keys are released
+                if not currently_pressed and pressed_keys:
+                    try:
+                        # Create the shortcut string with consistent ordering
+                        new_shortcut = self.format_shortcut(pressed_keys)
+                        
+                        # Check if there's at least one modifier
+                        has_modifier = any(mod in pressed_keys for mod in ('ctrl', 'alt', 'shift', 'win', 'command'))
+                        
+                        # Validate the shortcut
+                        if not has_modifier:
+                            messagebox.showerror("Error", 
+                                "Please include at least one modifier key (Ctrl, Alt, Shift, or Win)")
+                            button.config(text="Edit")
+                            return
+                        
+                        # Check if this shortcut is already in use
+                        for name, shortcut in self.shortcuts.items():
+                            if shortcut == new_shortcut and name != shortcut_name:
+                                messagebox.showerror("Error", 
+                                    f"This shortcut is already assigned to '{name}'")
+                                button.config(text="Edit")
+                                return
+                        
+                        # Save to env and update runtime
+                        self.save_shortcut_to_env(shortcut_name, new_shortcut)
+                        
+                        # Refresh hotkeys with callback
+                        def on_refresh_complete(success):
+                            if success:
+                                # Update UI
+                                label.config(text=new_shortcut)
+                                button.config(text="Edit")
+                            else:
+                                messagebox.showerror("Error", 
+                                    "Failed to register new shortcut. Please try a different combination.")
+                                button.config(text="Edit")
+                        
+                        self.force_hotkey_refresh(callback=on_refresh_complete)
+                        
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Failed to update shortcut: {e}")
+                        button.config(text="Edit")
+                    
+                    finally:
+                        # Clear the sets
+                        pressed_keys.clear()
+                        currently_pressed.clear()
+            
+            # Remove any existing bindings first
+            shortcut_window.unbind('<KeyPress>')
+            shortcut_window.unbind('<KeyRelease>')
+            
+            # Bind both key press and release events
+            shortcut_window.bind('<KeyPress>', on_key_press)
+            shortcut_window.bind('<KeyRelease>', on_key_release)
 
-        # Add status information and refresh button
-        status_label = ttk.Label(
-            main_frame, 
-            text="Click refresh to re-register shortcuts",
-            font=("Arial", 10)
-        )
-        status_label.pack(pady=10)
+        # Add each shortcut with its edit button
+        row = 0
+        for name, shortcut in self.shortcuts.items():
+            # Create frame for this shortcut
+            frame = ttk.Frame(shortcuts_frame)
+            frame.pack(fill=tk.X, pady=5)
+            
+            # Add shortcut name
+            name_label = ttk.Label(frame, text=name.replace('_', ' ').title() + ":")
+            name_label.pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Add current shortcut
+            shortcut_label = ttk.Label(frame, text=shortcut)
+            shortcut_label.pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Add edit button
+            edit_button = ttk.Button(
+                frame, 
+                text="Edit"
+            )
+            edit_button.pack(side=tk.RIGHT)
+            
+            # Configure button command after creation to avoid stale references
+            edit_button.configure(command=lambda n=name, b=edit_button, l=shortcut_label: 
+                                 start_shortcut_edit(n, b, l))
+            
+            row += 1
 
-        def refresh_shortcuts():
-            try:
-                self.force_hotkey_refresh()
-                status_label.config(
-                    text="Attempting to refresh shortcuts...",
-                    foreground="orange"
-                )
-                # Check status after a short delay
-                shortcut_window.after(500, lambda: check_refresh_status(status_label))
-            except Exception as e:
-                status_label.config(
-                    text=f"Error refreshing shortcuts: {e}",
-                    foreground="red"
-                )
-
-        def check_refresh_status(label):
-            if self.hotkeys:
-                label.config(
-                    text="Shortcuts have been refreshed successfully",
-                    foreground="green"
-                )
-            else:
-                label.config(
-                    text="Failed to refresh shortcuts. Try closing and reopening the app.",
-                    foreground="red"
-                )
+        # Create a frame for the buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=20)
 
         # Add refresh button
         refresh_button = ctk.CTkButton(
-            main_frame,
+            button_frame,
             text="Refresh Shortcuts",
             corner_radius=20,
             height=35,
+            width=200,  # Set explicit width
             fg_color="#058705",
             hover_color="#046a38",
             font=("Arial", 13, "bold"),
-            command=refresh_shortcuts
+            command=self.force_hotkey_refresh
         )
-        refresh_button.pack(pady=10)
+        refresh_button.pack(side=tk.LEFT, padx=5)
+
+        # Add reset to defaults button
+        reset_button = ctk.CTkButton(
+            button_frame,
+            text="Reset to Defaults",
+            corner_radius=20,
+            height=35,
+            width=200,  # Set explicit width
+            fg_color="#666666",  # Grey color
+            hover_color="#444444",
+            font=("Arial", 13, "bold"),
+            command=self.reset_shortcuts_to_default
+        )
+        reset_button.pack(side=tk.LEFT, padx=5)
 
         # Add note about Windows lock
         note_text = ("Note: If shortcuts stop working after unlocking Windows,\n"
@@ -674,7 +845,6 @@ class QuickWhisper(tk.Tk):
 
     # Inside your class definition, replace stop_recording with the following:
     def stop_recording(self):
-
         self.recording = False
         self.record_thread.join()
 
@@ -683,13 +853,20 @@ class QuickWhisper(tk.Tk):
 
         print(f"Stopping, about to trigger '{self.current_button_mode}' mode...")
 
+        # Reset buttons to normal state with correct colors
+        self.record_button_transcribe.configure(
+            fg_color="#058705",
+            hover_color="#046a38"
+        )
+        self.record_button_edit.configure(
+            fg_color="#058705",
+            hover_color="#046a38"
+        )
 
-        self.record_button_transcribe.configure(text="Record + Transcript (Win+Ctrl+J)", fg_color="#058705", hover_color="#046a38")
-        self.record_button_edit.configure(text="Record + AI Edit (Win+J)", fg_color="#058705", hover_color="#046a38")
-
+        # Update the buttons with correct shortcuts
+        self.update_shortcut_displays()
 
         self.status_label.config(text="Status: Processing - Audio File...", foreground="green")
-
 
         # Play stop recording sound
         threading.Thread(target=lambda: self.play_sound("assets/pop-down.wav")).start()
@@ -1171,20 +1348,25 @@ class QuickWhisper(tk.Tk):
     def register_hotkeys(self):
         """Register all hotkeys and store them for monitoring."""
         try:
-            # Register hotkeys based on platform
-            if self.is_mac:
-                self.hotkeys.append(keyboard.add_hotkey('command+j', lambda: self.toggle_recording("edit")))
-                self.hotkeys.append(keyboard.add_hotkey('command+ctrl+j', lambda: self.toggle_recording("transcribe")))
-                self.hotkeys.append(keyboard.add_hotkey('command+x', self.cancel_recording))
-                self.hotkeys.append(keyboard.add_hotkey('command+[', self.cycle_prompt_backward))
-                self.hotkeys.append(keyboard.add_hotkey('command+]', self.cycle_prompt_forward))
-            else:
-                self.hotkeys.append(keyboard.add_hotkey('win+j', lambda: self.toggle_recording("edit")))
-                self.hotkeys.append(keyboard.add_hotkey('win+ctrl+j', lambda: self.toggle_recording("transcribe")))
-                self.hotkeys.append(keyboard.add_hotkey('win+x', self.cancel_recording))
-                # Use arrow keys instead of brackets
-                self.hotkeys.append(keyboard.add_hotkey('alt+left', self.cycle_prompt_backward))
-                self.hotkeys.append(keyboard.add_hotkey('alt+right', self.cycle_prompt_forward))
+            # Clear existing hotkeys first
+            for hotkey in self.hotkeys:
+                try:
+                    keyboard.remove_hotkey(hotkey)
+                except:
+                    pass
+            self.hotkeys.clear()
+
+            # Register new hotkeys using stored shortcuts
+            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_edit'], 
+                                                  lambda: self.toggle_recording("edit")))
+            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_transcribe'], 
+                                                  lambda: self.toggle_recording("transcribe")))
+            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cancel_recording'], 
+                                                  self.cancel_recording))
+            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_back'], 
+                                                  self.cycle_prompt_backward))
+            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_forward'], 
+                                                  self.cycle_prompt_forward))
             
             print(f"Registered {len(self.hotkeys)} hotkeys successfully")
             return True
@@ -1193,50 +1375,59 @@ class QuickWhisper(tk.Tk):
             return False
 
 
-    def force_hotkey_refresh(self):
+    def force_hotkey_refresh(self, callback=None):
         """Force a complete refresh of all hotkeys."""
         print("Forcing hotkey refresh")
+        print(f"Current hotkeys before refresh: {len(self.hotkeys)}")
         try:
             # Kill all keyboard hooks
+            print("Unhooking all keyboard hooks...")
             keyboard.unhook_all()
+            print("Successfully unhooked all keyboard hooks")
             
             # Clear our tracking
+            print("Clearing hotkey tracking list...")
             self.hotkeys.clear()
+            print("Hotkey tracking list cleared")
             
             # Try to reset the keyboard module's internal state
             try:
-                keyboard._recording = False  # Stop any active recordings
-                keyboard._pressed_events.clear()  # Clear pressed keys
-                keyboard._physically_pressed_keys.clear()  # Clear physical key states
-                keyboard._logically_pressed_keys.clear()  # Clear logical key states
-            except:
-                pass
+                print("Resetting keyboard module internal state...")
+                keyboard._recording = False
+                keyboard._pressed_events.clear()
+                keyboard._physically_pressed_keys.clear()
+                keyboard._logically_pressed_keys.clear()
+                print("Keyboard module internal state reset complete")
+            except Exception as inner_e:
+                print(f"Warning: Error while resetting keyboard state: {inner_e}")
             
-            # Small delay to ensure cleanup is complete
-            self.after(100, self._complete_hotkey_refresh)
+            # Schedule the complete refresh
+            def _after_refresh():
+                success = self.register_hotkeys()
+                if success and self.hotkeys:
+                    print(f"Hotkey refresh completed successfully with {len(self.hotkeys)} hotkeys")
+                    if callback:
+                        callback(True)
+                else:
+                    print("Failed to register hotkeys")
+                    if callback:
+                        callback(False)
+                    messagebox.showerror("Hotkey Error", 
+                        "Failed to re-register hotkeys. Try closing and reopening the application.")
+            
+            print("Scheduling complete refresh...")
+            self.after(100, _after_refresh)
+            return True
             
         except Exception as e:
             print(f"Error during hotkey refresh: {e}")
+            print(f"Error type: {type(e)}")
+            print(f"Error details: {str(e)}")
+            if callback:
+                callback(False)
             messagebox.showerror("Hotkey Error", 
                 "Failed to refresh hotkeys. Try closing and reopening the application.")
-
-    def _complete_hotkey_refresh(self):
-        """Complete the hotkey refresh after cleanup."""
-        try:
-            # Re-register all hotkeys
-            success = self.register_hotkeys()
-            
-            if not success or not self.hotkeys:
-                print("Failed to register hotkeys")
-                messagebox.showerror("Hotkey Error", 
-                    "Failed to re-register hotkeys. Try closing and reopening the application.")
-            else:
-                print(f"Hotkey refresh completed successfully with {len(self.hotkeys)} hotkeys")
-            
-        except Exception as e:
-            print(f"Error completing hotkey refresh: {e}")
-            messagebox.showerror("Hotkey Error", 
-                "Error re-registering hotkeys. Try closing and reopening the application.")
+            return False
 
     def verify_hotkeys(self):
         """Verify that hotkeys are working."""
@@ -1387,3 +1578,170 @@ class QuickWhisper(tk.Tk):
             self.was_minimized = False
             print("Window restored from minimized state - refreshing hotkeys")
             self.force_hotkey_refresh()
+
+    def save_shortcut_to_env(self, shortcut_name, key_combination):
+        """Save a keyboard shortcut to the .env file."""
+        # Format the key combination consistently before saving
+        formatted_combination = self.format_shortcut(key_combination.split('+'))
+        
+        config_dir = Path("config")
+        config_dir.mkdir(parents=True, exist_ok=True)
+        env_path = config_dir / ".env"
+
+        # Read existing settings
+        env_vars = {}
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            key, val = line.strip().split('=', 1)
+                            env_vars[key] = val
+                        except ValueError:
+                            continue
+
+        # Update shortcut
+        env_vars[f'SHORTCUT_{shortcut_name.upper()}'] = formatted_combination
+
+        # Write back all variables
+        with open(env_path, 'w') as f:
+            for key, val in env_vars.items():
+                f.write(f"{key}={val}\n")
+
+        # Update runtime shortcut with formatted combination
+        self.shortcuts[shortcut_name] = formatted_combination
+        
+        # Update UI elements displaying shortcuts
+        self.update_shortcut_displays()
+
+    def update_shortcut_displays(self):
+        """Update all UI elements that display keyboard shortcuts"""
+        # Update record buttons
+        self.record_button_edit.configure(
+            text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
+        )
+        self.record_button_transcribe.configure(
+            text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
+        )
+        
+        # Update menu items if they exist
+        try:
+            # Find the Play menu
+            for menu in self.menubar.winfo_children():
+                if menu.entrycget(0, 'label') == "Cancel Recording (Win+X)":
+                    menu.entryconfigure(0, 
+                        label=f"Cancel Recording ({self.shortcuts['cancel_recording']})"
+                    )
+        except:
+            pass
+
+    def reset_shortcuts_to_default(self):
+        """Reset all keyboard shortcuts to their default values."""
+        # Find the keyboard shortcuts window
+        for window in self.winfo_children():
+            if isinstance(window, tk.Toplevel) and window.title() == "Keyboard Shortcuts":
+                shortcuts_window = window
+                break
+        else:
+            shortcuts_window = self  # Fallback to main window if shortcuts window not found
+        
+        # Create custom confirmation dialog
+        confirm = tk.messagebox.askyesno(
+            "Reset Shortcuts",
+            "Are you sure you want to reset all keyboard shortcuts to their default values?",
+            parent=shortcuts_window
+        )
+        
+        if confirm:
+            try:
+                # Read existing .env file
+                config_dir = Path("config")
+                env_path = config_dir / ".env"
+                
+                if env_path.exists():
+                    # Read all env vars
+                    env_vars = {}
+                    with open(env_path, 'r') as f:
+                        for line in f:
+                            if line.strip():
+                                try:
+                                    key, val = line.strip().split('=', 1)
+                                    if not key.startswith('SHORTCUT_'):  # Keep non-shortcut settings
+                                        env_vars[key] = val
+                                except ValueError:
+                                    continue
+                
+                    # Write back without the shortcut settings
+                    with open(env_path, 'w') as f:
+                        for key, val in env_vars.items():
+                            f.write(f"{key}={val}\n")
+                
+                # Reset shortcuts in memory to defaults
+                self.shortcuts = {
+                    'record_edit': 'win+j' if not self.is_mac else 'command+j',
+                    'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
+                    'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
+                    'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
+                    'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
+                }
+                
+                # Update all shortcut labels in the dialog
+                for child in shortcuts_window.winfo_children():
+                    if isinstance(child, ttk.Frame):  # Main frame
+                        for frame_child in child.winfo_children():
+                            if isinstance(frame_child, ttk.Frame):  # Shortcuts frame
+                                for shortcut_frame in frame_child.winfo_children():
+                                    if isinstance(shortcut_frame, ttk.Frame):  # Individual shortcut frames
+                                        # Get the name label (first child)
+                                        name_label = [w for w in shortcut_frame.winfo_children() 
+                                                    if isinstance(w, ttk.Label)][0]
+                                        # Get the shortcut name from the label
+                                        shortcut_name = name_label.cget('text').replace(':', '').lower().replace(' ', '_')
+                                        
+                                        if shortcut_name in self.shortcuts:
+                                            # Get the shortcut label (second child)
+                                            shortcut_label = [w for w in shortcut_frame.winfo_children() 
+                                                            if isinstance(w, ttk.Label)][1]
+                                            # Update the label
+                                            shortcut_label.config(text=self.shortcuts[shortcut_name])
+                
+                # Refresh the hotkeys
+                def on_refresh_complete(success):
+                    if success:
+                        # Update main window UI
+                        self.update_shortcut_displays()
+                        tk.messagebox.showinfo(
+                            "Success", 
+                            "Shortcuts have been reset to defaults",
+                            parent=shortcuts_window
+                        )
+                    else:
+                        tk.messagebox.showerror(
+                            "Error", 
+                            "Failed to register default shortcuts. Try closing and reopening the application.",
+                            parent=shortcuts_window
+                        )
+                
+                self.force_hotkey_refresh(callback=on_refresh_complete)
+                
+            except Exception as e:
+                tk.messagebox.showerror(
+                    "Error", 
+                    f"Failed to reset shortcuts: {e}",
+                    parent=shortcuts_window
+                )
+
+    def format_shortcut(self, keys):
+        """Format a set of keys into a shortcut string with consistent ordering."""
+        # Define modifier order
+        modifier_order = ['ctrl', 'alt', 'shift', 'win', 'command']
+        
+        # Split into modifiers and regular keys
+        modifiers = [k for k in keys if k in modifier_order]
+        regular_keys = [k for k in keys if k not in modifier_order]
+        
+        # Sort modifiers according to our preferred order
+        sorted_modifiers = sorted(modifiers, key=lambda x: modifier_order.index(x))
+        
+        # Combine modifiers and regular keys (regular keys in alphabetical order)
+        return "+".join(sorted_modifiers + sorted(regular_keys))
