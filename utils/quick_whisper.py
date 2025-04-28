@@ -62,7 +62,8 @@ class QuickWhisper(tk.Tk):
         self.banner_visible = True
 
         # Initial model settings
-        self.transcription_model = "whisper-1"
+        self.transcription_model = "gpt-4o-transcribe"
+        self.transcription_model_type = "gpt"  # Can be "gpt" or "whisper"
         self.ai_model = "gpt-4o"
         self.whisper_language = "auto"
 
@@ -146,8 +147,23 @@ class QuickWhisper(tk.Tk):
 
         # Overwrite transcription model if set
         transcription_model = os.getenv("TRANSCRIPTION_MODEL")
-        if transcription_model:
+        if transcription_model and transcription_model.strip():
             self.transcription_model = transcription_model
+            print(f"Loaded transcription model from env: '{transcription_model}'")
+        else:
+            print(f"Using default transcription model: '{self.transcription_model}'")
+
+        # Overwrite transcription model type if set
+        transcription_model_type = os.getenv("TRANSCRIPTION_MODEL_TYPE")
+        if transcription_model_type and transcription_model_type.strip():
+            self.transcription_model_type = transcription_model_type
+            print(f"Loaded model type from env: '{transcription_model_type}'")
+        elif "gpt" in self.transcription_model.lower():
+            self.transcription_model_type = "gpt"
+            print(f"Determined model type from name: '{self.transcription_model_type}'")
+        else:
+            self.transcription_model_type = "whisper"
+            print(f"Set default model type: '{self.transcription_model_type}'")
 
         # Overwrite AI model if set
         ai_model = os.getenv("AI_MODEL")
@@ -911,20 +927,48 @@ class QuickWhisper(tk.Tk):
         file_path = self.audio_file
 
         try:
-
             self.status_label.config(text="Status: Processing - Transcript...", foreground="green")
 
             with open(str(file_path), "rb") as audio_file:
-                # Use OpenAI's transcription API with language setting
-                transcription = self.client.audio.transcriptions.create(
-                    file=audio_file,
-                    model=self.transcription_model,
-                    language=None if self.whisper_language == "auto" else self.whisper_language,
-                    response_format="verbose_json"
-                )
 
-            # Retrieve the transcription text correctly
-            transcription_text = transcription.get("text", "") if isinstance(transcription, dict) else transcription.text
+                print(f"Transcription Mode: '{self.transcription_model}' | Type: '{self.transcription_model_type}'")
+                
+                # Different API call based on model type
+                if not self.transcription_model or not self.transcription_model.strip():
+                    messagebox.showerror("Configuration Error", 
+                                        "Transcription model name is empty. Please check your settings.")
+                    raise ValueError("Empty transcription model name")
+                
+                if self.transcription_model_type == "gpt":
+                    # GPT-4o speech-to-text API
+                    print(f"Using GPT API with model: {self.transcription_model}")
+                    try:
+                        transcription = self.client.audio.transcriptions.create(
+                            file=audio_file,
+                            model=self.transcription_model,
+                            language=None if self.whisper_language == "auto" else self.whisper_language,
+                            response_format="text"
+                        )
+                        transcription_text = transcription
+                    except Exception as e:
+                        print(f"Error with GPT transcription: {e}")
+                        raise
+                else:
+                    # Traditional Whisper API
+                    print(f"Using Whisper API with model: {self.transcription_model}")
+                    try:
+                        transcription = self.client.audio.transcriptions.create(
+                            file=audio_file,
+                            model=self.transcription_model,
+                            language=None if self.whisper_language == "auto" else self.whisper_language,
+                            response_format="verbose_json"
+                        )
+                        # Retrieve the transcription text correctly
+                        transcription_text = transcription.get("text", "") if isinstance(transcription, dict) else transcription.text
+                    except Exception as e:
+                        print(f"Error with Whisper transcription: {e}")
+                        raise
+
             self.add_to_history(transcription_text)
             self.last_trancription = transcription_text
 
@@ -1255,8 +1299,9 @@ class QuickWhisper(tk.Tk):
     def update_model_label(self):
         """Update the model label to include the prompt name and language setting."""
         language_display = "Auto Detect" if self.whisper_language == "auto" else self.whisper_language.upper()
+        model_type_display = "GPT" if self.transcription_model_type == "gpt" else "Whisper"
         self.model_label.config(
-            text=f"{self.transcription_model} ({language_display}), {self.ai_model}, {self.current_prompt_name}"
+            text=f"{self.transcription_model} ({model_type_display}, {language_display}), {self.ai_model}, {self.current_prompt_name}"
         )
 
     def load_prompts(self):
@@ -1358,15 +1403,15 @@ class QuickWhisper(tk.Tk):
 
             # Register new hotkeys using stored shortcuts
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_edit'], 
-                                                  lambda: self.toggle_recording("edit")))
+                                                  lambda: self.toggle_recording("edit"), suppress=True))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_transcribe'], 
-                                                  lambda: self.toggle_recording("transcribe")))
+                                                  lambda: self.toggle_recording("transcribe"), suppress=True))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cancel_recording'], 
-                                                  self.cancel_recording))
+                                                  self.cancel_recording, suppress=True))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_back'], 
-                                                  self.cycle_prompt_backward))
+                                                  self.cycle_prompt_backward, suppress=True))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_forward'], 
-                                                  self.cycle_prompt_forward))
+                                                  self.cycle_prompt_forward, suppress=True))
             
             print(f"Registered {len(self.hotkeys)} hotkeys successfully")
             return True

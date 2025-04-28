@@ -74,6 +74,12 @@ class AdjustModelsDialog:
             "vi": "Vietnamese",
             "cy": "Welsh"
         }
+        # Define transcription models and their types for internal processing
+        self.transcription_models = {
+            "gpt-4o-transcribe": "gpt",
+            "whisper-1": "whisper",
+            "other": "unknown"
+        }
 
         self.create_dialog()
 
@@ -133,13 +139,49 @@ class AdjustModelsDialog:
         models_frame = ttk.LabelFrame(main_frame, text="AI Model Settings", padding="5")
         models_frame.pack(fill="x", pady=(0, 10))
 
-        # Transcription Model Entry
-        tk.Label(models_frame, text="OpenAI Transcription Model:").pack(anchor="w", pady=(5, 0))
-        self.transcription_entry = tk.Entry(models_frame)
-        self.transcription_entry.insert(0, self.parent.transcription_model)
-        self.transcription_entry.pack(fill="x")
-        tk.Label(models_frame, text="e.g., whisper-1", 
-                font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w")
+        # Transcription Model Selection
+        tk.Label(models_frame, text="Speech-to-Text Model:").pack(anchor="w", pady=(5, 0))
+        
+        # Variables for model selection
+        self.transcription_model_var = tk.StringVar()
+        self.custom_model_var = tk.StringVar()
+        
+        # Function to handle model selection change
+        def on_model_change(*args):
+            selected = self.transcription_model_var.get()
+            if selected == "other":
+                self.custom_model_entry.pack(fill="x", pady=(5, 0))
+                self.custom_model_entry.focus()
+            else:
+                self.custom_model_entry.pack_forget()
+        
+        # Set up model dropdown
+        self.transcription_model_combo = ttk.Combobox(models_frame, 
+                                                    textvariable=self.transcription_model_var,
+                                                    values=list(self.transcription_models.keys()) + ["other"],
+                                                    state="readonly")
+        self.transcription_model_combo.pack(fill="x")
+        
+        # Custom model entry (initially hidden)
+        self.custom_model_entry = tk.Entry(models_frame, textvariable=self.custom_model_var)
+        
+        # Set initial values based on current model
+        current_model = self.parent.transcription_model
+        if current_model in self.transcription_models:
+            self.transcription_model_var.set(current_model)
+        else:
+            self.transcription_model_var.set("other")
+            self.custom_model_var.set(current_model)
+            self.custom_model_entry.pack(fill="x", pady=(5, 0))
+        
+        # Bind the change event
+        self.transcription_model_var.trace("w", on_model_change)
+        
+        # Model type info
+        model_type_text = ("Note: GPT-4o is the higher quality model and supports many languages.\n"
+                           "Whisper is the traditional speech recognition model.")
+        ttk.Label(models_frame, text=model_type_text, 
+                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(5, 10))
 
         # AI Model Entry
         tk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(10, 0))
@@ -172,14 +214,13 @@ class AdjustModelsDialog:
         instructional_text = ("How to use language settings:\n\n"
                             "• Auto Detect: Whisper will automatically detect the spoken language\n"
                             "• Specific Language: Select a language to optimize transcription accuracy\n\n"
-                            "How to find and set model names:\n\n"
-                            "Ensure you input model names exactly as they appear in the OpenAI documentation, "
-                            "considering they are case-sensitive. Incorrect model names may cause the application to "
-                            "malfunction due to an inability to perform relevant functions. As of this implementation, "
-                            "gpt-4o is the more capable model but is more expensive. gpt-4o-mini offers a cost-effective "
-                            "alternative (upto 20x cheaper) with less comprehensive world knowledge yet remains suitable "
-                            "for copyediting tasks. This information will help you optimise performance and cost. We've "
-                            "added the ability to change models to future proof the app and give users more control.")
+                            "How to select transcription models:\n\n"
+                            "• GPT-4o-transcribe: Highest quality transcription with broad language support\n"
+                            "• Whisper-1: Traditional speech recognition model\n"
+                            "• Other: Custom model name (advanced usage)\n\n"
+                            "For copyediting models, ensure you input model names exactly as they appear "
+                            "in the OpenAI documentation. gpt-4o offers the best quality while gpt-4o-mini "
+                            "is more cost-effective (up to 20x cheaper) and still suitable for most copyediting tasks.")
         
         ttk.Label(
             main_frame, 
@@ -203,18 +244,43 @@ class AdjustModelsDialog:
         selected_language = self.language_combo.get()
         language_code = selected_language.split('(')[-1].strip(')')
 
+        # Get the selected transcription model
+        if self.transcription_model_var.get() == "other":
+            transcription_model = self.custom_model_var.get().strip()
+            if not transcription_model:
+                messagebox.showerror("Error", "Custom model name cannot be empty")
+                return
+            model_type = "unknown"
+        else:
+            transcription_model = self.transcription_model_var.get()
+            model_type = self.transcription_models[transcription_model]
+            
+        print(f"Saving model: '{transcription_model}' | Type: '{model_type}'")
+            
         # Update values in the dictionary
-        env_vars["TRANSCRIPTION_MODEL"] = self.transcription_entry.get()
+        env_vars["TRANSCRIPTION_MODEL"] = transcription_model
+        env_vars["TRANSCRIPTION_MODEL_TYPE"] = model_type
         env_vars["AI_MODEL"] = self.ai_entry.get()
         env_vars["WHISPER_LANGUAGE"] = language_code
 
         # Write each environment variable to the .env file
-        with open(env_path, 'w') as f:
-            for key, value in env_vars.items():
-                f.write(f"{key}={value}\n")
+        try:
+            print(f"Writing to .env file at {env_path}")
+            with open(env_path, 'w') as f:
+                for key, value in env_vars.items():
+                    if value is None or value.strip() == "":
+                        print(f"Warning: Empty value for key {key}, using default")
+                        continue
+                    f.write(f"{key}={value}\n")
+                    print(f"Wrote: {key}={value}")
+            print("Successfully updated .env file")
+        except Exception as e:
+            print(f"Error writing .env file: {e}")
+            messagebox.showerror("File Error", f"Could not save settings: {e}")
 
         # Update parent instance variables
-        self.parent.transcription_model = self.transcription_entry.get()
+        self.parent.transcription_model = transcription_model
+        self.parent.transcription_model_type = model_type
         self.parent.ai_model = self.ai_entry.get()
         self.parent.whisper_language = language_code
         
