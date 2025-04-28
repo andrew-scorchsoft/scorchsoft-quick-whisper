@@ -119,11 +119,71 @@ class HotkeyManager:
             return False
     
     def verify_hotkeys(self):
-        """Verify that hotkeys are working."""
+        """Verify that hotkeys are working correctly."""
         try:
-            # Simple check if hotkeys are registered
-            return len(self.hotkeys) > 0
-        except:
+            # First check if we have any hotkeys registered
+            if len(self.hotkeys) == 0:
+                print("No hotkeys registered")
+                return False
+            
+            # Check the OS-level hook state
+            try:
+                # For Windows platform, check if the keyboard hooks are still registered
+                if platform.system() == 'Windows':
+                    # Check if the keyboard module's hooks are still active
+                    if not hasattr(keyboard, '_hooks') or not keyboard._hooks:
+                        print("Keyboard hooks not active - all hooks are missing")
+                        return False
+                    
+                    # Check if we still have our hotkey handlers in _hotkeys
+                    if not hasattr(keyboard, '_hotkeys') or not keyboard._hotkeys:
+                        print("No hotkeys registered in keyboard module")
+                        return False
+                    
+                    # Try to check if specific shortcuts are registered
+                    # Look for any of our shortcut combinations in the hotkeys dictionary
+                    hotkey_keys = keyboard._hotkeys.keys()
+                    our_shortcut_found = False
+                    
+                    for shortcut in self.shortcuts.values():
+                        # Normalize the shortcut format to match how keyboard module formats it
+                        # Convert "win+j" to something like "windows+j"
+                        normalized = shortcut.replace('win+', 'windows+').replace('command+', 'command+')
+                        
+                        # Check if any keys in _hotkeys correspond to our shortcuts
+                        for hk_key in hotkey_keys:
+                            # Simple substring check since we don't know exact format
+                            if any(part in hk_key for part in normalized.split('+')):
+                                our_shortcut_found = True
+                                break
+                        
+                        if our_shortcut_found:
+                            break
+                    
+                    if not our_shortcut_found:
+                        print("None of our specific shortcuts found in keyboard bindings")
+                        return False
+                    
+                    # Check keyboard listener thread state if we can safely access it
+                    try:
+                        if hasattr(keyboard, '_listener') and keyboard._listener and hasattr(keyboard._listener, '_thread'):
+                            thread = keyboard._listener._thread
+                            if not thread or not thread.is_alive():
+                                print("Keyboard listener thread not alive")
+                                return False
+                    except Exception as thread_e:
+                        print(f"Error checking keyboard thread: {thread_e}")
+                        # Continue even if this check fails
+            
+            except Exception as e:
+                print(f"Error in OS-specific hotkey checks: {e}")
+                return False
+            
+            # All checks passed
+            print("Hotkey verification passed - hotkeys are working correctly")
+            return True
+        except Exception as e:
+            print(f"Error verifying hotkeys: {e}")
             return False
     
     def save_shortcut_to_env(self, shortcut_name, key_combination):

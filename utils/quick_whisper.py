@@ -18,9 +18,10 @@ from dotenv import load_dotenv, dotenv_values, set_key
 from pathlib import Path
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
-from pystray import Icon as icon, MenuItem as item, Menu as menu
 import platform
 import time
+import ctypes
+from ctypes import wintypes
 
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
@@ -30,13 +31,15 @@ from utils.audio_manager import AudioManager
 from utils.tts_manager import TTSManager
 from utils.ui_manager import UIManager
 from utils.version_update_manager import VersionUpdateManager
+from utils.system_event_listener import SystemEventListener
+from utils.tray_manager import TrayManager
 
 
 class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.version = "1.9.0"
+        self.version = "1.9.1"
         
         self.is_mac = platform.system() == 'Darwin'
 
@@ -73,6 +76,9 @@ class QuickWhisper(tk.Tk):
         self.last_trancription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
 
+        # Initialize auto hotkey refresh setting (default to True)
+        self.auto_hotkey_refresh = tk.BooleanVar(value=True)
+
         self.load_env_file()
         self.api_key = self.get_api_key()
         if not self.api_key:
@@ -99,6 +105,11 @@ class QuickWhisper(tk.Tk):
         self.tts_manager = TTSManager(self)
         self.ui_manager = UIManager(self)
         self.version_manager = VersionUpdateManager(self)
+        self.system_event_listener = SystemEventListener(self)
+        self.tray_manager = TrayManager(self)
+        
+        # Setup hotkey health checker
+        self.setup_hotkey_health_checker()
         
         # Register hotkeys
         self.hotkey_manager.register_hotkeys()
@@ -134,6 +145,9 @@ class QuickWhisper(tk.Tk):
         self.bind('<Map>', self._handle_restore)
         self.was_minimized = False
         
+        # Initialize system tray
+        self.setup_system_tray()
+        
         # Check for updates in a separate thread
         self.version_manager.start_check()
 
@@ -146,6 +160,10 @@ class QuickWhisper(tk.Tk):
 
         # Check the HIDE_BANNER setting and set initial visibility
         self.hide_banner_on_load = os.getenv("HIDE_BANNER", "false").lower() == "true"
+
+        # Load auto hotkey refresh setting
+        auto_refresh = os.getenv("AUTO_HOTKEY_REFRESH", "true").lower()
+        self.auto_hotkey_refresh.set(auto_refresh == "true")
 
         # Overwrite transcription model if set
         transcription_model = os.getenv("TRANSCRIPTION_MODEL")
@@ -306,6 +324,9 @@ class QuickWhisper(tk.Tk):
         file_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Save Session History", command=self.save_session_history)
+        file_menu.add_separator()
+        file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
+        file_menu.add_command(label="Exit", command=self.on_closing)
 
         # Settings menu
         settings_menu = Menu(self.menubar, tearoff=0)
@@ -317,8 +338,12 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_checkbutton(label="Automatically Check for Updates", 
                                     variable=self.version_manager.auto_update_check, 
                                     command=self.version_manager.save_auto_update_setting)
+        settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
+                                    variable=self.auto_hotkey_refresh, 
+                                    command=self.save_auto_hotkey_refresh)
         settings_menu.add_separator()
         settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
+        settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
 
         # Actions Menu (combining Play and Copy menus)
         actions_menu = Menu(self.menubar, tearoff=0)
@@ -391,7 +416,15 @@ class QuickWhisper(tk.Tk):
             # transcript or edit mode was selected
             self.current_button_mode = mode
             print(f"\nAbout to start recording. mode = {mode}")
-            self.start_recording()
+            
+            # Quick verification of hotkey state before recording
+            # This helps ensure we can actually stop the recording with hotkeys
+            if not self.hotkey_manager.verify_hotkeys():
+                print("WARNING: Hotkeys not functioning correctly. Refreshing before recording...")
+                self.hotkey_manager.force_hotkey_refresh(callback=lambda success: 
+                                                        self.start_recording() if success else None)
+            else:
+                self.start_recording()
         else:
             print(f"About to stop recording. mode = {self.current_button_mode}")
             self.stop_recording()
@@ -592,6 +625,14 @@ class QuickWhisper(tk.Tk):
 
     def on_closing(self):
         """Clean up resources before closing."""
+        # Stop the system tray icon
+        if hasattr(self, 'tray_manager'):
+            self.tray_manager.stop_tray()
+            
+        # Stop the system event listener
+        if hasattr(self, 'system_event_listener'):
+            self.system_event_listener.stop_listening()
+            
         # Clean up TTS
         self.tts_manager.cleanup()
         
@@ -887,3 +928,66 @@ class QuickWhisper(tk.Tk):
     def cycle_prompt_notification(self, prompt_name):
         """Show a temporary notification about the prompt change."""
         self.show_prompt_notification(f"Prompt: {prompt_name}")
+
+    def setup_hotkey_health_checker(self):
+        """Set up a periodic check of hotkey health"""
+        # Check hotkeys every 30 seconds
+        self.hotkey_check_interval = 30000  # 30 seconds in milliseconds
+        
+        def check_hotkey_health():
+            # Only run the check if auto hotkey refresh is enabled
+            if self.auto_hotkey_refresh.get():
+                # Check if any hotkeys are registered
+                if not self.hotkey_manager.verify_hotkeys():
+                    print("Hotkey health check failed - refreshing hotkeys")
+                    self.hotkey_manager.force_hotkey_refresh()
+                else:
+                    print("Hotkey health check passed")
+            else:
+                print("Hotkey health check skipped - auto refresh disabled")
+                
+            # Always schedule next check, even if disabled (in case user enables it later)
+            self.after(self.hotkey_check_interval, check_hotkey_health)
+        
+        # Start the periodic check
+        self.after(self.hotkey_check_interval, check_hotkey_health)
+
+    def save_auto_hotkey_refresh(self):
+        """Save the auto hotkey refresh setting to the .env file"""
+        config_dir = Path("config")
+        config_dir.mkdir(parents=True, exist_ok=True)
+        env_path = config_dir / ".env"
+
+        # Read existing settings to preserve them
+        env_vars = {}
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            key, val = line.strip().split('=', 1)
+                            env_vars[key] = val
+                        except ValueError:
+                            continue
+
+        # Update or add the setting
+        env_vars["AUTO_HOTKEY_REFRESH"] = str(self.auto_hotkey_refresh.get()).lower()
+
+        # Write back all variables
+        with open(env_path, 'w') as f:
+            for key, val in env_vars.items():
+                f.write(f"{key}={val}\n")
+                
+        print(f"Auto hotkey refresh setting saved: {self.auto_hotkey_refresh.get()}")
+
+    def setup_system_tray(self):
+        """Initialize and show the system tray icon"""
+        # Start the tray icon
+        self.tray_manager.show_tray()
+        
+        # Set up close button behavior to minimize to tray instead of exit
+        self.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
+    
+    def minimize_to_tray(self):
+        """Minimize the application to system tray instead of closing"""
+        self.tray_manager.minimize_to_tray()
