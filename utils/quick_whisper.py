@@ -29,6 +29,7 @@ from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
 from utils.tts_manager import TTSManager
 from utils.ui_manager import UIManager
+from utils.version_update_manager import VersionUpdateManager
 
 
 class QuickWhisper(tk.Tk):
@@ -36,7 +37,7 @@ class QuickWhisper(tk.Tk):
         super().__init__()
 
         self.version = "1.9.0"
-
+        
         self.is_mac = platform.system() == 'Darwin'
 
         self.title(f"Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) - v{self.version}")
@@ -97,6 +98,7 @@ class QuickWhisper(tk.Tk):
         self.audio_manager = AudioManager(self)
         self.tts_manager = TTSManager(self)
         self.ui_manager = UIManager(self)
+        self.version_manager = VersionUpdateManager(self)
         
         # Register hotkeys
         self.hotkey_manager.register_hotkeys()
@@ -131,6 +133,9 @@ class QuickWhisper(tk.Tk):
         self.bind('<Unmap>', self._handle_minimize)
         self.bind('<Map>', self._handle_restore)
         self.was_minimized = False
+        
+        # Check for updates in a separate thread
+        self.version_manager.start_check()
 
     # Load environment variables from config/.env
     def load_env_file(self):
@@ -184,9 +189,9 @@ class QuickWhisper(tk.Tk):
         # Schedule UI update and hotkey registration after main window is initialized
         def after_init():
             # Update UI with loaded shortcuts
-            self.update_shortcut_displays()
+            self.hotkey_manager.update_shortcut_displays()
             # Register the loaded shortcuts
-            self.force_hotkey_refresh()
+            self.hotkey_manager.force_hotkey_refresh()
 
         # Delay slightly to ensure UI is ready
         self.after(100, after_init)
@@ -309,6 +314,10 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
         settings_menu.add_separator()
+        settings_menu.add_checkbutton(label="Automatically Check for Updates", 
+                                    variable=self.version_manager.auto_update_check, 
+                                    command=self.version_manager.save_auto_update_setting)
+        settings_menu.add_separator()
         settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
 
         # Actions Menu (combining Play and Copy menus)
@@ -366,7 +375,8 @@ class QuickWhisper(tk.Tk):
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
-    
+        
+        self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
         self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
         self.help_menu.add_command(label="Version", command=self.show_version)
@@ -873,3 +883,7 @@ class QuickWhisper(tk.Tk):
         
         # Show notification and trigger text-to-speech
         self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+
+    def cycle_prompt_notification(self, prompt_name):
+        """Show a temporary notification about the prompt change."""
+        self.show_prompt_notification(f"Prompt: {prompt_name}")
