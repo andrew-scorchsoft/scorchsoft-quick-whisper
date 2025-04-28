@@ -35,9 +35,11 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        self.version = "1.9.0"
+
         self.is_mac = platform.system() == 'Darwin'
 
-        self.title("Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)")
+        self.title(f"Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) - v{self.version}")
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
@@ -61,16 +63,12 @@ class QuickWhisper(tk.Tk):
         # Set window geometry
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
-        
-        self.version = "1.8.0"
         self.banner_visible = True
-
         # Initial model settings
         self.transcription_model = "gpt-4o-transcribe"
         self.transcription_model_type = "gpt"  # Can be "gpt" or "whisper"
         self.ai_model = "gpt-4o"
         self.whisper_language = "auto"
-
         self.last_trancription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
 
@@ -83,7 +81,6 @@ class QuickWhisper(tk.Tk):
 
         openai.api_key = self.api_key
         self.client = OpenAI(api_key=self.api_key)
-
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
@@ -93,10 +90,8 @@ class QuickWhisper(tk.Tk):
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
-
         # Define helper method for environment variables before initializing managers
         self._env_get = lambda key, default=None: os.getenv(key, default)
-
         # Initialize the managers
         self.hotkey_manager = HotkeyManager(self)
         self.audio_manager = AudioManager(self)
@@ -307,7 +302,7 @@ class QuickWhisper(tk.Tk):
         self.menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Save Session History", command=self.save_session_history)
 
-        # File or settings menu
+        # Settings menu
         settings_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Settings", menu=settings_menu)
         settings_menu.add_command(label="Change API Key", command=self.change_api_key)
@@ -316,17 +311,57 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_separator()
         settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
 
-        # Play Menu
-        play_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Play", menu=play_menu)
-        play_menu.add_command(label="Retry Last Recording", command=self.retry_last_recording)
-        play_menu.add_command(label=f"Cancel Recording ({self.shortcuts['cancel_recording']})", command=self.cancel_recording)
-
-        #Copy Menu
-        copy_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Copy", menu=copy_menu)
-        copy_menu.add_command(label="Last Transcript", command=self.copy_last_transcription)
-        copy_menu.add_command(label="Last Edit", command=self.copy_last_edit)
+        # Actions Menu (combining Play and Copy menus)
+        actions_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Actions", menu=actions_menu)
+        
+        # Recording actions group
+        actions_menu.add_command(
+            label="Record & Edit", 
+            command=lambda: self.toggle_recording("edit"),
+            accelerator=self.shortcuts['record_edit']
+        )
+        actions_menu.add_command(
+            label="Record & Transcribe", 
+            command=lambda: self.toggle_recording("transcribe"),
+            accelerator=self.shortcuts['record_transcribe']
+        )
+        actions_menu.add_command(
+            label="Cancel Recording", 
+            command=self.cancel_recording,
+            accelerator=self.shortcuts['cancel_recording']
+        )
+        actions_menu.add_separator()
+        
+        # Retry and copy actions group
+        actions_menu.add_command(
+            label="Retry Last Recording", 
+            command=self.retry_last_recording
+        )
+        actions_menu.add_separator()
+        
+        # Copy actions group
+        actions_menu.add_command(
+            label="Copy Last Transcript", 
+            command=self.copy_last_transcription
+        )
+        actions_menu.add_command(
+            label="Copy Last Edit", 
+            command=self.copy_last_edit
+        )
+        actions_menu.add_separator()
+        
+        # Prompt navigation group
+        actions_menu.add_command(
+            label="Previous Prompt", 
+            command=self.cycle_prompt_backward,
+            accelerator=self.shortcuts['cycle_prompt_back']
+        )
+        actions_menu.add_command(
+            label="Next Prompt", 
+            command=self.cycle_prompt_forward,
+            accelerator=self.shortcuts['cycle_prompt_forward']
+        )
 
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
