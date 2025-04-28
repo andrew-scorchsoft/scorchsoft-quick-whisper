@@ -25,6 +25,9 @@ import time
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
 from utils.manage_prompts_dialog import ManagePromptsDialog
+from utils.hotkey_manager import HotkeyManager
+from utils.audio_manager import AudioManager
+from utils.tts_manager import TTSManager
 
 
 class QuickWhisper(tk.Tk):
@@ -80,7 +83,6 @@ class QuickWhisper(tk.Tk):
         openai.api_key = self.api_key
         self.client = OpenAI(api_key=self.api_key)
 
-        self.audio = pyaudio.PyAudio()
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
@@ -90,13 +92,14 @@ class QuickWhisper(tk.Tk):
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
-        self.record_thread = None
-        self.recording = False
-        self.frames = []
 
-        # Add hotkey tracking variables
-        self.hotkeys = []
-        self.register_hotkeys()
+        # Initialize the managers
+        self.hotkey_manager = HotkeyManager(self)
+        self.audio_manager = AudioManager(self)
+        self.tts_manager = TTSManager(self)
+        
+        # Register hotkeys
+        self.hotkey_manager.register_hotkeys()
         
 
         self.create_menu()
@@ -122,13 +125,6 @@ class QuickWhisper(tk.Tk):
 
         # After loading the prompt from env, update the model label
         self.update_model_label()
-
-        # Add TTS engine, lock, and current speech thread tracking
-        self.tts_engine = None
-        self.tts_lock = threading.Lock()
-        self.current_speech_thread = None
-        self.speech_should_stop = threading.Event()
-        self.init_tts_engine()
 
         # Add binding for window state changes
         self.bind('<Unmap>', self._handle_minimize)
@@ -304,7 +300,7 @@ class QuickWhisper(tk.Tk):
 
         # Input Device Selection
         ttk.Label(main_frame, text="Input Device (mic):").grid(row=row, column=0, sticky="ew", pady=(0,10))
-        devices = self.get_input_devices()
+        devices = self.audio_manager.get_input_devices()
         if not devices:
             messagebox.showerror("No Input Devices", "No input audio devices found.")
             self.destroy()
@@ -312,7 +308,6 @@ class QuickWhisper(tk.Tk):
         self.selected_device.set(list(devices.keys())[0])  # Default selection
 
         device_menu = ttk.OptionMenu(main_frame, self.selected_device, self.selected_device.get(), *devices.keys())
-        #device_menu.config(width=20)  # Set a fixed width for consistency
         device_menu.grid(row=row, column=1, sticky="ew", pady=(0,10))
 
         row +=1
@@ -497,265 +492,7 @@ class QuickWhisper(tk.Tk):
 
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
-        shortcut_window = tk.Toplevel(self)
-        shortcut_window.title("Keyboard Shortcuts")
-        shortcut_window.geometry("500x400")
-        
-        # Center the window
-        window_width = 500
-        window_height = 400
-        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
-        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
-        shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
-
-        main_frame = ttk.Frame(shortcut_window, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Add title
-        title_label = ttk.Label(
-            main_frame, 
-            text="Keyboard Shortcuts", 
-            font=("Arial", 12, "bold")
-        )
-        title_label.pack(pady=(0, 10))
-
-        # Create frame for shortcuts
-        shortcuts_frame = ttk.Frame(main_frame)
-        shortcuts_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Function to handle shortcut editing
-        def start_shortcut_edit(shortcut_name, button, label):
-            # Add check for valid button
-            if not button or not button.winfo_exists():
-                print("Warning: Button no longer exists")
-                return
-            
-            button.config(text="Press new shortcut...")
-            
-            # Track pressed keys and modifiers
-            pressed_keys = set()
-            currently_pressed = set()  # Track keys that are currently held down
-            last_state = 0  # Track the last event state
-            
-            def on_key_press(event):
-                nonlocal last_state
-                last_state = event.state
-                
-                # Convert key to lowercase
-                key = event.keysym.lower()
-                
-                # Debug print
-                print(f"Key press - key: {key}")
-                print(f"State bits: {format(event.state, '016b')}")
-                print(f"State value: {event.state}")
-                print(f"Currently pressed keys before: {currently_pressed}")
-                
-                # Map left/right modifier variants to their base form
-                modifier_map = {
-                    'control_l': 'ctrl', 'control_r': 'ctrl',
-                    'alt_l': 'alt', 'alt_r': 'alt',
-                    'shift_l': 'shift', 'shift_r': 'shift',
-                    'super_l': 'win', 'super_r': 'win',
-                    'win_l': 'win', 'win_r': 'win'
-                }
-                
-                # Add to currently pressed keys
-                if key in modifier_map:
-                    mod_key = modifier_map[key]
-                    currently_pressed.add(mod_key)
-                else:
-                    # Only add non-modifier keys if they're actual keys (not just state changes)
-                    if len(key) == 1 or key in ('left', 'right', 'up', 'down', 'space', 'tab', 'return', 
-                                               'backspace', 'delete', 'escape', 'home', 'end', 'pageup', 
-                                               'pagedown', 'insert', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6',
-                                               'f7', 'f8', 'f9', 'f10', 'f11', 'f12'):
-                        currently_pressed.add(key)
-                
-                # Update pressed_keys with all current keys
-                pressed_keys.clear()
-                pressed_keys.update(currently_pressed)
-                
-                # Add modifiers based on state
-                if event.state & 0x4:
-                    pressed_keys.add('ctrl')
-                if event.state & 0x1:
-                    pressed_keys.add('shift')
-                if event.state & 0x20000:
-                    pressed_keys.add('alt')
-                if event.state & 0x40000 or 'win' in currently_pressed:
-                    pressed_keys.add('win')
-                
-                print(f"Currently pressed keys after: {pressed_keys}")
-                
-                # Update button text to show current combination
-                current_combo = "+".join(sorted(pressed_keys))
-                button.config(text=f"Press: {current_combo}")
-                
-                return "break"
-            
-            def on_key_release(event):
-                nonlocal currently_pressed
-                key = event.keysym.lower()
-                
-                print(f"Key release - key: {key}")
-                print(f"Currently pressed before release: {currently_pressed}")
-                
-                # Remove released key from currently pressed set
-                if key in currently_pressed:
-                    currently_pressed.remove(key)
-                
-                # Handle modifier key releases
-                modifier_map = {
-                    'control_l': 'ctrl', 'control_r': 'ctrl',
-                    'alt_l': 'alt', 'alt_r': 'alt',
-                    'shift_l': 'shift', 'shift_r': 'shift',
-                    'super_l': 'win', 'super_r': 'win',
-                    'win_l': 'win', 'win_r': 'win'
-                }
-                if key in modifier_map:
-                    mod_key = modifier_map[key]
-                    if mod_key in currently_pressed:
-                        currently_pressed.remove(mod_key)
-                
-                print(f"Currently pressed after release: {currently_pressed}")
-                
-                # Only process the shortcut when all keys are released
-                if not currently_pressed and pressed_keys:
-                    try:
-                        # Create the shortcut string with consistent ordering
-                        new_shortcut = self.format_shortcut(pressed_keys)
-                        
-                        # Check if there's at least one modifier
-                        has_modifier = any(mod in pressed_keys for mod in ('ctrl', 'alt', 'shift', 'win', 'command'))
-                        
-                        # Validate the shortcut
-                        if not has_modifier:
-                            messagebox.showerror("Error", 
-                                "Please include at least one modifier key (Ctrl, Alt, Shift, or Win)")
-                            button.config(text="Edit")
-                            return
-                        
-                        # Check if this shortcut is already in use
-                        for name, shortcut in self.shortcuts.items():
-                            if shortcut == new_shortcut and name != shortcut_name:
-                                messagebox.showerror("Error", 
-                                    f"This shortcut is already assigned to '{name}'")
-                                button.config(text="Edit")
-                                return
-                        
-                        # Save to env and update runtime
-                        self.save_shortcut_to_env(shortcut_name, new_shortcut)
-                        
-                        # Refresh hotkeys with callback
-                        def on_refresh_complete(success):
-                            if success:
-                                # Update UI
-                                label.config(text=new_shortcut)
-                                button.config(text="Edit")
-                            else:
-                                messagebox.showerror("Error", 
-                                    "Failed to register new shortcut. Please try a different combination.")
-                                button.config(text="Edit")
-                        
-                        self.force_hotkey_refresh(callback=on_refresh_complete)
-                        
-                    except Exception as e:
-                        messagebox.showerror("Error", f"Failed to update shortcut: {e}")
-                        button.config(text="Edit")
-                    
-                    finally:
-                        # Clear the sets
-                        pressed_keys.clear()
-                        currently_pressed.clear()
-            
-            # Remove any existing bindings first
-            shortcut_window.unbind('<KeyPress>')
-            shortcut_window.unbind('<KeyRelease>')
-            
-            # Bind both key press and release events
-            shortcut_window.bind('<KeyPress>', on_key_press)
-            shortcut_window.bind('<KeyRelease>', on_key_release)
-
-        # Add each shortcut with its edit button
-        row = 0
-        for name, shortcut in self.shortcuts.items():
-            # Create frame for this shortcut
-            frame = ttk.Frame(shortcuts_frame)
-            frame.pack(fill=tk.X, pady=5)
-            
-            # Add shortcut name
-            name_label = ttk.Label(frame, text=name.replace('_', ' ').title() + ":")
-            name_label.pack(side=tk.LEFT, padx=(0, 10))
-            
-            # Add current shortcut
-            shortcut_label = ttk.Label(frame, text=shortcut)
-            shortcut_label.pack(side=tk.LEFT, padx=(0, 10))
-            
-            # Add edit button
-            edit_button = ttk.Button(
-                frame, 
-                text="Edit"
-            )
-            edit_button.pack(side=tk.RIGHT)
-            
-            # Configure button command after creation to avoid stale references
-            edit_button.configure(command=lambda n=name, b=edit_button, l=shortcut_label: 
-                                 start_shortcut_edit(n, b, l))
-            
-            row += 1
-
-        # Create a frame for the buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=20)
-
-        # Add refresh button
-        refresh_button = ctk.CTkButton(
-            button_frame,
-            text="Refresh Shortcuts",
-            corner_radius=20,
-            height=35,
-            width=200,  # Set explicit width
-            fg_color="#058705",
-            hover_color="#046a38",
-            font=("Arial", 13, "bold"),
-            command=self.force_hotkey_refresh
-        )
-        refresh_button.pack(side=tk.LEFT, padx=5)
-
-        # Add reset to defaults button
-        reset_button = ctk.CTkButton(
-            button_frame,
-            text="Reset to Defaults",
-            corner_radius=20,
-            height=35,
-            width=200,  # Set explicit width
-            fg_color="#666666",  # Grey color
-            hover_color="#444444",
-            font=("Arial", 13, "bold"),
-            command=self.reset_shortcuts_to_default
-        )
-        reset_button.pack(side=tk.LEFT, padx=5)
-
-        # Add note about Windows lock
-        note_text = ("Note: If shortcuts stop working after unlocking Windows,\n"
-                    "use this dialog to refresh them. If refresh doesn't work,\n"
-                    "try closing and reopening the application.")
-        
-        ttk.Label(
-            main_frame, 
-            text=note_text,
-            justify=tk.CENTER,
-            font=("Arial", 9),
-            foreground="#666666"
-        ).pack(pady=10)
-
-        # Close button
-        close_button = ttk.Button(
-            main_frame,
-            text="Close",
-            command=shortcut_window.destroy
-        )
-        close_button.pack(pady=(10, 0))
+        self.hotkey_manager.check_keyboard_shortcuts()
 
     def toggle_banner(self):
         """Toggle the visibility of the banner image and adjust the window height."""
@@ -801,9 +538,8 @@ class QuickWhisper(tk.Tk):
     def manage_prompts(self):
         ManagePromptsDialog(self)
 
-    def toggle_recording(self,mode="transcribe"):
-
-        if not self.recording:
+    def toggle_recording(self, mode="transcribe"):
+        if not self.audio_manager.recording:
             # Set globally so the app knows when recording stops whether 
             # transcript or edit mode was selected
             self.current_button_mode = mode
@@ -813,118 +549,30 @@ class QuickWhisper(tk.Tk):
             print(f"About to stop recording. mode = {self.current_button_mode}")
             self.stop_recording()
 
-    def start_recording(self, mode="edit"):
+    def start_recording(self):
+        """Start audio recording."""
+        if self.audio_manager.start_recording():
+            # Recording started successfully
+            self.hotkey_manager.update_shortcut_displays()
 
-        print("Getting Device Index")
-        try:
-            self.device_index = self.get_device_index_by_name(self.selected_device.get())
-        except ValueError as e:
-            messagebox.showerror("Device Error", str(e))
-            return
-
-        print("Starting Stream")
-        self.stream = self.audio.open(format=pyaudio.paInt16,
-                                      channels=1,
-                                      rate=16000,
-                                      input=True,
-                                      frames_per_buffer=1024,
-                                      input_device_index=self.device_index)
-
-        self.frames = []
-        self.recording = True
-
-        self.record_button_transcribe.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
-        self.record_button_edit.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
-
-        print("Update status label")
-        self.status_label.config(text="Status: Recording...", foreground="red")
-
-        # Play start recording sound
-        threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
-
-        # Start recording in a separate thread
-        print("Starting Recording")
-        self.record_thread = threading.Thread(target=self.record, daemon=True)
-        print("Starting Recording thread")
-        self.record_thread.start()
-
-    def record(self):
-        while self.recording:
-            try:
-                data = self.stream.read(1024)
-                self.frames.append(data)
-            except Exception as e:
-                print(f"Recording error: {e}")
-                messagebox.showerror("Recording error", f"An error occurred while Recording: {e}")
-                break
-
-
-    # Inside your class definition, replace stop_recording with the following:
     def stop_recording(self):
-        self.recording = False
-        self.record_thread.join()
-
-        self.stream.stop_stream()
-        self.stream.close()
-
-        print(f"Stopping, about to trigger '{self.current_button_mode}' mode...")
-
-        # Reset buttons to normal state with correct colors
-        self.record_button_transcribe.configure(
-            fg_color="#058705",
-            hover_color="#046a38"
-        )
-        self.record_button_edit.configure(
-            fg_color="#058705",
-            hover_color="#046a38"
-        )
-
-        # Update the buttons with correct shortcuts
-        self.update_shortcut_displays()
-
-        self.status_label.config(text="Status: Processing - Audio File...", foreground="green")
-
-        # Play stop recording sound
-        threading.Thread(target=lambda: self.play_sound("assets/pop-down.wav")).start()
-
-        # Ensure tmp folder exists
-        
-        self.tmp_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save the recorded data to the tmp folder as temp_recording.wav
-        self.audio_file = self.tmp_dir / "temp_recording.wav"
-        print(f"Saving Recording to {self.audio_file}")
-
-        with wave.open(str(self.audio_file), 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(16000)
-            wf.writeframes(b''.join(self.frames))
-
-        # Start transcription in a separate thread
-        threading.Thread(target=self.transcribe_audio).start()
-
-    def retry_last_recording(self):
-
-        last_recording = self.tmp_dir / "temp_recording.wav"
-
-        if last_recording.exists():
-
-            # Play start recording sound
-            threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
-
-            self.audio_file = last_recording
-            self.status_label.config(text="Status: Retrying transcription...", foreground="orange")
-            
-            # Re-attempt transcription in a separate thread
+        """Stop recording and process audio."""
+        audio_file = self.audio_manager.stop_recording()
+        if audio_file:
+            # Start transcription in a separate thread
             threading.Thread(target=self.transcribe_audio).start()
-        else:
-            messagebox.showerror("Retry Failed", "No previous recording found to retry in tmp folder.")
-
-
+            
+    def cancel_recording(self):
+        """Cancel the current recording without processing."""
+        self.audio_manager.cancel_recording()
+        self.hotkey_manager.update_shortcut_displays()
+    
+    def retry_last_recording(self):
+        """Retry processing the last recording."""
+        self.audio_manager.retry_last_recording()
 
     def transcribe_audio(self):
-        file_path = self.audio_file
+        file_path = self.audio_manager.audio_file
 
         try:
             self.status_label.config(text="Status: Processing - Transcript...", foreground="green")
@@ -1132,14 +780,8 @@ class QuickWhisper(tk.Tk):
         self.destroy()
 
     def play_sound(self, sound_file):
-        """Play sound with fallback for Mac compatibility"""
-        try:
-            player = AudioPlayer(self.resource_path(sound_file))
-            player.play(block=True)
-        except Exception as e:
-            print(f"Warning: Could not play sound: {e}")
-            # Silently fail if sound doesn't work on Mac
-            pass
+        """Play sound using audio manager."""
+        self.audio_manager.play_sound(sound_file)
 
     def show_terms_of_use(self):
         # Create a new window to display the terms of use
@@ -1267,34 +909,6 @@ class QuickWhisper(tk.Tk):
         except Exception as e:
             # Handle errors during the save process
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
-
-    def cancel_recording(self):
-        """Cancels the current recording without processing."""
-        if self.recording:
-            self.recording = False
-            if self.record_thread:
-                self.record_thread.join()
-
-            self.stream.stop_stream()
-            self.stream.close()
-
-            # Reset buttons back to original state
-            self.record_button_transcribe.configure(
-                text="Record + Transcript (Win+Ctrl+J)", 
-                fg_color="#058705", 
-                hover_color="#046a38"
-            )
-            self.record_button_edit.configure(
-                text="Record + AI Edit (Win+J)", 
-                fg_color="#058705", 
-                hover_color="#046a38"
-            )
-
-            # Reset status
-            self.status_label.config(text="Status: Idle", foreground="blue")
-
-            # Play failure sound
-            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
 
     def update_model_label(self):
         """Update the model label to include the prompt name and language setting."""
@@ -1532,68 +1146,12 @@ class QuickWhisper(tk.Tk):
 
     def show_prompt_notification(self, message):
         """Show a temporary notification message in the status label and speak the prompt name."""
-        # Store the current status
-        current_status = self.status_label.cget("text")
-        current_color = self.status_label.cget("foreground")
-        
         # Create a clean version of the message for speech
         speech_message = message.replace("Prompt: ", "")
         
-        # Use text-to-speech in a separate thread
+        # Use text-to-speech for Windows
         if platform.system() == 'Windows':
-            # Signal any existing speech to stop
-            self.speech_should_stop.set()
-            
-            # If there's a current speech thread, wait briefly for it to stop
-            if self.current_speech_thread and self.current_speech_thread.is_alive():
-                self.current_speech_thread.join(0.1)  # Wait max 100ms
-            
-            # Reset the stop flag
-            self.speech_should_stop.clear()
-            
-            def speak_prompt():
-                with self.tts_lock:
-                    try:
-                        # Reinitialize engine if needed
-                        if not self.tts_engine:
-                            self.init_tts_engine()
-                        
-                        if self.tts_engine and not self.speech_should_stop.is_set():
-                            try:
-                                self.tts_engine.stop()
-                            except:
-                                self.init_tts_engine()
-                            
-                            if self.tts_engine:
-                                self.tts_engine.say(speech_message)  # Now speech_message is in scope
-                                
-                                # Break runAndWait into smaller chunks to check for interruption
-                                while not self.speech_should_stop.is_set():
-                                    try:
-                                        self.tts_engine.startLoop(False)
-                                        # Run a short iteration
-                                        if not self.tts_engine.iterate():
-                                            break
-                                        self.tts_engine.endLoop()
-                                    except:
-                                        break
-                                
-                                # If we were interrupted, stop the engine
-                                if self.speech_should_stop.is_set():
-                                    try:
-                                        self.tts_engine.stop()
-                                    except:
-                                        pass
-                                
-                    except Exception as e:
-                        print(f"TTS error: {e}")
-                        self.init_tts_engine()
-            
-            # Create and start new speech thread
-            self.current_speech_thread = threading.Thread(target=speak_prompt, daemon=True)
-            self.current_speech_thread.start()
-
-
+            self.tts_manager.speak_text(speech_message)
 
     def init_tts_engine(self):
         """Initialize or reinitialize the TTS engine."""
@@ -1622,7 +1180,7 @@ class QuickWhisper(tk.Tk):
         if self.was_minimized:
             self.was_minimized = False
             print("Window restored from minimized state - refreshing hotkeys")
-            self.force_hotkey_refresh()
+            self.hotkey_manager.force_hotkey_refresh()
 
     def save_shortcut_to_env(self, shortcut_name, key_combination):
         """Save a keyboard shortcut to the .env file."""
@@ -1790,3 +1348,7 @@ class QuickWhisper(tk.Tk):
         
         # Combine modifiers and regular keys (regular keys in alphabetical order)
         return "+".join(sorted_modifiers + sorted(regular_keys))
+
+    def _env_get(self, key, default=None):
+        """Helper method to get environment variables with default values."""
+        return os.getenv(key, default)
