@@ -39,7 +39,7 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.version = "1.9.1"
+        self.version = "1.9.0"
         
         self.is_mac = platform.system() == 'Darwin'
 

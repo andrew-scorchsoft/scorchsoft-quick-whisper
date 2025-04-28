@@ -5,6 +5,7 @@ import requests
 import webbrowser
 from pathlib import Path
 import os
+from packaging import version
 
 class VersionUpdateManager:
     def __init__(self, parent):
@@ -57,7 +58,8 @@ class VersionUpdateManager:
                 download_url = version_data.get("downloadUrl")
                 notification_message = version_data.get("notificationMessage")
                 
-                if latest_version and self.parent.version != latest_version:
+                # Check if there's a newer version available using semantic versioning
+                if latest_version and version.parse(latest_version) > version.parse(self.parent.version):
                     self.show_update_notification(latest_version, download_url, notification_message)
                 elif manual_check:
                     messagebox.showinfo("Update Check", f"You are running the latest version ({self.parent.version}).")
