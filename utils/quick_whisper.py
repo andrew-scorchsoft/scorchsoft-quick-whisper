@@ -28,6 +28,7 @@ from utils.manage_prompts_dialog import ManagePromptsDialog
 from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
 from utils.tts_manager import TTSManager
+from utils.ui_manager import UIManager
 
 
 class QuickWhisper(tk.Tk):
@@ -93,17 +94,22 @@ class QuickWhisper(tk.Tk):
         self.tmp_dir = Path.cwd() / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
+        # Define helper method for environment variables before initializing managers
+        self._env_get = lambda key, default=None: os.getenv(key, default)
+
         # Initialize the managers
         self.hotkey_manager = HotkeyManager(self)
         self.audio_manager = AudioManager(self)
         self.tts_manager = TTSManager(self)
+        self.ui_manager = UIManager(self)
         
         # Register hotkeys
         self.hotkey_manager.register_hotkeys()
-        
 
         self.create_menu()
-        self.create_widgets()
+        
+        # Create UI widgets
+        self.ui_manager.create_widgets()
 
         # Hide the banner on load if HIDE_BANNER is set to true in .env
         if self.hide_banner_on_load:
@@ -292,166 +298,6 @@ class QuickWhisper(tk.Tk):
             for key, val in env_vars.items():
                 f.write(f"{key}={val}\n")
 
-    def create_widgets(self):
-        main_frame = ttk.Frame(self, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        row = 0;
-
-        # Input Device Selection
-        ttk.Label(main_frame, text="Input Device (mic):").grid(row=row, column=0, sticky="ew", pady=(0,10))
-        devices = self.audio_manager.get_input_devices()
-        if not devices:
-            messagebox.showerror("No Input Devices", "No input audio devices found.")
-            self.destroy()
-            return
-        self.selected_device.set(list(devices.keys())[0])  # Default selection
-
-        device_menu = ttk.OptionMenu(main_frame, self.selected_device, self.selected_device.get(), *devices.keys())
-        device_menu.grid(row=row, column=1, sticky="ew", pady=(0,10))
-
-        row +=1
-
-        # Assuming you've converted the SVG files to PNG with the same names
-        self.icon_first_page = tk.PhotoImage(file=self.resource_path("assets/first-page.png"))
-        self.icon_arrow_left = tk.PhotoImage(file=self.resource_path("assets/arrow-left.png"))
-        self.icon_arrow_right = tk.PhotoImage(file=self.resource_path("assets/arrow-right.png"))
-
-        # Create a dedicated frame for the transcription section
-        self.transcription_frame = ttk.Frame(main_frame)
-        self.transcription_frame.grid(row=row, column=0, columnspan=2, pady=(0, 0), padx=0, sticky="ew")
-
-        # Add the Transcription label to the transcription frame
-        ttk.Label(self.transcription_frame, text="Transcription:").grid(row=0, column=0, sticky="w", pady=(0, 0), padx=(0, 0))
-
-        # Create navigation buttons and place them next to the label within the transcription frame
-        self.button_first_page = tk.Button(self.transcription_frame, image=self.icon_first_page, command=self.go_to_first_page, state=tk.DISABLED, borderwidth=0)
-        self.button_arrow_left = tk.Button(self.transcription_frame, image=self.icon_arrow_left, command=self.navigate_left, state=tk.DISABLED, borderwidth=0)
-        self.button_arrow_right = tk.Button(self.transcription_frame, image=self.icon_arrow_right, command=self.navigate_right, state=tk.DISABLED, borderwidth=0)
-
-        # Add tooltips to navigation buttons
-        ToolTip(self.button_first_page, "Go to the latest entry")
-        ToolTip(self.button_arrow_left, "Navigate to the more recent entry")
-        ToolTip(self.button_arrow_right, "Navigate to the older entry")
-
-        # Grid placement for navigation buttons in the transcription frame
-        self.button_first_page.grid(row=0, column=1, sticky="e", padx=(0, 0))
-        self.button_arrow_left.grid(row=0, column=2, sticky="e", padx=(0, 0))
-        self.button_arrow_right.grid(row=0, column=3, sticky="e", padx=(0, 0))
-
-        # Configure the columns within the transcription frame for proper alignment
-        self.transcription_frame.columnconfigure(0, weight=1)  # Allow text area to expand
-        self.transcription_frame.columnconfigure(1, minsize=30)  # Set a minimum size for each button column
-        self.transcription_frame.columnconfigure(2, minsize=30)
-        self.transcription_frame.columnconfigure(3, minsize=30)
-        
-        row +=1
-
-        # Transcription Text Area
-        self.transcription_text = tk.Text(main_frame, height=10, width=70, wrap="word")
-        self.transcription_text.grid(row=row, column=0, columnspan=2, pady=(0,5))
-
-        row +=1
-
-        # Model Label
-        self.model_label = ttk.Label(main_frame, text=f"{self.transcription_model}, {self.ai_model}", foreground="grey")
-        self.model_label.grid(row=row, column=0, columnspan=2, sticky=tk.E, pady=(0,20))
-
-        # Status Label
-        self.status_label = ttk.Label(main_frame, text=f"Status: Idle", foreground="blue")
-        self.status_label.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0,20))
-
-        row +=1
-
-        # Auto-Copy Checkbox
-        auto_copy_cb = ttk.Checkbutton(main_frame, text="Copy to clipboard when done", variable=self.auto_copy)
-        auto_copy_cb.grid(row=row, column=0, columnspan=1, sticky=tk.W, pady=(0,20))
-
-        # Auto-Paste Checkbox
-        auto_paste_cb = ttk.Checkbutton(main_frame, text="Paste from clipboard when done", variable=self.auto_paste)
-        auto_paste_cb.grid(row=row, column=1, columnspan=1, sticky=tk.W, pady=(0,20))
-
-        row +=1
-
-        button_width =50
-
-        ctk.set_appearance_mode("light")  # Options: "light" or "dark"
-        ctk.set_default_color_theme("green")  # Options: "blue", "dark-blue", "green"
-
-        # Update button text to show proper OS-specific shortcuts
-        shortcut_text = "Cmd+J" if self.is_mac else "Win+J"
-        ctrl_shortcut_text = "Cmd+Ctrl+J" if self.is_mac else "Win+Ctrl+J"
-
-        # Record Transcript Only Button with green background and padding on the right
-        self.record_button_transcribe = ctk.CTkButton(
-            main_frame, 
-            text=f"Record + Transcript ({ctrl_shortcut_text})", 
-            corner_radius=20, 
-            height=35,
-            width=button_width,
-            fg_color="#058705",
-            font=("Arial", 13, "bold"),
-            command=lambda: self.toggle_recording("transcribe")
-        )
-        self.record_button_transcribe.grid(row=row, column=0, columnspan=1, pady=(0,10), padx=(0, 5), sticky="ew")
-
-        self.record_button_edit = ctk.CTkButton(
-            main_frame, 
-            text=f"Record + AI Edit ({shortcut_text})", 
-            corner_radius=20,
-            height=35,
-            width=button_width,
-            fg_color="#058705",
-            font=("Arial", 13, "bold"),
-            command=lambda: self.toggle_recording("edit")
-        )
-        self.record_button_edit.grid(row=row, column=1, columnspan=1, pady=(0,10), padx=(5, 0), sticky="ew")
-
-        row +=1
-
-        # Load and display the banner image
-        banner_image_path = self.resource_path("assets/banner-00-560.png")
-        banner_image = Image.open(banner_image_path)
-        self.banner_photo = ImageTk.PhotoImage(banner_image)  # Store to prevent garbage collection
-
-        # Display the image in a label with clickability
-        self.banner_label = tk.Label(main_frame, image=self.banner_photo, cursor="hand2")
-        self.banner_label.grid(column=0, row=row, columnspan=2, pady=(10, 0), sticky="ew")
-        self.banner_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind the click event
-
-        row +=1
-
-        self.hide_banner_link = tk.Label(
-            main_frame, 
-            text="Hide Banner", 
-            fg="blue", 
-            cursor="hand2", 
-            font=("Arial", 10, "underline")
-        )
-        self.hide_banner_link.grid(row=row, column=0, columnspan=2, pady=(5, 0), sticky="ew")
-        self.hide_banner_link.bind("<Button-1>", lambda e: self.toggle_banner())
-
-
-        # Add a "Powered by Scorchsoft.com" link to replace the banner when hidden
-        self.powered_by_label = tk.Label(
-            main_frame,
-            text="Powered by Scorchsoft.com",
-            fg="black",
-            cursor="hand2",
-            font=("Arial", 8, "underline")
-        )
-        self.powered_by_label.grid(column=0, row=row, columnspan=2, pady=(5, 0), sticky="ew")
-        self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())  # Bind click to open website
-        self.powered_by_label.grid_remove()  # Hide the label initially
-
-        # Configure grid
-        main_frame.columnconfigure(0, weight=1, minsize=280)  # Set minsize to ensure equal width
-        main_frame.columnconfigure(1, weight=1, minsize=280)
-
-
-    def open_scorchsoft(self, event=None):
-        webbrowser.open('https://www.scorchsoft.com/contact-scorchsoft')
-
     def create_menu(self):
         self.menubar = Menu(self)
         self.config(menu=self.menubar)
@@ -494,50 +340,6 @@ class QuickWhisper(tk.Tk):
         """Test keyboard shortcuts and show status."""
         self.hotkey_manager.check_keyboard_shortcuts()
 
-    def toggle_banner(self):
-        """Toggle the visibility of the banner image and adjust the window height."""
-        current_height = self.winfo_height()
-        new_height = current_height + 260 if not self.banner_visible else current_height - 260
-
-        if self.banner_visible:
-            self.banner_label.grid_remove()  # Hide the banner
-            self.hide_banner_link.grid_remove()
-            self.powered_by_label.grid()
-            self.help_menu.entryconfig("Hide Banner", label="Show Banner")  # Update menu text
-        else:
-            self.banner_label.grid()  # Show the banner
-            self.help_menu.entryconfig("Show Banner", label="Hide Banner")  # Update menu text
-            self.powered_by_label.grid_remove() 
-
-        # Set the new height and keep the current width
-        self.geometry(f"{self.winfo_width()}x{new_height}")
-        
-        self.banner_visible = not self.banner_visible  # Toggle the visibility flag
-
-
-    def navigate_right(self):
-        self.history_index -= 1
-        self.update_transcription_text()
-        self.update_navigation_buttons()
-
-    def navigate_left(self):
-        self.history_index += 1
-        self.update_transcription_text()
-        self.update_navigation_buttons()
-
-    def go_to_first_page(self):
-    
-        self.history_index = len(self.history) - 1  # Set to most recent
-        self.update_transcription_text()
-        self.update_navigation_buttons()
-
-
-    def adjust_models(self):
-        AdjustModelsDialog(self)
-
-    def manage_prompts(self):
-        ManagePromptsDialog(self)
-
     def toggle_recording(self, mode="transcribe"):
         if not self.audio_manager.recording:
             # Set globally so the app knows when recording stops whether 
@@ -575,7 +377,7 @@ class QuickWhisper(tk.Tk):
         file_path = self.audio_manager.audio_file
 
         try:
-            self.status_label.config(text="Status: Processing - Transcript...", foreground="green")
+            self.ui_manager.set_status("Processing - Transcript...", "green")
 
             with open(str(file_path), "rb") as audio_file:
 
@@ -625,11 +427,11 @@ class QuickWhisper(tk.Tk):
                 print("AI Editing Transcription")
 
                 # set input box to transcription text first, just incase there is a failure
-                self.transcription_text.delete("1.0", tk.END)
-                self.transcription_text.insert("1.0", transcription_text)
+                self.ui_manager.transcription_text.delete("1.0", tk.END)
+                self.ui_manager.transcription_text.insert("1.0", transcription_text)
 
                 # Then GPT edit that transcribed text and insert
-                self.status_label.config(text="Status: Processing - AI Editing...", foreground="green")
+                self.ui_manager.set_status("Processing - AI Editing...", "green")
 
                 # AI Edit the transcript
                 edited_text = self.process_with_gpt_model(transcription_text)
@@ -637,12 +439,12 @@ class QuickWhisper(tk.Tk):
                 self.last_edit = edited_text
                 play_text = edited_text
 
-                self.transcription_text.delete("1.0", tk.END)
-                self.transcription_text.insert("1.0", play_text)
+                self.ui_manager.transcription_text.delete("1.0", tk.END)
+                self.ui_manager.transcription_text.insert("1.0", play_text)
             else:
                 print("Outputting Raw Transcription Only")
-                self.transcription_text.delete("1.0", tk.END)
-                self.transcription_text.insert("1.0", transcription_text)
+                self.ui_manager.transcription_text.delete("1.0", tk.END)
+                self.ui_manager.transcription_text.insert("1.0", transcription_text)
                 play_text = transcription_text
 
 
@@ -654,24 +456,19 @@ class QuickWhisper(tk.Tk):
 
             print("Transcription Complete: The audio has been transcribed and the text has been placed in the input area.")
             # Play stop recording sound
-            threading.Thread(target=lambda:  self.play_sound("assets/double-pop-down.wav")).start()
+            threading.Thread(target=lambda: self.play_sound("assets/double-pop-down.wav")).start()
 
         except Exception as e:
             # Play failure sound
-            threading.Thread(target=lambda:  self.play_sound("assets/wrong-short.wav")).start()
+            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
 
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
-            self.status_label.config(text="Status: Error during transcription", foreground="red")
+            self.ui_manager.set_status("Error during transcription", "red")
 
             messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
 
         finally:
-            self.status_label.config(text="Status: Idle", foreground="blue")
-            # No longer remove temp file
-            # if os.path.exists(file_path):
-            #    os.remove(file_path)
-
-
+            self.ui_manager.set_status("Idle", "blue")
 
     def copy_last_transcription(self):
         try:
@@ -750,33 +547,20 @@ class QuickWhisper(tk.Tk):
 
     def on_closing(self):
         """Clean up resources before closing."""
-        # Signal any speech to stop
-        self.speech_should_stop.set()
+        # Clean up TTS
+        self.tts_manager.cleanup()
         
-        # Wait briefly for speech to stop
-        if self.current_speech_thread and self.current_speech_thread.is_alive():
-            self.current_speech_thread.join(0.2)
-        
-        # Remove all hotkeys
-        for hotkey in self.hotkeys:
+        # Clean up hotkeys
+        for hotkey in self.hotkey_manager.hotkeys:
             try:
                 keyboard.remove_hotkey(hotkey)
             except:
                 pass
-        self.hotkeys.clear()
+        self.hotkey_manager.hotkeys.clear()
         
-        # Clean up TTS engine
-        if self.tts_engine:
-            with self.tts_lock:
-                try:
-                    self.tts_engine.stop()
-                    self.tts_engine = None
-                except:
-                    pass
+        # Clean up audio
+        self.audio_manager.cleanup()
         
-        if self.recording:
-            self.stop_recording()
-        self.audio.terminate()
         self.destroy()
 
     def play_sound(self, sound_file):
@@ -860,29 +644,23 @@ class QuickWhisper(tk.Tk):
 
         # Update the index to the last entry (most recent)
         self.history_index = len(self.history) - 1
-        self.update_transcription_text()
-        self.update_navigation_buttons()
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
         
-    def update_transcription_text(self):
-        # Display the current history entry in the transcription text box
-        if 0 <= self.history_index < len(self.history):
-            self.transcription_text.delete("1.0", tk.END)
-            self.transcription_text.insert("1.0", self.history[self.history_index])
+    def navigate_right(self):
+        self.history_index -= 1
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
 
-    def update_navigation_buttons(self):
-        # Disable 'first page' and 'left' buttons if we're on the latest (last) entry
-        if self.history_index >= len(self.history) - 1:
-            self.button_first_page.config(state=tk.DISABLED)
-            self.button_arrow_left.config(state=tk.DISABLED)
-        else:
-            self.button_first_page.config(state=tk.NORMAL)
-            self.button_arrow_left.config(state=tk.NORMAL)
+    def navigate_left(self):
+        self.history_index += 1
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
 
-        # Disable 'right' button if we're on the oldest (first) entry
-        if self.history_index <= 0:
-            self.button_arrow_right.config(state=tk.DISABLED)
-        else:
-            self.button_arrow_right.config(state=tk.NORMAL)
+    def go_to_first_page(self):
+        self.history_index = len(self.history) - 1  # Set to most recent
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
     
     def save_session_history(self):
         if not self.history:
@@ -912,11 +690,11 @@ class QuickWhisper(tk.Tk):
 
     def update_model_label(self):
         """Update the model label to include the prompt name and language setting."""
-        language_display = "Auto Detect" if self.whisper_language == "auto" else self.whisper_language.upper()
-        model_type_display = "GPT" if self.transcription_model_type == "gpt" else "Whisper"
-        self.model_label.config(
-            text=f"{self.transcription_model} ({model_type_display}, {language_display}), {self.ai_model}, {self.current_prompt_name}"
-        )
+        self.ui_manager.update_model_label()
+
+    def toggle_banner(self):
+        """Toggle the visibility of the banner image."""
+        self.ui_manager.toggle_banner()
 
     def load_prompts(self):
         """Load custom prompts from JSON file."""
@@ -987,114 +765,31 @@ class QuickWhisper(tk.Tk):
         self.prompts = self.load_prompts()
         self.current_prompt_name = "Default"
 
-    def get_input_devices(self):
-        """Get a list of available input audio devices."""
-        devices = {}
-        for i in range(self.audio.get_device_count()):
-            info = self.audio.get_device_info_by_index(i)
-            if info['maxInputChannels'] > 0:
-                devices[info['name']] = i
-        return devices
+    def _handle_minimize(self, event):
+        """Track when window is minimized"""
+        self.was_minimized = True
 
-    def get_device_index_by_name(self, device_name):
-        """Find device index based on selected device name."""
-        for i in range(self.audio.get_device_count()):
-            info = self.audio.get_device_info_by_index(i)
-            if info['name'] == device_name:
-                return i
-        raise ValueError(f"Device '{device_name}' not found.")
+    def _handle_restore(self, event):
+        """Handle window restore from minimized state"""
+        if self.was_minimized:
+            self.was_minimized = False
+            print("Window restored from minimized state - refreshing hotkeys")
+            self.hotkey_manager.force_hotkey_refresh()
 
-    def register_hotkeys(self):
-        """Register all hotkeys and store them for monitoring."""
-        try:
-            # Clear existing hotkeys first
-            for hotkey in self.hotkeys:
-                try:
-                    keyboard.remove_hotkey(hotkey)
-                except:
-                    pass
-            self.hotkeys.clear()
+    def manage_prompts(self):
+        ManagePromptsDialog(self)
 
-            # Register new hotkeys using stored shortcuts
-            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_edit'], 
-                                                  lambda: self.toggle_recording("edit"), suppress=True))
-            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_transcribe'], 
-                                                  lambda: self.toggle_recording("transcribe"), suppress=True))
-            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cancel_recording'], 
-                                                  self.cancel_recording, suppress=True))
-            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_back'], 
-                                                  self.cycle_prompt_backward, suppress=True))
-            self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_forward'], 
-                                                  self.cycle_prompt_forward, suppress=True))
-            
-            print(f"Registered {len(self.hotkeys)} hotkeys successfully")
-            return True
-        except Exception as e:
-            print(f"Error registering hotkeys: {e}")
-            return False
+    def adjust_models(self):
+        AdjustModelsDialog(self)
 
-
-    def force_hotkey_refresh(self, callback=None):
-        """Force a complete refresh of all hotkeys."""
-        print("Forcing hotkey refresh")
-        print(f"Current hotkeys before refresh: {len(self.hotkeys)}")
-        try:
-            # Kill all keyboard hooks
-            print("Unhooking all keyboard hooks...")
-            keyboard.unhook_all()
-            print("Successfully unhooked all keyboard hooks")
-            
-            # Clear our tracking
-            print("Clearing hotkey tracking list...")
-            self.hotkeys.clear()
-            print("Hotkey tracking list cleared")
-            
-            # Try to reset the keyboard module's internal state
-            try:
-                print("Resetting keyboard module internal state...")
-                keyboard._recording = False
-                keyboard._pressed_events.clear()
-                keyboard._physically_pressed_keys.clear()
-                keyboard._logically_pressed_keys.clear()
-                print("Keyboard module internal state reset complete")
-            except Exception as inner_e:
-                print(f"Warning: Error while resetting keyboard state: {inner_e}")
-            
-            # Schedule the complete refresh
-            def _after_refresh():
-                success = self.register_hotkeys()
-                if success and self.hotkeys:
-                    print(f"Hotkey refresh completed successfully with {len(self.hotkeys)} hotkeys")
-                    if callback:
-                        callback(True)
-                else:
-                    print("Failed to register hotkeys")
-                    if callback:
-                        callback(False)
-                    messagebox.showerror("Hotkey Error", 
-                        "Failed to re-register hotkeys. Try closing and reopening the application.")
-            
-            print("Scheduling complete refresh...")
-            self.after(100, _after_refresh)
-            return True
-            
-        except Exception as e:
-            print(f"Error during hotkey refresh: {e}")
-            print(f"Error type: {type(e)}")
-            print(f"Error details: {str(e)}")
-            if callback:
-                callback(False)
-            messagebox.showerror("Hotkey Error", 
-                "Failed to refresh hotkeys. Try closing and reopening the application.")
-            return False
-
-    def verify_hotkeys(self):
-        """Verify that hotkeys are working."""
-        try:
-            # Simple check if hotkeys are registered
-            return len(self.hotkeys) > 0
-        except:
-            return False
+    def show_prompt_notification(self, message):
+        """Show a temporary notification message in the status label and speak the prompt name."""
+        # Create a clean version of the message for speech
+        speech_message = message.replace("Prompt: ", "")
+        
+        # Use text-to-speech for Windows
+        if platform.system() == 'Windows':
+            self.tts_manager.speak_text(speech_message)
 
     def cycle_prompt_forward(self):
         """Cycle to the next prompt in the list."""
@@ -1143,212 +838,3 @@ class QuickWhisper(tk.Tk):
         
         # Show notification and trigger text-to-speech
         self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
-
-    def show_prompt_notification(self, message):
-        """Show a temporary notification message in the status label and speak the prompt name."""
-        # Create a clean version of the message for speech
-        speech_message = message.replace("Prompt: ", "")
-        
-        # Use text-to-speech for Windows
-        if platform.system() == 'Windows':
-            self.tts_manager.speak_text(speech_message)
-
-    def init_tts_engine(self):
-        """Initialize or reinitialize the TTS engine."""
-        if platform.system() == 'Windows':
-            try:
-                # Clean up existing engine if it exists
-                if self.tts_engine:
-                    try:
-                        self.tts_engine.stop()
-                    except:
-                        pass
-                
-                self.tts_engine = pyttsx3.init()
-                self.tts_engine.setProperty('rate', 175)  # Adjust speed
-                print("TTS engine initialized successfully")
-            except Exception as e:
-                print(f"TTS initialization error: {e}")
-                self.tts_engine = None
-
-    def _handle_minimize(self, event):
-        """Track when window is minimized"""
-        self.was_minimized = True
-
-    def _handle_restore(self, event):
-        """Handle window restore from minimized state"""
-        if self.was_minimized:
-            self.was_minimized = False
-            print("Window restored from minimized state - refreshing hotkeys")
-            self.hotkey_manager.force_hotkey_refresh()
-
-    def save_shortcut_to_env(self, shortcut_name, key_combination):
-        """Save a keyboard shortcut to the .env file."""
-        # Format the key combination consistently before saving
-        formatted_combination = self.format_shortcut(key_combination.split('+'))
-        
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            key, val = line.strip().split('=', 1)
-                            env_vars[key] = val
-                        except ValueError:
-                            continue
-
-        # Update shortcut
-        env_vars[f'SHORTCUT_{shortcut_name.upper()}'] = formatted_combination
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
-
-        # Update runtime shortcut with formatted combination
-        self.shortcuts[shortcut_name] = formatted_combination
-        
-        # Update UI elements displaying shortcuts
-        self.update_shortcut_displays()
-
-    def update_shortcut_displays(self):
-        """Update all UI elements that display keyboard shortcuts"""
-        # Update record buttons
-        self.record_button_edit.configure(
-            text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
-        )
-        self.record_button_transcribe.configure(
-            text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
-        )
-        
-        # Update menu items if they exist
-        try:
-            # Find the Play menu
-            for menu in self.menubar.winfo_children():
-                if menu.entrycget(0, 'label') == "Cancel Recording (Win+X)":
-                    menu.entryconfigure(0, 
-                        label=f"Cancel Recording ({self.shortcuts['cancel_recording']})"
-                    )
-        except:
-            pass
-
-    def reset_shortcuts_to_default(self):
-        """Reset all keyboard shortcuts to their default values."""
-        # Find the keyboard shortcuts window
-        for window in self.winfo_children():
-            if isinstance(window, tk.Toplevel) and window.title() == "Keyboard Shortcuts":
-                shortcuts_window = window
-                break
-        else:
-            shortcuts_window = self  # Fallback to main window if shortcuts window not found
-        
-        # Create custom confirmation dialog
-        confirm = tk.messagebox.askyesno(
-            "Reset Shortcuts",
-            "Are you sure you want to reset all keyboard shortcuts to their default values?",
-            parent=shortcuts_window
-        )
-        
-        if confirm:
-            try:
-                # Read existing .env file
-                config_dir = Path("config")
-                env_path = config_dir / ".env"
-                
-                if env_path.exists():
-                    # Read all env vars
-                    env_vars = {}
-                    with open(env_path, 'r') as f:
-                        for line in f:
-                            if line.strip():
-                                try:
-                                    key, val = line.strip().split('=', 1)
-                                    if not key.startswith('SHORTCUT_'):  # Keep non-shortcut settings
-                                        env_vars[key] = val
-                                except ValueError:
-                                    continue
-                
-                    # Write back without the shortcut settings
-                    with open(env_path, 'w') as f:
-                        for key, val in env_vars.items():
-                            f.write(f"{key}={val}\n")
-                
-                # Reset shortcuts in memory to defaults
-                self.shortcuts = {
-                    'record_edit': 'win+j' if not self.is_mac else 'command+j',
-                    'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
-                    'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
-                    'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
-                    'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
-                }
-                
-                # Update all shortcut labels in the dialog
-                for child in shortcuts_window.winfo_children():
-                    if isinstance(child, ttk.Frame):  # Main frame
-                        for frame_child in child.winfo_children():
-                            if isinstance(frame_child, ttk.Frame):  # Shortcuts frame
-                                for shortcut_frame in frame_child.winfo_children():
-                                    if isinstance(shortcut_frame, ttk.Frame):  # Individual shortcut frames
-                                        # Get the name label (first child)
-                                        name_label = [w for w in shortcut_frame.winfo_children() 
-                                                    if isinstance(w, ttk.Label)][0]
-                                        # Get the shortcut name from the label
-                                        shortcut_name = name_label.cget('text').replace(':', '').lower().replace(' ', '_')
-                                        
-                                        if shortcut_name in self.shortcuts:
-                                            # Get the shortcut label (second child)
-                                            shortcut_label = [w for w in shortcut_frame.winfo_children() 
-                                                            if isinstance(w, ttk.Label)][1]
-                                            # Update the label
-                                            shortcut_label.config(text=self.shortcuts[shortcut_name])
-                
-                # Refresh the hotkeys
-                def on_refresh_complete(success):
-                    if success:
-                        # Update main window UI
-                        self.update_shortcut_displays()
-                        tk.messagebox.showinfo(
-                            "Success", 
-                            "Shortcuts have been reset to defaults",
-                            parent=shortcuts_window
-                        )
-                    else:
-                        tk.messagebox.showerror(
-                            "Error", 
-                            "Failed to register default shortcuts. Try closing and reopening the application.",
-                            parent=shortcuts_window
-                        )
-                
-                self.force_hotkey_refresh(callback=on_refresh_complete)
-                
-            except Exception as e:
-                tk.messagebox.showerror(
-                    "Error", 
-                    f"Failed to reset shortcuts: {e}",
-                    parent=shortcuts_window
-                )
-
-    def format_shortcut(self, keys):
-        """Format a set of keys into a shortcut string with consistent ordering."""
-        # Define modifier order
-        modifier_order = ['ctrl', 'alt', 'shift', 'win', 'command']
-        
-        # Split into modifiers and regular keys
-        modifiers = [k for k in keys if k in modifier_order]
-        regular_keys = [k for k in keys if k not in modifier_order]
-        
-        # Sort modifiers according to our preferred order
-        sorted_modifiers = sorted(modifiers, key=lambda x: modifier_order.index(x))
-        
-        # Combine modifiers and regular keys (regular keys in alphabetical order)
-        return "+".join(sorted_modifiers + sorted(regular_keys))
-
-    def _env_get(self, key, default=None):
-        """Helper method to get environment variables with default values."""
-        return os.getenv(key, default)

@@ -55,10 +55,10 @@ class AudioManager:
         self.frames = []
         self.recording = True
 
-        # Update UI in parent
-        self.parent.record_button_transcribe.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
-        self.parent.record_button_edit.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
-        self.parent.status_label.config(text="Status: Recording...", foreground="red")
+        # Update UI in parent - now through ui_manager
+        self.parent.ui_manager.record_button_transcribe.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
+        self.parent.ui_manager.record_button_edit.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
+        self.parent.ui_manager.set_status("Recording...", "red")
 
         # Play start recording sound
         threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
@@ -93,12 +93,12 @@ class AudioManager:
 
         print(f"Stopping, about to trigger '{self.parent.current_button_mode}' mode...")
 
-        # Reset buttons to normal state with correct colors
-        self.parent.record_button_transcribe.configure(
+        # Reset buttons to normal state with correct colors - now through ui_manager
+        self.parent.ui_manager.record_button_transcribe.configure(
             fg_color="#058705",
             hover_color="#046a38"
         )
-        self.parent.record_button_edit.configure(
+        self.parent.ui_manager.record_button_edit.configure(
             fg_color="#058705",
             hover_color="#046a38"
         )
@@ -106,7 +106,7 @@ class AudioManager:
         # Update the buttons with correct shortcuts
         self.parent.hotkey_manager.update_shortcut_displays()
 
-        self.parent.status_label.config(text="Status: Processing - Audio File...", foreground="green")
+        self.parent.ui_manager.set_status("Processing - Audio File...", "green")
 
         # Play stop recording sound
         threading.Thread(target=lambda: self.play_sound("assets/pop-down.wav")).start()
@@ -138,12 +138,12 @@ class AudioManager:
                 self.stream.stop_stream()
                 self.stream.close()
 
-            # Reset buttons back to original state
-            self.parent.record_button_transcribe.configure(
+            # Reset buttons back to original state - now through ui_manager
+            self.parent.ui_manager.record_button_transcribe.configure(
                 fg_color="#058705", 
                 hover_color="#046a38"
             )
-            self.parent.record_button_edit.configure(
+            self.parent.ui_manager.record_button_edit.configure(
                 fg_color="#058705", 
                 hover_color="#046a38"
             )
@@ -152,7 +152,7 @@ class AudioManager:
             self.parent.hotkey_manager.update_shortcut_displays()
 
             # Reset status
-            self.parent.status_label.config(text="Status: Idle", foreground="blue")
+            self.parent.ui_manager.set_status("Idle", "blue")
 
             # Play failure sound
             threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
@@ -168,7 +168,7 @@ class AudioManager:
             threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
 
             self.audio_file = last_recording
-            self.parent.status_label.config(text="Status: Retrying transcription...", foreground="orange")
+            self.parent.ui_manager.set_status("Retrying transcription...", "orange")
             
             # Re-attempt transcription in a separate thread
             threading.Thread(target=self.parent.transcribe_audio).start()
@@ -205,6 +205,14 @@ class AudioManager:
     
     def cleanup(self):
         """Clean up resources when closing."""
-        if self.recording:
-            self.stop_recording()
-        self.audio.terminate() 
+        try:
+            if self.recording:
+                self.stop_recording()
+            self.audio.terminate()
+        except Exception as e:
+            print(f"Error during audio cleanup: {e}")
+            # Continue with termination even if stop_recording fails
+            try:
+                self.audio.terminate()
+            except:
+                pass 

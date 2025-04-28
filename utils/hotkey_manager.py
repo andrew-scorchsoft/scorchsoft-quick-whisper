@@ -164,10 +164,10 @@ class HotkeyManager:
     def update_shortcut_displays(self):
         """Update all UI elements that display keyboard shortcuts"""
         # Update record buttons
-        self.parent.record_button_edit.configure(
+        self.parent.ui_manager.record_button_edit.configure(
             text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
         )
-        self.parent.record_button_transcribe.configure(
+        self.parent.ui_manager.record_button_transcribe.configure(
             text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
         )
         
