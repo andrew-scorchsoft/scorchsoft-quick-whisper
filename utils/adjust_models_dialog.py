@@ -80,6 +80,16 @@ class AdjustModelsDialog:
             "whisper-1": "whisper",
             "other": "unknown"
         }
+        
+        # Define LLM models for copy-editing
+        self.llm_models = {
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "other"
+        }
 
         self.create_dialog()
 
@@ -139,31 +149,43 @@ class AdjustModelsDialog:
         models_frame = ttk.LabelFrame(main_frame, text="AI Model Settings", padding="5")
         models_frame.pack(fill="x", pady=(0, 10))
 
-        # Transcription Model Selection
-        tk.Label(models_frame, text="Speech-to-Text Model:").pack(anchor="w", pady=(5, 0))
+        # Create a separate frame for all transcription model components
+        transcription_section = ttk.Frame(models_frame)
+        transcription_section.pack(fill="x", pady=(5, 15))
+
+        # Transcription Model Selection - renamed label
+        tk.Label(transcription_section, text="Transcription Model:").pack(anchor="w")
         
         # Variables for model selection
         self.transcription_model_var = tk.StringVar()
         self.custom_model_var = tk.StringVar()
         
+        # Create a container frame for the dropdown
+        dropdown_frame = ttk.Frame(transcription_section)
+        dropdown_frame.pack(fill="x", pady=(5, 0))
+        
         # Function to handle model selection change
         def on_model_change(*args):
             selected = self.transcription_model_var.get()
             if selected == "other":
-                self.custom_model_entry.pack(fill="x", pady=(5, 0))
+                self.custom_frame.pack(fill="x", pady=(5, 0))
                 self.custom_model_entry.focus()
             else:
-                self.custom_model_entry.pack_forget()
+                self.custom_frame.pack_forget()
         
         # Set up model dropdown
-        self.transcription_model_combo = ttk.Combobox(models_frame, 
-                                                    textvariable=self.transcription_model_var,
-                                                    values=list(self.transcription_models.keys()) + ["other"],
-                                                    state="readonly")
+        self.transcription_model_combo = ttk.Combobox(dropdown_frame, 
+                                                     textvariable=self.transcription_model_var,
+                                                     values=list(self.transcription_models.keys()),
+                                                     state="readonly")
         self.transcription_model_combo.pack(fill="x")
         
-        # Custom model entry (initially hidden)
-        self.custom_model_entry = tk.Entry(models_frame, textvariable=self.custom_model_var)
+        # Create a frame for custom model input to keep it organized
+        self.custom_frame = ttk.Frame(transcription_section)
+        self.custom_model_label = ttk.Label(self.custom_frame, text="Enter custom transcriptionmodel name:")
+        self.custom_model_label.pack(anchor="w")
+        self.custom_model_entry = ttk.Entry(self.custom_frame, textvariable=self.custom_model_var)
+        self.custom_model_entry.pack(fill="x", pady=(2, 0))
         
         # Set initial values based on current model
         current_model = self.parent.transcription_model
@@ -172,24 +194,67 @@ class AdjustModelsDialog:
         else:
             self.transcription_model_var.set("other")
             self.custom_model_var.set(current_model)
-            self.custom_model_entry.pack(fill="x", pady=(5, 0))
+            self.custom_frame.pack(fill="x", pady=(5, 0))
         
         # Bind the change event
         self.transcription_model_var.trace("w", on_model_change)
         
         # Model type info
-        model_type_text = ("Note: GPT-4o is the higher quality model and supports many languages.\n"
+        model_type_text = ("Note: GPT models provide higher quality transcription with broad language support.\n"
                            "Whisper is the traditional speech recognition model.")
-        ttk.Label(models_frame, text=model_type_text, 
-                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(5, 10))
+        ttk.Label(transcription_section, text=model_type_text, 
+                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(8, 0))
 
-        # AI Model Entry
-        tk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(10, 0))
-        self.ai_entry = tk.Entry(models_frame)
-        self.ai_entry.insert(0, self.parent.ai_model)
-        self.ai_entry.pack(fill="x")
-        tk.Label(models_frame, text="e.g., gpt-4o, gpt-4o-mini, o1-mini, o1-preview", 
-                font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w")
+        # AI Model Entry - after the transcription section with clean separation
+        tk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
+        
+        # Variables for LLM model selection
+        self.llm_model_var = tk.StringVar()
+        self.custom_llm_var = tk.StringVar()
+        
+        # Create a container frame for the dropdown
+        llm_dropdown_frame = ttk.Frame(models_frame)
+        llm_dropdown_frame.pack(fill="x", pady=(5, 0))
+        
+        # Function to handle model selection change
+        def on_llm_change(*args):
+            selected = self.llm_model_var.get()
+            if selected == "other":
+                self.custom_llm_frame.pack(fill="x", pady=(5, 0))
+                self.custom_llm_entry.focus()
+            else:
+                self.custom_llm_frame.pack_forget()
+        
+        # Set up model dropdown
+        self.llm_model_combo = ttk.Combobox(llm_dropdown_frame, 
+                                           textvariable=self.llm_model_var,
+                                           values=list(self.llm_models),
+                                           state="readonly")
+        self.llm_model_combo.pack(fill="x")
+        
+        # Create a frame for custom model input
+        self.custom_llm_frame = ttk.Frame(models_frame)
+        self.custom_llm_label = ttk.Label(self.custom_llm_frame, text="Enter custom copyediting model name:")
+        self.custom_llm_label.pack(anchor="w")
+        self.custom_llm_entry = ttk.Entry(self.custom_llm_frame, textvariable=self.custom_llm_var)
+        self.custom_llm_entry.pack(fill="x", pady=(2, 0))
+        
+        # Set initial values based on current model
+        current_llm = self.parent.ai_model
+        if current_llm in self.llm_models:
+            self.llm_model_var.set(current_llm)
+        else:
+            self.llm_model_var.set("other")
+            self.custom_llm_var.set(current_llm)
+            self.custom_llm_frame.pack(fill="x", pady=(5, 0))
+        
+        # Bind the change event
+        self.llm_model_var.trace("w", on_llm_change)
+        
+        # Model info
+        llm_info_text = "e.g., gpt-4o, gpt-4o-mini, o1-mini, o1-preview"
+        ttk.Label(models_frame, text=llm_info_text, 
+                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(5, 0))
 
         # Save button - using CTkButton
         save_button = ctk.CTkButton(
@@ -257,10 +322,21 @@ class AdjustModelsDialog:
             
         print(f"Saving model: '{transcription_model}' | Type: '{model_type}'")
             
+        # Get the selected LLM model
+        if self.llm_model_var.get() == "other":
+            llm_model = self.custom_llm_var.get().strip()
+            if not llm_model:
+                messagebox.showerror("Error", "Custom copyediting model name cannot be empty")
+                return
+        else:
+            llm_model = self.llm_model_var.get()
+            
+        print(f"Saving LLM model: '{llm_model}'")
+            
         # Update values in the dictionary
         env_vars["TRANSCRIPTION_MODEL"] = transcription_model
         env_vars["TRANSCRIPTION_MODEL_TYPE"] = model_type
-        env_vars["AI_MODEL"] = self.ai_entry.get()
+        env_vars["AI_MODEL"] = llm_model
         env_vars["WHISPER_LANGUAGE"] = language_code
 
         # Write each environment variable to the .env file
@@ -281,10 +357,11 @@ class AdjustModelsDialog:
         # Update parent instance variables
         self.parent.transcription_model = transcription_model
         self.parent.transcription_model_type = model_type
-        self.parent.ai_model = self.ai_entry.get()
+        self.parent.ai_model = llm_model
         self.parent.whisper_language = language_code
         
         # Update the model label
         self.parent.update_model_label()
         
+        self.dialog.destroy() 
         self.dialog.destroy() 
