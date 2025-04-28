@@ -7,7 +7,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Features
 
-- **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Win+Alt+J` for edit, `Win+Ctrl+J` for transcription).
+- **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Ctrl+Alt+J` for edit, `Ctrl+Alt+Shift+J` for transcription).
 - **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired.
 - **Optional GPT-4 Editing**: Enhance your transcriptions using GPT-4 for a polished, copy-edited text output.
 - **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle GPT-4 editing.
@@ -38,8 +38,8 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
     ```
 
 2. Select an input device, then press one of the recording buttons or use the hotkeys:
-   - `Win+Alt+J` for Record + AI Edit
-   - `Win+Ctrl+J` for Record + Transcript
+   - `Ctrl+Alt+J` for Record + AI Edit
+   - `Ctrl+Alt+Shift+J` for Record + Transcript
    - `Win+X` to Cancel Recording
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
@@ -86,6 +86,6 @@ For Mac users:
    - Add QuickWhisper to the list of allowed apps
 
 3. The app uses Command (⌘) instead of Windows key for shortcuts:
-   - ⌘+J: Record + AI Edit
-   - ⌘+Ctrl+J: Record + Transcript
+   - ⌘+Alt+J: Record + AI Edit
+   - ⌘+Alt+Shift+J: Record + Transcript
    - ⌘+X: Cancel Recording

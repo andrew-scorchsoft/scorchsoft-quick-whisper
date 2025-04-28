@@ -16,8 +16,8 @@ class HotkeyManager:
         
         # Default shortcuts
         self.shortcuts = {
-            'record_edit': 'win+alt+j' if not self.is_mac else 'command+alt+j',
-            'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
+            'record_edit': 'ctrl+alt+j' if not self.is_mac else 'command+alt+j',
+            'record_transcribe': 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j',
             'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
             'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
             'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
@@ -33,8 +33,8 @@ class HotkeyManager:
         """Load keyboard shortcuts from environment variables"""
         # Overwrite defaults with any environment-defined shortcuts
         self.shortcuts = {
-            'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'win+alt+j' if not self.is_mac else 'command+alt+j'),
-            'record_transcribe': self.parent._env_get('SHORTCUT_RECORD_TRANSCRIBE', 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j'),
+            'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
+            'record_transcribe': self.parent._env_get('SHORTCUT_RECORD_TRANSCRIBE', 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
             'cancel_recording': self.parent._env_get('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
             'cycle_prompt_back': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
             'cycle_prompt_forward': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
@@ -93,6 +93,7 @@ class HotkeyManager:
             print(f"Win pressed: {keyboard.is_pressed('win')}")
             print(f"Alt pressed: {keyboard.is_pressed('alt')}")
             print(f"Ctrl pressed: {keyboard.is_pressed('ctrl')}")
+            print(f"Shift pressed: {keyboard.is_pressed('shift')}")
             
             # Track key state
             self.key_state[scan_code] = {
@@ -100,14 +101,14 @@ class HotkeyManager:
                 'time': time.time()
             }
             
-            # For Windows+Alt+J combination (record_edit)
-            if key_name.lower() == 'j' and keyboard.is_pressed('win') and keyboard.is_pressed('alt'):
-                print("Detected Win+Alt+J: suppressing 'j' keypress")
+            # For Ctrl+Alt+J combination (record_edit)
+            if key_name.lower() == 'j' and keyboard.is_pressed('ctrl') and keyboard.is_pressed('alt') and not keyboard.is_pressed('shift'):
+                print("Detected Ctrl+Alt+J: suppressing 'j' keypress")
                 return False  # Suppress the j key
             
-            # For Windows+Ctrl+J combination (record_transcribe)
-            elif key_name.lower() == 'j' and keyboard.is_pressed('win') and keyboard.is_pressed('ctrl'):
-                print("Detected Win+Ctrl+J: suppressing 'j' keypress")
+            # For Ctrl+Alt+Shift+J combination (record_transcribe)
+            elif key_name.lower() == 'j' and keyboard.is_pressed('ctrl') and keyboard.is_pressed('alt') and keyboard.is_pressed('shift'):
+                print("Detected Ctrl+Alt+Shift+J: suppressing 'j' keypress")
                 return False  # Suppress the j key
             
             # For Windows+X combination
@@ -385,8 +386,8 @@ class HotkeyManager:
                 
                 # Reset shortcuts in memory to defaults
                 self.shortcuts = {
-                    'record_edit': 'win+alt+j' if not self.is_mac else 'command+alt+j',
-                    'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
+                    'record_edit': 'ctrl+alt+j' if not self.is_mac else 'command+alt+j',
+                    'record_transcribe': 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j',
                     'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
                     'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
                     'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'

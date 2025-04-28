@@ -39,7 +39,7 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.version = "1.9.0"
+        self.version = "1.9.1"
         
         self.is_mac = platform.system() == 'Darwin'
 
@@ -197,8 +197,8 @@ class QuickWhisper(tk.Tk):
 
         # Load keyboard shortcuts with defaults
         self.shortcuts = {
-            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'win+alt+j' if not self.is_mac else 'command+alt+j'),
-            'record_transcribe': os.getenv('SHORTCUT_RECORD_TRANSCRIBE', 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j'),
+            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
+            'record_transcribe': os.getenv('SHORTCUT_RECORD_TRANSCRIBE', 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
             'cancel_recording': os.getenv('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
             'cycle_prompt_back': os.getenv('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
             'cycle_prompt_forward': os.getenv('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
