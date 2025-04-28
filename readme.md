@@ -7,7 +7,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Features
 
-- **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Win+J`).
+- **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Win+Alt+J` for edit, `Win+Ctrl+J` for transcription).
 - **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired.
 - **Optional GPT-4 Editing**: Enhance your transcriptions using GPT-4 for a polished, copy-edited text output.
 - **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle GPT-4 editing.
@@ -37,11 +37,14 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
     python quick_whisper.py
     ```
 
-2. Select an input device, then press `Start Recording` or use the `Win+J` hotkey to begin recording.
+2. Select an input device, then press one of the recording buttons or use the hotkeys:
+   - `Win+Alt+J` for Record + AI Edit
+   - `Win+Ctrl+J` for Record + Transcript
+   - `Win+X` to Cancel Recording
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
 
-4. Enable “Auto Copy-edit with GPT-4” for advanced text processing, allowing GPT-4 to edit the transcription for improved readability and structure.
+4. Enable "Auto Copy-edit with GPT-4" for advanced text processing, allowing GPT-4 to edit the transcription for improved readability and structure.
 
 ## Screenshot
 
@@ -55,13 +58,13 @@ This project is licensed under the terms specified in the LICENSE.md file.
 ## Making an installer
 
 Windows:
-`python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" quick_whisper.py`
+`python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py`
 
 Windows with terminal:
-`python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" quick_whisper.py`
+`python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py`
 
 Mac:
-`pyinstaller --onefile --add-data "assets:assets" quick_whisper.py`
+`pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder quick_whisper.py`
 
 # About Scorchsoft
 

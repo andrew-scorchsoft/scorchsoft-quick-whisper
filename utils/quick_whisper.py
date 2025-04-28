@@ -197,7 +197,7 @@ class QuickWhisper(tk.Tk):
 
         # Load keyboard shortcuts with defaults
         self.shortcuts = {
-            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'win+j' if not self.is_mac else 'command+j'),
+            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'win+alt+j' if not self.is_mac else 'command+alt+j'),
             'record_transcribe': os.getenv('SHORTCUT_RECORD_TRANSCRIBE', 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j'),
             'cancel_recording': os.getenv('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
             'cycle_prompt_back': os.getenv('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
@@ -983,11 +983,20 @@ class QuickWhisper(tk.Tk):
     def setup_system_tray(self):
         """Initialize and show the system tray icon"""
         # Start the tray icon
-        self.tray_manager.show_tray()
+        success = self.tray_manager.show_tray()
         
-        # Set up close button behavior to minimize to tray instead of exit
-        self.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
-    
+        if not success:
+            # If we can't create a tray icon, don't change window closing behavior
+            messagebox.showwarning(
+                "System Tray Unavailable", 
+                "Could not create system tray icon. Closing the window will exit the application."
+            )
+            # Use normal window closing behavior
+            self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        else:
+            # Set up close button behavior to minimize to tray instead of exit
+            self.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
+
     def minimize_to_tray(self):
         """Minimize the application to system tray instead of closing"""
         self.tray_manager.minimize_to_tray()

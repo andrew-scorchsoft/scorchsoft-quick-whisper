@@ -16,39 +16,54 @@ class TrayManager:
         
     def setup_tray(self):
         """Set up the system tray icon"""
-        # Load the icon image
-        icon_path = self.parent.resource_path("assets/icon-32.png")
-        self.icon_image = Image.open(icon_path)
-        
-        # Create a menu
-        menu = Menu(
-            Item('Show/Hide Window', self._toggle_window),
-            Item('Refresh Hotkeys Now', self._refresh_hotkeys),
-            Menu.SEPARATOR,
-            Item('Auto-Refresh Hotkeys (Every 30s)', self._toggle_auto_refresh, checked=lambda: self.parent.auto_hotkey_refresh.get()),
-            Menu.SEPARATOR,
-            Item('Exit', self._exit_app)
-        )
-        
-        # Create the icon
-        self.icon = TrayIcon(
-            "QuickWhisper", 
-            self.icon_image,
-            "Quick Whisper",
-            menu
-        )
+        try:
+            # Load the icon image
+            icon_path = self.parent.resource_path("assets/icon-32.png")
+            self.icon_image = Image.open(icon_path)
+            
+            # Create a menu
+            menu = Menu(
+                Item('Show/Hide Window', self._toggle_window),
+                Item('Refresh Hotkeys Now', self._refresh_hotkeys),
+                Menu.SEPARATOR,
+                Item('Auto-Refresh Hotkeys (Every 30s)', self._toggle_auto_refresh, checked=lambda item: self.parent.auto_hotkey_refresh.get()),
+                Menu.SEPARATOR,
+                Item('Exit', self._exit_app)
+            )
+            
+            # Create the icon
+            self.icon = TrayIcon(
+                "QuickWhisper", 
+                self.icon_image,
+                "Quick Whisper",
+                menu
+            )
+            return True
+        except Exception as e:
+            print(f"Error setting up system tray icon: {e}")
+            return False
         
     def show_tray(self):
         """Show the system tray icon in a separate thread"""
         if self.is_running:
-            return
+            return True
+        
+        if not self.setup_tray():
+            print("Failed to set up system tray icon")
+            return False
             
-        self.setup_tray()
         self.is_running = True
         
-        # Run in a separate thread to not block the main thread
-        self.icon_thread = threading.Thread(target=self._run_tray, daemon=True)
-        self.icon_thread.start()
+        try:
+            # Run in a separate thread to not block the main thread
+            # CHANGED: Make this a non-daemon thread so it doesn't terminate prematurely
+            self.icon_thread = threading.Thread(target=self._run_tray, daemon=False)
+            self.icon_thread.start()
+            return True
+        except Exception as e:
+            print(f"Error starting tray icon thread: {e}")
+            self.is_running = False
+            return False
         
     def _run_tray(self):
         """Run the system tray icon (called in a thread)"""
@@ -101,6 +116,13 @@ class TrayManager:
     
     def minimize_to_tray(self):
         """Minimize the window to the system tray"""
+        # Ensure tray is set up before minimizing
+        if not self.is_running:
+            success = self.show_tray()
+            if not success:
+                print("Failed to create system tray icon, not minimizing")
+                return
+                
         self.parent.withdraw()
         self.is_window_hidden = True
     

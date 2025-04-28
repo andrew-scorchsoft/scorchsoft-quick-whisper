@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox
 import customtkinter as ctk
 from pathlib import Path
 import platform
+import threading
+import time
 
 
 class HotkeyManager:
@@ -14,7 +16,7 @@ class HotkeyManager:
         
         # Default shortcuts
         self.shortcuts = {
-            'record_edit': 'win+j' if not self.is_mac else 'command+j',
+            'record_edit': 'win+alt+j' if not self.is_mac else 'command+alt+j',
             'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
             'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
             'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
@@ -23,12 +25,15 @@ class HotkeyManager:
         
         # Load shortcuts from environment
         self.load_shortcuts_from_env()
+        
+        # A dict to track keys we've intercepted to avoid suppressing modifier keys alone
+        self.key_state = {}
     
     def load_shortcuts_from_env(self):
         """Load keyboard shortcuts from environment variables"""
         # Overwrite defaults with any environment-defined shortcuts
         self.shortcuts = {
-            'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'win+j' if not self.is_mac else 'command+j'),
+            'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'win+alt+j' if not self.is_mac else 'command+alt+j'),
             'record_transcribe': self.parent._env_get('SHORTCUT_RECORD_TRANSCRIBE', 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j'),
             'cancel_recording': self.parent._env_get('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
             'cycle_prompt_back': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
@@ -46,23 +51,107 @@ class HotkeyManager:
                     pass
             self.hotkeys.clear()
 
-            # Register new hotkeys using stored shortcuts
+            # Register hotkeys for combinations, but don't suppress yet
+            # We'll do manual suppression in the key event handlers
+            # This is to avoid suppressing the windows key when used alone
+            
+            # Set up individual key handlers
+            keyboard.on_press(self.on_key_press)
+            keyboard.on_release(self.on_key_release)
+            
+            # Register hotkeys - these will set up detection but won't suppress
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_edit'], 
-                                                  lambda: self.parent.toggle_recording("edit"), suppress=True))
+                                                  lambda: self.parent.toggle_recording("edit"), 
+                                                  suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_transcribe'], 
-                                                  lambda: self.parent.toggle_recording("transcribe"), suppress=True))
+                                                  lambda: self.parent.toggle_recording("transcribe"), 
+                                                  suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cancel_recording'], 
-                                                  self.parent.cancel_recording, suppress=True))
+                                                  self.parent.cancel_recording, 
+                                                  suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_back'], 
-                                                  self.parent.cycle_prompt_backward, suppress=True))
+                                                  self.parent.cycle_prompt_backward, 
+                                                  suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_forward'], 
-                                                  self.parent.cycle_prompt_forward, suppress=True))
+                                                  self.parent.cycle_prompt_forward, 
+                                                  suppress=False))
             
             print(f"Registered {len(self.hotkeys)} hotkeys successfully")
             return True
         except Exception as e:
             print(f"Error registering hotkeys: {e}")
             return False
+    
+    def on_key_press(self, event):
+        """Handle key press events and selectively suppress"""
+        try:
+            key_name = event.name if hasattr(event, 'name') else ''
+            scan_code = event.scan_code if hasattr(event, 'scan_code') else None
+            
+            # Enhanced debug info
+            print(f"Key press detected: {key_name} (scan_code: {scan_code})")
+            print(f"Win pressed: {keyboard.is_pressed('win')}")
+            print(f"Alt pressed: {keyboard.is_pressed('alt')}")
+            print(f"Ctrl pressed: {keyboard.is_pressed('ctrl')}")
+            
+            # Track key state
+            self.key_state[scan_code] = {
+                'name': key_name,
+                'time': time.time()
+            }
+            
+            # For Windows+Alt+J combination (record_edit)
+            if key_name.lower() == 'j' and keyboard.is_pressed('win') and keyboard.is_pressed('alt'):
+                print("Detected Win+Alt+J: suppressing 'j' keypress")
+                return False  # Suppress the j key
+            
+            # For Windows+Ctrl+J combination (record_transcribe)
+            elif key_name.lower() == 'j' and keyboard.is_pressed('win') and keyboard.is_pressed('ctrl'):
+                print("Detected Win+Ctrl+J: suppressing 'j' keypress")
+                return False  # Suppress the j key
+            
+            # For Windows+X combination
+            elif key_name.lower() == 'x' and keyboard.is_pressed('win'):
+                print("Detected Win+X: suppressing 'x' keypress")
+                return False  # Suppress the x key
+            
+            # For Alt+Left combination
+            elif key_name.lower() == 'left' and keyboard.is_pressed('alt'):
+                print("Detected Alt+Left: suppressing 'left' keypress")
+                return False  # Suppress the left key
+            
+            # For Alt+Right combination
+            elif key_name.lower() == 'right' and keyboard.is_pressed('alt'):
+                print("Detected Alt+Right: suppressing 'right' keypress")
+                return False  # Suppress the right key
+            
+            # Explicitly allow 'j' when pressed alone (not part of a combo)
+            elif key_name.lower() == 'j':
+                print("Detected 'j' alone - NOT suppressing")
+                return True
+            
+            # For all other keys, don't suppress
+            return True
+            
+        except Exception as e:
+            print(f"Error in key press handler: {e}")
+            return True  # Don't suppress on error
+    
+    def on_key_release(self, event):
+        """Handle key release events"""
+        try:
+            scan_code = event.scan_code if hasattr(event, 'scan_code') else None
+            
+            # Clean up key state
+            if scan_code in self.key_state:
+                del self.key_state[scan_code]
+            
+            # Never suppress key releases
+            return True
+            
+        except Exception as e:
+            print(f"Error in key release handler: {e}")
+            return True  # Don't suppress on error
     
     def force_hotkey_refresh(self, callback=None):
         """Force a complete refresh of all hotkeys."""
@@ -77,6 +166,7 @@ class HotkeyManager:
             # Clear our tracking
             print("Clearing hotkey tracking list...")
             self.hotkeys.clear()
+            self.key_state.clear()
             print("Hotkey tracking list cleared")
             
             # Try to reset the keyboard module's internal state
@@ -295,7 +385,7 @@ class HotkeyManager:
                 
                 # Reset shortcuts in memory to defaults
                 self.shortcuts = {
-                    'record_edit': 'win+j' if not self.is_mac else 'command+j',
+                    'record_edit': 'win+alt+j' if not self.is_mac else 'command+alt+j',
                     'record_transcribe': 'win+ctrl+j' if not self.is_mac else 'command+ctrl+j',
                     'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
                     'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',

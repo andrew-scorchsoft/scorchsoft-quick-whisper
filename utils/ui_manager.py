@@ -148,7 +148,7 @@ class UIManager:
         ctk.set_default_color_theme("green")  # Options: "blue", "dark-blue", "green"
 
         # Update button text to show proper OS-specific shortcuts
-        shortcut_text = "Cmd+J" if self.parent.is_mac else "Win+J"
+        shortcut_text = "Cmd+Alt+J" if self.parent.is_mac else "Win+Alt+J"
         ctrl_shortcut_text = "Cmd+Ctrl+J" if self.parent.is_mac else "Win+Ctrl+J"
 
         # Record Transcript Only Button
