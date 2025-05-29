@@ -46,6 +46,31 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 4. Enable "Auto Copy-edit with GPT-4" for advanced text processing, allowing GPT-4 to edit the transcription for improved readability and structure.
 
+## Configuration
+
+QuickWhisper includes a configuration system that allows you to customize recording behavior. Access it via **Settings > Config**.
+
+### Recording Location
+
+Choose where audio recording files are saved:
+
+- **Alongside application (recommended)**: Saves recordings in a `tmp` folder next to the application
+- **In AppData folder**: Uses the OS-appropriate application data directory:
+  - Windows: `%APPDATA%\QuickWhisper\recordings`
+  - macOS: `~/Library/Application Support/QuickWhisper/recordings`
+  - Linux: `~/.config/QuickWhisper/recordings`
+- **Custom folder**: Specify any folder of your choice
+
+### File Handling
+
+Control how recording files are managed:
+
+- **Overwrite the same file each time (default)**: Saves disk space by reusing the same filename
+- **Save each recording with date/time in filename**: Creates unique files like `recording_20240101_143052.wav`
+  - ⚠️ **Warning**: This option can consume significant disk space over time
+
+All configuration settings are saved to the `config/.env` file and will persist between application restarts.
+
 ## Screenshot
 
 ![QuickWhisper Interface](assets/quick-whisper-v1-5-0.png)

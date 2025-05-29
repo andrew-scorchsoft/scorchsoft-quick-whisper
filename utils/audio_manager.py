@@ -115,8 +115,19 @@ class AudioManager:
         tmp_dir = self.parent.tmp_dir
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save the recorded data to the tmp folder as temp_recording.wav
-        self.audio_file = tmp_dir / "temp_recording.wav"
+        # Determine filename based on file handling setting
+        file_handling = os.getenv("FILE_HANDLING", "overwrite")
+        
+        if file_handling == "timestamp":
+            # Create timestamped filename
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"recording_{timestamp}.wav"
+        else:
+            # Default: overwrite the same file
+            filename = "temp_recording.wav"
+        
+        self.audio_file = tmp_dir / filename
         print(f"Saving Recording to {self.audio_file}")
 
         with wave.open(str(self.audio_file), 'wb') as wf:
@@ -161,7 +172,24 @@ class AudioManager:
     
     def retry_last_recording(self):
         """Retry processing the last recorded audio file."""
-        last_recording = self.parent.tmp_dir / "temp_recording.wav"
+        file_handling = os.getenv("FILE_HANDLING", "overwrite")
+        
+        if file_handling == "timestamp":
+            # Find the most recent recording file
+            try:
+                recording_files = list(self.parent.tmp_dir.glob("recording_*.wav"))
+                if recording_files:
+                    # Sort by modification time and get the most recent
+                    last_recording = max(recording_files, key=lambda f: f.stat().st_mtime)
+                else:
+                    messagebox.showerror("Retry Failed", "No previous recordings found.")
+                    return False
+            except Exception as e:
+                messagebox.showerror("Retry Failed", f"Error finding previous recordings: {e}")
+                return False
+        else:
+            # Default: look for temp_recording.wav
+            last_recording = self.parent.tmp_dir / "temp_recording.wav"
 
         if last_recording.exists():
             # Play start recording sound
@@ -174,7 +202,7 @@ class AudioManager:
             threading.Thread(target=self.parent.transcribe_audio).start()
             return True
         else:
-            messagebox.showerror("Retry Failed", "No previous recording found to retry in tmp folder.")
+            messagebox.showerror("Retry Failed", "No previous recording found to retry.")
             return False
     
     def play_sound(self, sound_file):

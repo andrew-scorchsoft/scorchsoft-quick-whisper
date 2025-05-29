@@ -26,6 +26,7 @@ from ctypes import wintypes
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
 from utils.manage_prompts_dialog import ManagePromptsDialog
+from utils.config_dialog import ConfigDialog
 from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
 from utils.tts_manager import TTSManager
@@ -39,7 +40,7 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.version = "1.9.1"
+        self.version = "1.9.2"
         
         self.is_mac = platform.system() == 'Darwin'
 
@@ -95,8 +96,10 @@ class QuickWhisper(tk.Tk):
         self.history_index = -1  # -1 indicates no history selected yet
         self.max_history_length = 10000
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
-        self.tmp_dir = Path.cwd() / "tmp"
-        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize recording directory based on settings
+        self.update_recording_directory()
+        
         # Define helper method for environment variables before initializing managers
         self._env_get = lambda key, default=None: os.getenv(key, default)
         # Initialize the managers
@@ -334,6 +337,7 @@ class QuickWhisper(tk.Tk):
         settings_menu.add_command(label="Change API Key", command=self.change_api_key)
         settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
+        settings_menu.add_command(label="Config", command=self.open_config)
         settings_menu.add_separator()
         settings_menu.add_checkbutton(label="Automatically Check for Updates", 
                                     variable=self.version_manager.auto_update_check, 
@@ -868,6 +872,10 @@ class QuickWhisper(tk.Tk):
     def adjust_models(self):
         AdjustModelsDialog(self)
 
+    def open_config(self):
+        """Open the configuration dialog."""
+        ConfigDialog(self)
+
     def show_prompt_notification(self, message):
         """Show a temporary notification message in the status label and speak the prompt name."""
         # Create a clean version of the message for speech
@@ -1000,3 +1008,32 @@ class QuickWhisper(tk.Tk):
     def minimize_to_tray(self):
         """Minimize the application to system tray instead of closing"""
         self.tray_manager.minimize_to_tray()
+
+    def update_recording_directory(self):
+        """Update the recording directory based on configuration settings."""
+        # Load recording location setting
+        recording_location = os.getenv("RECORDING_LOCATION", "alongside")
+        
+        if recording_location == "appdata":
+            # Use OS-appropriate app data directory
+            if platform.system() == "Windows":
+                appdata_dir = Path(os.getenv("APPDATA", os.path.expanduser("~"))) / "QuickWhisper"
+            elif platform.system() == "Darwin":  # macOS
+                appdata_dir = Path.home() / "Library" / "Application Support" / "QuickWhisper"
+            else:  # Linux and other Unix-like systems
+                appdata_dir = Path.home() / ".config" / "QuickWhisper"
+            self.tmp_dir = appdata_dir
+        elif recording_location == "custom":
+            custom_path = os.getenv("CUSTOM_RECORDING_PATH", "")
+            if custom_path and os.path.exists(custom_path):
+                self.tmp_dir = Path(custom_path)
+            else:
+                # Fallback to alongside if custom path is invalid
+                print(f"Warning: Custom recording path '{custom_path}' does not exist. Falling back to 'alongside' option.")
+                self.tmp_dir = Path.cwd() / "tmp"
+        else:  # Default: alongside
+            self.tmp_dir = Path.cwd() / "tmp"
+        
+        # Ensure the directory exists
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Recording directory set to: {self.tmp_dir}")

@@ -88,13 +88,6 @@ class HotkeyManager:
             key_name = event.name if hasattr(event, 'name') else ''
             scan_code = event.scan_code if hasattr(event, 'scan_code') else None
             
-            # Enhanced debug info
-            print(f"Key press detected: {key_name} (scan_code: {scan_code})")
-            print(f"Win pressed: {keyboard.is_pressed('win')}")
-            print(f"Alt pressed: {keyboard.is_pressed('alt')}")
-            print(f"Ctrl pressed: {keyboard.is_pressed('ctrl')}")
-            print(f"Shift pressed: {keyboard.is_pressed('shift')}")
-            
             # Track key state
             self.key_state[scan_code] = {
                 'name': key_name,
@@ -103,33 +96,23 @@ class HotkeyManager:
             
             # For Ctrl+Alt+J combination (record_edit)
             if key_name.lower() == 'j' and keyboard.is_pressed('ctrl') and keyboard.is_pressed('alt') and not keyboard.is_pressed('shift'):
-                print("Detected Ctrl+Alt+J: suppressing 'j' keypress")
                 return False  # Suppress the j key
             
             # For Ctrl+Alt+Shift+J combination (record_transcribe)
             elif key_name.lower() == 'j' and keyboard.is_pressed('ctrl') and keyboard.is_pressed('alt') and keyboard.is_pressed('shift'):
-                print("Detected Ctrl+Alt+Shift+J: suppressing 'j' keypress")
                 return False  # Suppress the j key
             
             # For Windows+X combination
             elif key_name.lower() == 'x' and keyboard.is_pressed('win'):
-                print("Detected Win+X: suppressing 'x' keypress")
                 return False  # Suppress the x key
             
             # For Alt+Left combination
             elif key_name.lower() == 'left' and keyboard.is_pressed('alt'):
-                print("Detected Alt+Left: suppressing 'left' keypress")
                 return False  # Suppress the left key
             
             # For Alt+Right combination
             elif key_name.lower() == 'right' and keyboard.is_pressed('alt'):
-                print("Detected Alt+Right: suppressing 'right' keypress")
                 return False  # Suppress the right key
-            
-            # Explicitly allow 'j' when pressed alone (not part of a combo)
-            elif key_name.lower() == 'j':
-                print("Detected 'j' alone - NOT suppressing")
-                return True
             
             # For all other keys, don't suppress
             return True
