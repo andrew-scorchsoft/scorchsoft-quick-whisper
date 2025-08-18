@@ -568,6 +568,9 @@ class QuickWhisper(tk.Tk):
                         print(f"Error with Whisper transcription: {e}")
                         raise
 
+            # Remove any trailing newlines/spaces to avoid moving the caret to a new line on paste
+            transcription_text = (transcription_text or "").rstrip()
+
             self.add_to_history(transcription_text)
             self.last_trancription = transcription_text
 
@@ -584,6 +587,7 @@ class QuickWhisper(tk.Tk):
 
                 # AI Edit the transcript
                 edited_text = self.process_with_gpt_model(transcription_text)
+                edited_text = (edited_text or "").rstrip()
                 self.add_to_history(edited_text)
                 self.last_edit = edited_text
                 play_text = edited_text
@@ -614,7 +618,16 @@ class QuickWhisper(tk.Tk):
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
             self.ui_manager.set_status("Error during transcription", "red")
 
-            messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
+            # Provide a clearer hint for known unsupported/renamed models
+            err_text = str(e)
+            if "mini" in (self.transcription_model or "").lower():
+                messagebox.showerror(
+                    "Transcription Error",
+                    "The selected transcription model may be unsupported. Try 'gpt-4o-transcribe' or 'whisper-1'.\n\n"
+                    "If you entered a custom model, please verify the exact model name supported by the API."
+                )
+            else:
+                messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
 
         finally:
             self.ui_manager.set_status("Idle", "blue")
