@@ -72,7 +72,7 @@ class QuickWhisper(tk.Tk):
         # Initial model settings
         self.transcription_model = "gpt-4o-transcribe"
         self.transcription_model_type = "gpt"  # Can be "gpt" or "whisper"
-        self.ai_model = "gpt-4o"
+        self.ai_model = "gpt-5-mini"
         self.whisper_language = "auto"
         self.last_trancription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
@@ -674,17 +674,36 @@ class QuickWhisper(tk.Tk):
             
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
 
+
             print(f"About to process with AI Model {self.ai_model}")
-            response = self.client.chat.completions.create(
-                model=self.ai_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=8000
-            )
-            gpt_text = response.choices[0].message.content
+
+            if "gpt-5" in self.ai_model:
+                response = self.client.responses.create(
+                    model=self.ai_model,
+                    instructions=system_prompt,
+                    text={"verbosity": "low"},  
+                    reasoning={"effort": "minimal"},
+                    input=user_prompt,
+                    max_output_tokens=8000
+                )
+                gpt_text = response.output_text
+            else:
+                response = self.client.chat.completions.create(
+                    model=self.ai_model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=8000
+                )
+                gpt_text = response.choices[0].message.content
+
+            
+            
+            
             return gpt_text
+        
+
         except Exception as e:
             # Play failure sound
             threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()

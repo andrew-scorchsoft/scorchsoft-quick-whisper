@@ -81,15 +81,18 @@ class AdjustModelsDialog:
             "other": "unknown"
         }
         
-        # Define LLM models for copy-editing
-        self.llm_models = {
+        # Define LLM models for copy-editing (order matters for UI display)
+        self.llm_models = [
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
             "gpt-4o",
             "gpt-4o-mini",
             "other"
-        }
+        ]
 
         self.create_dialog()
 
@@ -252,7 +255,7 @@ class AdjustModelsDialog:
         self.llm_model_var.trace("w", on_llm_change)
         
         # Model info
-        llm_info_text = "e.g., gpt-4o, gpt-4o-mini, o1-mini, o1-preview"
+        llm_info_text = "e.g., gpt-5, gpt-4o, gpt-4o-mini, o1-mini, o1-preview"
         ttk.Label(models_frame, text=llm_info_text, 
                  font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(5, 0))
 
