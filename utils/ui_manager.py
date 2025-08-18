@@ -107,6 +107,13 @@ class UIManager:
         # Transcription Text Area
         self.transcription_text = tk.Text(main_frame, height=10, width=70, wrap="word")
         self.transcription_text.grid(row=row, column=0, columnspan=2, pady=(0,5))
+        # Standard bindings and context menu
+        try:
+            self.transcription_text.bind("<Control-a>", lambda e: (self.transcription_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.transcription_text.bind("<Control-A>", lambda e: (self.transcription_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.transcription_text.bind("<Button-3>", lambda e: self._show_text_context_menu(e))
+        except Exception:
+            pass
 
         row += 1
 
@@ -275,3 +282,16 @@ class UIManager:
     def set_status(self, message, color="blue"):
         """Update the status label with a message and color."""
         self.status_label.config(text=f"Status: {message}", foreground=color) 
+
+    def _show_text_context_menu(self, event):
+        widget = event.widget
+        menu = tk.Menu(self.parent, tearoff=0)
+        try:
+            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_separator()
+            menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end-1c"))
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()

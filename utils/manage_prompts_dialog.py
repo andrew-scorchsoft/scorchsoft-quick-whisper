@@ -22,6 +22,9 @@ class ManagePromptsDialog:
         
         self.create_dialog()
         self.parent.after(100, self.update_content)
+        # Pause hotkeys while this modal is active to avoid interfering with text editing
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.parent.hotkey_manager.pause()
 
     def center_dialog(self):
         # Get the parent window position and dimensions
@@ -119,6 +122,13 @@ class ManagePromptsDialog:
         self.content_text = tk.Text(text_frame, wrap=tk.WORD,
                                   yscrollcommand=v_scrollbar.set)
         self.content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Standard bindings and context menu
+        try:
+            self.content_text.bind("<Control-a>", lambda e: (self.content_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.content_text.bind("<Control-A>", lambda e: (self.content_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.content_text.bind("<Button-3>", lambda e: self._show_text_context_menu(e))
+        except Exception:
+            pass
 
         # Configure the scrollbar
         v_scrollbar.config(command=self.content_text.yview)
@@ -196,6 +206,9 @@ class ManagePromptsDialog:
         prompt_dialog.geometry("600x400")
         prompt_dialog.transient(self.dialog)
         prompt_dialog.grab_set()
+        # Pause hotkeys while editing
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.parent.hotkey_manager.pause()
         
         # Center the new prompt dialog
         dialog_width = 600
@@ -227,6 +240,12 @@ class ManagePromptsDialog:
         new_prompt_text = tk.Text(text_frame, wrap=tk.WORD, height=15,
                                 yscrollcommand=v_scrollbar.set)
         new_prompt_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        try:
+            new_prompt_text.bind("<Control-a>", lambda e: (new_prompt_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            new_prompt_text.bind("<Control-A>", lambda e: (new_prompt_text.tag_add("sel", "1.0", "end-1c"), "break"))
+            new_prompt_text.bind("<Button-3>", lambda e: self._show_text_context_menu(e, target=new_prompt_text))
+        except Exception:
+            pass
 
         # Configure the scrollbar
         v_scrollbar.config(command=new_prompt_text.yview)
@@ -266,6 +285,8 @@ class ManagePromptsDialog:
             self.update_content()
 
             prompt_dialog.destroy()
+            if hasattr(self.parent, 'hotkey_manager'):
+                self.parent.hotkey_manager.resume()
 
         # Buttons
         button_frame = ttk.Frame(prompt_dialog)
@@ -273,7 +294,20 @@ class ManagePromptsDialog:
         ttk.Button(button_frame, text="Save", 
                   command=save_new_prompt).pack(side=tk.RIGHT, padx=5)
         ttk.Button(button_frame, text="Cancel", 
-                  command=prompt_dialog.destroy).pack(side=tk.RIGHT)
+                  command=lambda: (prompt_dialog.destroy(), hasattr(self.parent, 'hotkey_manager') and self.parent.hotkey_manager.resume())).pack(side=tk.RIGHT)
+
+    def _show_text_context_menu(self, event, target=None):
+        widget = target if target is not None else event.widget
+        menu = tk.Menu(self.dialog, tearoff=0)
+        try:
+            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_separator()
+            menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end-1c"))
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
 
     def delete_current_prompt(self):
         """Delete the currently selected prompt."""
@@ -324,4 +358,7 @@ class ManagePromptsDialog:
         self.parent.current_prompt_name = prompt_name
         self.parent.update_model_label()
         self.dialog.destroy()
+        # Resume hotkeys after closing
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.parent.hotkey_manager.resume()
         messagebox.showinfo("Success", f"Now using prompt: {prompt_name}")

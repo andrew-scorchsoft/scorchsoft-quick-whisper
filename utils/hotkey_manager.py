@@ -13,12 +13,13 @@ class HotkeyManager:
         self.parent = parent
         self.hotkeys = []
         self.is_mac = platform.system() == 'Darwin'
+        self._paused = False
         
         # Default shortcuts
         self.shortcuts = {
             'record_edit': 'ctrl+alt+j' if not self.is_mac else 'command+alt+j',
             'record_transcribe': 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j',
-            'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
+            'cancel_recording': 'ctrl+alt+x' if not self.is_mac else 'command+x',
             'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
             'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
         }
@@ -35,7 +36,7 @@ class HotkeyManager:
         self.shortcuts = {
             'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
             'record_transcribe': self.parent._env_get('SHORTCUT_RECORD_TRANSCRIBE', 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
-            'cancel_recording': self.parent._env_get('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
+            'cancel_recording': self.parent._env_get('SHORTCUT_CANCEL_RECORDING', 'ctrl+alt+x' if not self.is_mac else 'command+x'),
             'cycle_prompt_back': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
             'cycle_prompt_forward': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
         }
@@ -43,6 +44,8 @@ class HotkeyManager:
     def register_hotkeys(self):
         """Register all hotkeys and store them for monitoring."""
         try:
+            if self._paused:
+                return False
             # Clear existing hotkeys first
             for hotkey in self.hotkeys:
                 try:
@@ -102,17 +105,7 @@ class HotkeyManager:
             elif key_name.lower() == 'j' and keyboard.is_pressed('ctrl') and keyboard.is_pressed('alt') and keyboard.is_pressed('shift'):
                 return False  # Suppress the j key
             
-            # For Windows+X combination
-            elif key_name.lower() == 'x' and keyboard.is_pressed('win'):
-                return False  # Suppress the x key
-            
-            # For Alt+Left combination
-            elif key_name.lower() == 'left' and keyboard.is_pressed('alt'):
-                return False  # Suppress the left key
-            
-            # For Alt+Right combination
-            elif key_name.lower() == 'right' and keyboard.is_pressed('alt'):
-                return False  # Suppress the right key
+            # Avoid suppressing other system and navigation shortcuts
             
             # For all other keys, don't suppress
             return True
@@ -142,6 +135,11 @@ class HotkeyManager:
         print("Forcing hotkey refresh")
         print(f"Current hotkeys before refresh: {len(self.hotkeys)}")
         try:
+            if self._paused:
+                print("Hotkeys are paused; skipping refresh")
+                if callback:
+                    callback(True)
+                return True
             # Kill all keyboard hooks
             print("Unhooking all keyboard hooks...")
             keyboard.unhook_all()
@@ -195,6 +193,9 @@ class HotkeyManager:
     def verify_hotkeys(self):
         """Verify that hotkeys are working correctly."""
         try:
+            if self._paused:
+                print("Hotkeys are paused")
+                return True
             # First check if we have any hotkeys registered
             if len(self.hotkeys) == 0:
                 print("No hotkeys registered")
@@ -422,6 +423,35 @@ class HotkeyManager:
                     f"Failed to reset shortcuts: {e}",
                     parent=shortcuts_window
                 )
+
+    def pause(self):
+        """Temporarily disable all hotkeys and keyboard hooks."""
+        try:
+            print("Pausing hotkeys...")
+            self._paused = True
+            keyboard.unhook_all()
+            for hotkey in self.hotkeys:
+                try:
+                    keyboard.remove_hotkey(hotkey)
+                except Exception:
+                    pass
+            self.hotkeys.clear()
+            self.key_state.clear()
+            print("Hotkeys paused")
+        except Exception as e:
+            print(f"Error while pausing hotkeys: {e}")
+
+    def resume(self):
+        """Re-enable hotkeys after a pause."""
+        try:
+            if not self._paused:
+                return
+            print("Resuming hotkeys...")
+            self._paused = False
+            self.register_hotkeys()
+            print("Hotkeys resumed")
+        except Exception as e:
+            print(f"Error while resuming hotkeys: {e}")
     
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""

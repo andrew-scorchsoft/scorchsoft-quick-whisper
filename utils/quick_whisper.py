@@ -147,6 +147,9 @@ class QuickWhisper(tk.Tk):
         self.bind('<Unmap>', self._handle_minimize)
         self.bind('<Map>', self._handle_restore)
         self.was_minimized = False
+
+        # Ensure default bindings for common edit actions in Text and Entry widgets
+        self._install_text_bindings()
         
         # Initialize system tray
         self.setup_system_tray()
@@ -261,6 +264,8 @@ class QuickWhisper(tk.Tk):
         # Entry field for the API key
         api_key_entry = ttk.Entry(dialog, show='*', width=50)
         api_key_entry.pack(pady=(5, 10))
+        # Provide standard context menu and key bindings
+        self._attach_entry_context_menu(api_key_entry)
 
         # Link to guidance
         link_label = tk.Label(dialog, text="How to obtain an OpenAI API key", fg="blue", cursor="hand2", font=("Arial", 9))
@@ -293,6 +298,68 @@ class QuickWhisper(tk.Tk):
 
         # Return the entered key or None if cancelled
         return entered_key if entered_key else None
+
+    def _install_text_bindings(self):
+        """Install standard copy/paste/cut/select-all bindings and context menus."""
+        try:
+            # Apply to all future Text widgets
+            self.bind_class("Text", "<Control-a>", lambda e: (e.widget.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.bind_class("Text", "<Control-A>", lambda e: (e.widget.tag_add("sel", "1.0", "end-1c"), "break"))
+            self.bind_class("Text", "<Control-c>", lambda e: (e.widget.event_generate("<<Copy>>"), "break"))
+            self.bind_class("Text", "<Control-C>", lambda e: (e.widget.event_generate("<<Copy>>"), "break"))
+            self.bind_class("Text", "<Control-v>", lambda e: (e.widget.event_generate("<<Paste>>"), "break"))
+            self.bind_class("Text", "<Control-V>", lambda e: (e.widget.event_generate("<<Paste>>"), "break"))
+            self.bind_class("Text", "<Control-x>", lambda e: (e.widget.event_generate("<<Cut>>"), "break"))
+            self.bind_class("Text", "<Control-X>", lambda e: (e.widget.event_generate("<<Cut>>"), "break"))
+            # Right-click menu
+            self.bind_class("Text", "<Button-3>", self._show_text_context_menu)
+
+            # Apply to all future Entry widgets
+            self.bind_class("TEntry", "<Control-a>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
+            self.bind_class("TEntry", "<Control-A>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
+            self.bind_class("TEntry", "<Control-c>", lambda e: (e.widget.event_generate("<<Copy>>"), "break"))
+            self.bind_class("TEntry", "<Control-C>", lambda e: (e.widget.event_generate("<<Copy>>"), "break"))
+            self.bind_class("TEntry", "<Control-v>", lambda e: (e.widget.event_generate("<<Paste>>"), "break"))
+            self.bind_class("TEntry", "<Control-V>", lambda e: (e.widget.event_generate("<<Paste>>"), "break"))
+            self.bind_class("TEntry", "<Control-x>", lambda e: (e.widget.event_generate("<<Cut>>"), "break"))
+            self.bind_class("TEntry", "<Control-X>", lambda e: (e.widget.event_generate("<<Cut>>"), "break"))
+            self.bind_class("TEntry", "<Button-3>", self._show_entry_context_menu)
+        except Exception as e:
+            print(f"Error installing text bindings: {e}")
+
+    def _attach_entry_context_menu(self, entry_widget):
+        try:
+            entry_widget.bind("<Button-3>", self._show_entry_context_menu)
+            entry_widget.bind("<Control-a>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
+            entry_widget.bind("<Control-A>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
+        except Exception as e:
+            print(f"Error attaching entry context menu: {e}")
+
+    def _show_text_context_menu(self, event):
+        widget = event.widget
+        menu = Menu(self, tearoff=0)
+        try:
+            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_separator()
+            menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end-1c"))
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _show_entry_context_menu(self, event):
+        widget = event.widget
+        menu = Menu(self, tearoff=0)
+        try:
+            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_separator()
+            menu.add_command(label="Select All", command=lambda: widget.selection_range(0, 'end'))
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
 
 
     def save_api_key(self, api_key):

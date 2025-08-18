@@ -22,6 +22,9 @@ class ConfigDialog:
         
         self.dialog.transient(parent)
         self.dialog.grab_set()
+        # Pause hotkeys while config is active
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.parent.hotkey_manager.pause()
         
         # Variables for settings
         self.recording_location_var = tk.StringVar()
@@ -123,7 +126,7 @@ class ConfigDialog:
             fg_color="#666666",
             hover_color="#444444",
             font=("Arial", 13, "bold"),
-            command=self.dialog.destroy
+            command=self._close_dialog
         )
         cancel_button.pack(side=tk.LEFT, padx=(0, 5))
         
@@ -359,7 +362,14 @@ class ConfigDialog:
             # Update parent's recording directory (this will now use the updated environment variables)
             self.parent.update_recording_directory()
             
-            self.dialog.destroy()
+            self._close_dialog()
             
         except Exception as e:
             messagebox.showerror("Error", f"Could not save settings: {e}") 
+
+    def _close_dialog(self):
+        try:
+            self.dialog.destroy()
+        finally:
+            if hasattr(self.parent, 'hotkey_manager'):
+                self.parent.hotkey_manager.resume()
