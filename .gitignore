@@ -58,9 +58,9 @@ settings.json
 
 temp_recording.wav
 
+tmp/*
 
 .vs
 vs/
 .zip
-
 config/
