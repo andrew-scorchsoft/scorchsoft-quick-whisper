@@ -1,0 +1,13 @@
+audioplayer
+customtkinter
+keyboard
+openai
+packaging
+Pillow
+pyaudio
+pydub
+pyperclip
+pystray
+pyttsx3
+python-dotenv
+requests

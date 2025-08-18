@@ -82,6 +82,17 @@ This project is licensed under the terms specified in the LICENSE.md file.
 
 ## Making an installer
 
+It's a good idea to use a venv to minimise bundle install size. Do this if you haven't already set one up:
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install --no-cache-dir pyinstaller
+pip install -r requirements.txt
+```
+
+Then you can make the exe:
+
 Windows:
 `python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py`
 
