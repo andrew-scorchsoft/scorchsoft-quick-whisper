@@ -38,10 +38,10 @@ class UIManager:
         row = 0
         
         # Input Device Selection
-        ttk.Label(main_frame, text="Input Device (mic):").grid(row=row, column=0, sticky="ew", pady=(0,10))
+        ttk.Label(main_frame, text=self.parent.get_text("Input Device (mic):")).grid(row=row, column=0, sticky="ew", pady=(0,10))
         devices = self.parent.audio_manager.get_input_devices()
         if not devices:
-            tk.messagebox.showerror("No Input Devices", "No input audio devices found.")
+            tk.messagebox.showerror(self.parent.get_text("No Input Devices"), self.parent.get_text("No input audio devices found."))
             self.parent.destroy()
             return
         self.parent.selected_device.set(list(devices.keys())[0])  # Default selection
@@ -61,7 +61,7 @@ class UIManager:
         self.transcription_frame.grid(row=row, column=0, columnspan=2, pady=(0, 0), padx=0, sticky="ew")
 
         # Add the Transcription label to the transcription frame
-        ttk.Label(self.transcription_frame, text="Transcription:").grid(row=0, column=0, sticky="w", pady=(0, 0), padx=(0, 0))
+        ttk.Label(self.transcription_frame, text=self.parent.get_text("Transcription:")).grid(row=0, column=0, sticky="w", pady=(0, 0), padx=(0, 0))
 
         # Create navigation buttons and place them next to the label within the transcription frame
         self.button_first_page = tk.Button(
@@ -87,9 +87,9 @@ class UIManager:
         )
 
         # Add tooltips to navigation buttons
-        ToolTip(self.button_first_page, "Go to the latest entry")
-        ToolTip(self.button_arrow_left, "Navigate to the more recent entry")
-        ToolTip(self.button_arrow_right, "Navigate to the older entry")
+        ToolTip(self.button_first_page, self.parent.get_text("Go to the latest entry"))
+        ToolTip(self.button_arrow_left, self.parent.get_text("Navigate to the more recent entry"))
+        ToolTip(self.button_arrow_right, self.parent.get_text("Navigate to the older entry"))
 
         # Grid placement for navigation buttons in the transcription frame
         self.button_first_page.grid(row=0, column=1, sticky="e", padx=(0, 0))
@@ -126,7 +126,7 @@ class UIManager:
         self.model_label.grid(row=row, column=0, columnspan=2, sticky=tk.E, pady=(0,20))
 
         # Status Label
-        self.status_label = ttk.Label(main_frame, text=f"Status: Idle", foreground="blue")
+        self.status_label = ttk.Label(main_frame, text=self.parent.get_text("Status: Idle"), foreground="blue")
         self.status_label.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0,20))
 
         row += 1
@@ -134,7 +134,7 @@ class UIManager:
         # Auto-Copy Checkbox
         auto_copy_cb = ttk.Checkbutton(
             main_frame, 
-            text="Copy to clipboard when done", 
+            text=self.parent.get_text("Copy to clipboard when done"), 
             variable=self.parent.auto_copy
         )
         auto_copy_cb.grid(row=row, column=0, columnspan=1, sticky=tk.W, pady=(0,20))
@@ -142,7 +142,7 @@ class UIManager:
         # Auto-Paste Checkbox
         auto_paste_cb = ttk.Checkbutton(
             main_frame, 
-            text="Paste from clipboard when done", 
+            text=self.parent.get_text("Paste from clipboard when done"), 
             variable=self.parent.auto_paste
         )
         auto_paste_cb.grid(row=row, column=1, columnspan=1, sticky=tk.W, pady=(0,20))
@@ -200,7 +200,7 @@ class UIManager:
 
         self.hide_banner_link = tk.Label(
             main_frame, 
-            text="Hide Banner", 
+            text=self.parent.get_text("Hide Banner"), 
             fg="blue", 
             cursor="hand2", 
             font=("Arial", 10, "underline")
@@ -211,7 +211,7 @@ class UIManager:
         # Add a "Powered by Scorchsoft.com" link to replace the banner when hidden
         self.powered_by_label = tk.Label(
             main_frame,
-            text="Powered by Scorchsoft.com",
+            text=self.parent.get_text("Powered by Scorchsoft.com"),
             fg="black",
             cursor="hand2",
             font=("Arial", 8, "underline")
@@ -239,10 +239,10 @@ class UIManager:
             self.banner_label.grid_remove()  # Hide the banner
             self.hide_banner_link.grid_remove()
             self.powered_by_label.grid()
-            self.parent.help_menu.entryconfig("Hide Banner", label="Show Banner")  # Update menu text
+            self.parent.help_menu.entryconfig(self.parent.get_text("Hide Banner"), label=self.parent.get_text("Show Banner"))  # Update menu text
         else:
             self.banner_label.grid()  # Show the banner
-            self.parent.help_menu.entryconfig("Show Banner", label="Hide Banner")  # Update menu text
+            self.parent.help_menu.entryconfig(self.parent.get_text("Show Banner"), label=self.parent.get_text("Hide Banner"))  # Update menu text
             self.powered_by_label.grid_remove() 
 
         # Set the new height and keep the current width

@@ -5,6 +5,7 @@ import pyaudio
 import wave
 import os
 import sys
+import subprocess
 import openai
 import pyperclip
 import webbrowser
@@ -34,6 +35,7 @@ from utils.ui_manager import UIManager
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
+from utils.translations import TRANSLATIONS
 
 
 class QuickWhisper(tk.Tk):
@@ -200,6 +202,11 @@ class QuickWhisper(tk.Tk):
         whisper_language = os.getenv("WHISPER_LANGUAGE")
         if whisper_language:
             self.whisper_language = whisper_language
+
+        # Load app language setting
+        self.app_language = os.getenv("APP_LANGUAGE", "en")
+        if self.app_language not in TRANSLATIONS:
+            self.app_language = "en"
 
         # Load keyboard shortcuts with defaults
         self.shortcuts = {
@@ -386,53 +393,108 @@ class QuickWhisper(tk.Tk):
             for key, val in env_vars.items():
                 f.write(f"{key}={val}\n")
 
+    def get_text(self, key):
+        """Get translated text for the given key."""
+        return TRANSLATIONS.get(self.app_language, {}).get(key, key)
+
+    def change_language(self, lang_code):
+        """Change the application language and request restart."""
+        if lang_code == self.app_language:
+            return
+
+        # Save the new language setting
+        config_dir = Path("config")
+        config_dir.mkdir(parents=True, exist_ok=True)
+        env_path = config_dir / ".env"
+        
+        # Read existing settings
+        env_vars = {}
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        parts = line.strip().split('=', 1)
+                        if len(parts) == 2:
+                            env_vars[parts[0]] = parts[1]
+        
+        # Update language
+        env_vars["APP_LANGUAGE"] = lang_code
+        
+        # Write back
+        with open(env_path, 'w') as f:
+            for key, val in env_vars.items():
+                f.write(f"{key}={val}\n")
+        
+        # Update current language immediately to show message in target language
+        self.app_language = lang_code
+        
+        # Notify user and exit
+        messagebox.showinfo(self.get_text("Language Changed"), self.get_text("Please restart manually"))
+        self.on_closing()
+
     def create_menu(self):
         self.menubar = Menu(self)
         self.config(menu=self.menubar)
 
         # File menu
         file_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Save Session History", command=self.save_session_history)
+        self.menubar.add_cascade(label=self.get_text("File"), menu=file_menu)
+        file_menu.add_command(label=self.get_text("Save Session History"), command=self.save_session_history)
         file_menu.add_separator()
-        file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
-        file_menu.add_command(label="Exit", command=self.on_closing)
+        file_menu.add_command(label=self.get_text("Minimize to Tray"), command=self.minimize_to_tray)
+        file_menu.add_command(label=self.get_text("Exit"), command=self.on_closing)
 
         # Settings menu
         settings_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Settings", menu=settings_menu)
-        settings_menu.add_command(label="Change API Key", command=self.change_api_key)
-        settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
-        settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
-        settings_menu.add_command(label="Config", command=self.open_config)
+        self.menubar.add_cascade(label=self.get_text("Settings"), menu=settings_menu)
+        
+        # Language Submenu
+        language_menu = Menu(settings_menu, tearoff=0)
+        settings_menu.add_cascade(label=self.get_text("Language"), menu=language_menu)
+        language_menu.add_radiobutton(label=self.get_text("English"), command=lambda: self.change_language("en"), value="en")
+        language_menu.add_radiobutton(label=self.get_text("Chinese"), command=lambda: self.change_language("zh"), value="zh")
+        # Set current language selection
+        # Note: Tkinter radiobuttons usually need a variable, but since we restart on change, simple command is fine for now.
+        # But to show checkmark, we can use a variable.
+        self.lang_var = tk.StringVar(value=self.app_language)
+        # Re-add with variable to show selection
+        language_menu.delete(0, tk.END)
+        language_menu.add_radiobutton(label=self.get_text("English"), command=lambda: self.change_language("en"), variable=self.lang_var, value="en")
+        language_menu.add_radiobutton(label=self.get_text("Chinese"), command=lambda: self.change_language("zh"), variable=self.lang_var, value="zh")
+
         settings_menu.add_separator()
-        settings_menu.add_checkbutton(label="Automatically Check for Updates", 
+        settings_menu.add_command(label=self.get_text("Change API Key"), command=self.change_api_key)
+        settings_menu.add_command(label=self.get_text("Adjust AI Models"), command=self.adjust_models)
+        settings_menu.add_command(label=self.get_text("Manage Prompts"), command=self.manage_prompts)
+        settings_menu.add_command(label=self.get_text("Config"), command=self.open_config)
+        settings_menu.add_separator()
+        settings_menu.add_checkbutton(label=self.get_text("Automatically Check for Updates"), 
                                     variable=self.version_manager.auto_update_check, 
                                     command=self.version_manager.save_auto_update_setting)
-        settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
+        settings_menu.add_checkbutton(label=self.get_text("Auto-Refresh Hotkeys (Every 30s)"), 
                                     variable=self.auto_hotkey_refresh, 
                                     command=self.save_auto_hotkey_refresh)
         settings_menu.add_separator()
-        settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
-        settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
+        settings_menu.add_command(label=self.get_text("Check Keyboard Shortcuts"), command=self.check_keyboard_shortcuts)
+        settings_menu.add_command(label=self.get_text("Refresh Hotkeys"), command=self.hotkey_manager.force_hotkey_refresh)
 
         # Actions Menu (combining Play and Copy menus)
         actions_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Actions", menu=actions_menu)
+        self.menubar.add_cascade(label=self.get_text("Actions"), menu=actions_menu)
         
         # Recording actions group
         actions_menu.add_command(
-            label="Record & Edit", 
+            label=self.get_text("Record & Edit"), 
             command=lambda: self.toggle_recording("edit"),
             accelerator=self.shortcuts['record_edit']
         )
         actions_menu.add_command(
-            label="Record & Transcribe", 
+            label=self.get_text("Record & Transcribe"), 
             command=lambda: self.toggle_recording("transcribe"),
             accelerator=self.shortcuts['record_transcribe']
         )
         actions_menu.add_command(
-            label="Cancel Recording", 
+            label=self.get_text("Cancel Recording"), 
             command=self.cancel_recording,
             accelerator=self.shortcuts['cancel_recording']
         )
@@ -440,42 +502,42 @@ class QuickWhisper(tk.Tk):
         
         # Retry and copy actions group
         actions_menu.add_command(
-            label="Retry Last Recording", 
+            label=self.get_text("Retry Last Recording"), 
             command=self.retry_last_recording
         )
         actions_menu.add_separator()
         
         # Copy actions group
         actions_menu.add_command(
-            label="Copy Last Transcript", 
+            label=self.get_text("Copy Last Transcript"), 
             command=self.copy_last_transcription
         )
         actions_menu.add_command(
-            label="Copy Last Edit", 
+            label=self.get_text("Copy Last Edit"), 
             command=self.copy_last_edit
         )
         actions_menu.add_separator()
         
         # Prompt navigation group
         actions_menu.add_command(
-            label="Previous Prompt", 
+            label=self.get_text("Previous Prompt"), 
             command=self.cycle_prompt_backward,
             accelerator=self.shortcuts['cycle_prompt_back']
         )
         actions_menu.add_command(
-            label="Next Prompt", 
+            label=self.get_text("Next Prompt"), 
             command=self.cycle_prompt_forward,
             accelerator=self.shortcuts['cycle_prompt_forward']
         )
 
         # Help menu
         self.help_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        self.menubar.add_cascade(label=self.get_text("Help"), menu=self.help_menu)
         
-        self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
-        self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
-        self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
-        self.help_menu.add_command(label="Version", command=self.show_version)
+        self.help_menu.add_command(label=self.get_text("Check for Updates"), command=lambda: self.version_manager.check_for_updates(True))
+        self.help_menu.add_command(label=self.get_text("Hide Banner"), command=self.toggle_banner)
+        self.help_menu.add_command(label=self.get_text("Terms of Use and Licence"), command=self.show_terms_of_use)
+        self.help_menu.add_command(label=self.get_text("Version"), command=self.show_version)
 
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
@@ -526,7 +588,7 @@ class QuickWhisper(tk.Tk):
         file_path = self.audio_manager.audio_file
 
         try:
-            self.ui_manager.set_status("Processing - Transcript...", "green")
+            self.ui_manager.set_status(self.get_text("Processing - Transcript..."), "green")
 
             with open(str(file_path), "rb") as audio_file:
 
@@ -583,7 +645,7 @@ class QuickWhisper(tk.Tk):
                 self.ui_manager.transcription_text.insert("1.0", transcription_text)
 
                 # Then GPT edit that transcribed text and insert
-                self.ui_manager.set_status("Processing - AI Editing...", "green")
+                self.ui_manager.set_status(self.get_text("Processing - AI Editing..."), "green")
 
                 # AI Edit the transcript
                 edited_text = self.process_with_gpt_model(transcription_text)
@@ -616,7 +678,7 @@ class QuickWhisper(tk.Tk):
             threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
 
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
-            self.ui_manager.set_status("Error during transcription", "red")
+            self.ui_manager.set_status(self.get_text("Error during transcription"), "red")
 
             # Provide a clearer hint for known unsupported/renamed models
             err_text = str(e)
@@ -630,7 +692,7 @@ class QuickWhisper(tk.Tk):
                 messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
 
         finally:
-            self.ui_manager.set_status("Idle", "blue")
+            self.ui_manager.set_status(self.get_text("Idle"), "blue")
 
     def copy_last_transcription(self):
         try:
