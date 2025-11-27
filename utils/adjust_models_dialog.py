@@ -9,7 +9,7 @@ class AdjustModelsDialog:
     def __init__(self, parent):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Adjust AI Models")
+        self.dialog.title(self.parent.get_text("Adjust AI Models"))
         self.dialog.geometry("450x600")
         self.center_dialog()
 
@@ -117,7 +117,7 @@ class AdjustModelsDialog:
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Language Selection Frame
-        language_frame = ttk.LabelFrame(main_frame, text="Whisper Language Settings", padding="5")
+        language_frame = ttk.LabelFrame(main_frame, text=self.parent.get_text("Whisper Language Settings"), padding="5")
         language_frame.pack(fill="x", pady=(0, 10))
 
         # Language selection
@@ -134,7 +134,7 @@ class AdjustModelsDialog:
         language_values.insert(0, auto_option)
 
         # Create Combobox for language selection
-        language_label = ttk.Label(language_frame, text="Select Language:")
+        language_label = ttk.Label(language_frame, text=self.parent.get_text("Select Language:"))
         language_label.pack(anchor="w", pady=(5, 0))
         
         self.language_combo = ttk.Combobox(language_frame, 
@@ -149,7 +149,7 @@ class AdjustModelsDialog:
         self.language_combo.set(f"{current_language_name} ({current_language})")
 
         # Model Settings Frame
-        models_frame = ttk.LabelFrame(main_frame, text="AI Model Settings", padding="5")
+        models_frame = ttk.LabelFrame(main_frame, text=self.parent.get_text("AI Model Settings"), padding="5")
         models_frame.pack(fill="x", pady=(0, 10))
 
         # Create a separate frame for all transcription model components
@@ -157,7 +157,7 @@ class AdjustModelsDialog:
         transcription_section.pack(fill="x", pady=(5, 15))
 
         # Transcription Model Selection - renamed label
-        tk.Label(transcription_section, text="Transcription Model:").pack(anchor="w")
+        tk.Label(transcription_section, text=self.parent.get_text("Transcription Model:")).pack(anchor="w")
         
         # Variables for model selection
         self.transcription_model_var = tk.StringVar()
@@ -185,7 +185,7 @@ class AdjustModelsDialog:
         
         # Create a frame for custom model input to keep it organized
         self.custom_frame = ttk.Frame(transcription_section)
-        self.custom_model_label = ttk.Label(self.custom_frame, text="Enter custom transcriptionmodel name:")
+        self.custom_model_label = ttk.Label(self.custom_frame, text=self.parent.get_text("Enter custom transcriptionmodel name:"))
         self.custom_model_label.pack(anchor="w")
         self.custom_model_entry = ttk.Entry(self.custom_frame, textvariable=self.custom_model_var)
         self.custom_model_entry.pack(fill="x", pady=(2, 0))
@@ -209,7 +209,7 @@ class AdjustModelsDialog:
                  font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(8, 0))
 
         # AI Model Entry - after the transcription section with clean separation
-        tk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
+        tk.Label(models_frame, text=self.parent.get_text("OpenAI Copyediting Model:")).pack(anchor="w", pady=(5, 0))
         
         # Variables for LLM model selection
         self.llm_model_var = tk.StringVar()
@@ -237,7 +237,7 @@ class AdjustModelsDialog:
         
         # Create a frame for custom model input
         self.custom_llm_frame = ttk.Frame(models_frame)
-        self.custom_llm_label = ttk.Label(self.custom_llm_frame, text="Enter custom copyediting model name:")
+        self.custom_llm_label = ttk.Label(self.custom_llm_frame, text=self.parent.get_text("Enter custom copyediting model name:"))
         self.custom_llm_label.pack(anchor="w")
         self.custom_llm_entry = ttk.Entry(self.custom_llm_frame, textvariable=self.custom_llm_var)
         self.custom_llm_entry.pack(fill="x", pady=(2, 0))
@@ -262,7 +262,7 @@ class AdjustModelsDialog:
         # Save button - using CTkButton
         save_button = ctk.CTkButton(
             main_frame,
-            text="Save Changes",
+            text=self.parent.get_text("Save Changes"),
             corner_radius=20,
             height=35,
             fg_color="#058705",
@@ -273,7 +273,7 @@ class AdjustModelsDialog:
         save_button.pack(pady=10)
 
         # Link to OpenAI Pricing
-        link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing", 
+        link = tk.Label(main_frame, text=self.parent.get_text("View Available OpenAI Models and Pricing"), 
                        fg="blue", cursor="hand2")
         link.pack(pady=(0, 10))
         link.bind("<Button-1>", lambda e: webbrowser.open("https://openai.com/api/pricing/"))
@@ -316,7 +316,7 @@ class AdjustModelsDialog:
         if self.transcription_model_var.get() == "other":
             transcription_model = self.custom_model_var.get().strip()
             if not transcription_model:
-                messagebox.showerror("Error", "Custom model name cannot be empty")
+                messagebox.showerror("Error", self.parent.get_text("Custom model name cannot be empty"))
                 return
             model_type = "unknown"
         else:
@@ -329,7 +329,7 @@ class AdjustModelsDialog:
         if self.llm_model_var.get() == "other":
             llm_model = self.custom_llm_var.get().strip()
             if not llm_model:
-                messagebox.showerror("Error", "Custom copyediting model name cannot be empty")
+                messagebox.showerror("Error", self.parent.get_text("Custom copyediting model name cannot be empty"))
                 return
         else:
             llm_model = self.llm_model_var.get()
@@ -355,7 +355,7 @@ class AdjustModelsDialog:
             print("Successfully updated .env file")
         except Exception as e:
             print(f"Error writing .env file: {e}")
-            messagebox.showerror("File Error", f"Could not save settings: {e}")
+            messagebox.showerror("File Error", f"{self.parent.get_text('Could not save settings')}: {e}")
 
         # Update parent instance variables
         self.parent.transcription_model = transcription_model
@@ -366,5 +366,4 @@ class AdjustModelsDialog:
         # Update the model label
         self.parent.update_model_label()
         
-        self.dialog.destroy() 
         self.dialog.destroy() 

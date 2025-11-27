@@ -62,21 +62,21 @@ class VersionUpdateManager:
                 if latest_version and version.parse(latest_version) > version.parse(self.parent.version):
                     self.show_update_notification(latest_version, download_url, notification_message)
                 elif manual_check:
-                    messagebox.showinfo("Update Check", f"You are running the latest version ({self.parent.version}).")
+                    messagebox.showinfo(self.parent.get_text("Update Check"), self.parent.get_text("You are running the latest version ({})").format(self.parent.version))
             else:
                 if manual_check:
-                    messagebox.showwarning("Update Check Failed", 
-                                        f"Could not check for updates. Server returned status code: {response.status_code}")
+                    messagebox.showwarning(self.parent.get_text("Update Check Failed"), 
+                                        self.parent.get_text("Could not check for updates. Server returned status code: {}").format(response.status_code))
         except Exception as e:
             if manual_check:
-                messagebox.showwarning("Update Check Failed", f"Could not check for updates: {str(e)}")
+                messagebox.showwarning(self.parent.get_text("Update Check Failed"), self.parent.get_text("Could not check for updates: {}").format(str(e)))
             print(f"Update check failed: {str(e)}")
 
     def show_update_notification(self, latest_version, download_url, message):
         """Show a notification about an available update."""
         # Create a notification window
         notification = tk.Toplevel(self.parent)
-        notification.title("Update Available")
+        notification.title(self.parent.get_text("Update Available"))
         
         # Set size and position
         notification_width = 400
@@ -88,19 +88,19 @@ class VersionUpdateManager:
         
         # Add notification content
         tk.Label(notification, text=f"{message}", wraplength=380, justify="center", pady=10).pack()
-        tk.Label(notification, text=f"Current version: {self.parent.version}", pady=5).pack()
-        tk.Label(notification, text=f"Latest version: {latest_version}", pady=5).pack()
+        tk.Label(notification, text=self.parent.get_text("Current version: {}").format(self.parent.version), pady=5).pack()
+        tk.Label(notification, text=self.parent.get_text("Latest version: {}").format(latest_version), pady=5).pack()
         
         # Add download button
         download_button = ttk.Button(
             notification, 
-            text="Download Update", 
+            text=self.parent.get_text("Download Update"), 
             command=lambda: self.open_download_page(download_url, notification)
         )
         download_button.pack(pady=10)
         
         # Add close button
-        close_button = ttk.Button(notification, text="Close", command=notification.destroy)
+        close_button = ttk.Button(notification, text=self.parent.get_text("Close"), command=notification.destroy)
         close_button.pack(pady=5)
 
     def open_download_page(self, url, notification_window=None):

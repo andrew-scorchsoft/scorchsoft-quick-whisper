@@ -8,7 +8,7 @@ class ManagePromptsDialog:
     def __init__(self, parent):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Prompt Management")
+        self.dialog.title(self.parent.get_text("Prompt Management"))
         self.dialog.geometry("800x650")
         self.dialog.resizable(False, False)
         self.dialog.transient(parent)
@@ -61,7 +61,7 @@ class ManagePromptsDialog:
         left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
         left_panel.pack_propagate(False)
 
-        select_frame = ttk.LabelFrame(left_panel, text="Prompt Selection", padding="5")
+        select_frame = ttk.LabelFrame(left_panel, text=self.parent.get_text("Prompt Selection"), padding="5")
         select_frame.pack(fill=tk.BOTH, expand=True)
 
         # Listbox for prompts with scrollbar
@@ -84,8 +84,8 @@ class ManagePromptsDialog:
         button_frame.pack(fill=tk.X, pady=5)
 
         # Action buttons
-        self.new_button = ttk.Button(button_frame, text="New Prompt", command=self.create_new_prompt)
-        self.delete_button = ttk.Button(button_frame, text="Delete", command=self.delete_current_prompt)
+        self.new_button = ttk.Button(button_frame, text=self.parent.get_text("New Prompt"), command=self.create_new_prompt)
+        self.delete_button = ttk.Button(button_frame, text=self.parent.get_text("Delete"), command=self.delete_current_prompt)
         
         self.new_button.pack(side=tk.LEFT, padx=2)
         self.delete_button.pack(side=tk.LEFT, padx=2)
@@ -104,7 +104,7 @@ class ManagePromptsDialog:
         self.right_panel = ttk.Frame(main_frame)
         self.right_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        content_frame = ttk.LabelFrame(self.right_panel, text="Prompt Content", padding="5")
+        content_frame = ttk.LabelFrame(self.right_panel, text=self.parent.get_text("Prompt Content"), padding="5")
         content_frame.pack(fill=tk.BOTH, expand=True)
 
         self.edit_status_label = ttk.Label(content_frame, foreground="red")
@@ -133,7 +133,7 @@ class ManagePromptsDialog:
         # Configure the scrollbar
         v_scrollbar.config(command=self.content_text.yview)
 
-        self.save_changes_button = ttk.Button(self.right_panel, text="Save Changes", 
+        self.save_changes_button = ttk.Button(self.right_panel, text=self.parent.get_text("Save Changes"), 
                                             command=self.save_content_changes, state='disabled')
         self.save_changes_button.pack(pady=(5, 0), anchor=tk.E)
 
@@ -143,7 +143,7 @@ class ManagePromptsDialog:
 
         save_button = ctk.CTkButton(
             bottom_frame,
-            text="Save Selection and Exit",
+            text=self.parent.get_text("Save Selection and Exit"),
             corner_radius=20,
             height=35,
             fg_color="#058705",
@@ -172,7 +172,7 @@ class ManagePromptsDialog:
             self.save_changes_button.config(state='disabled')
             self.delete_button.config(state='disabled')
             self.edit_status_label.config(
-                text="(Default prompt cannot be edited)",
+                text=self.parent.get_text("(Default prompt cannot be edited)"),
                 foreground="red"
             )
         else:
@@ -192,17 +192,17 @@ class ManagePromptsDialog:
         
         new_content = self.content_text.get("1.0", tk.END).strip()
         if not new_content:
-            messagebox.showerror("Error", "Prompt content cannot be empty")
+            messagebox.showerror("Error", self.parent.get_text("Prompt content cannot be empty"))
             return
 
         self.parent.prompts[self.current_selected_prompt] = new_content
         self.parent.save_prompts(self.parent.prompts)
-        messagebox.showinfo("Success", "Prompt changes saved successfully")
+        messagebox.showinfo("Success", self.parent.get_text("Prompt changes saved successfully"))
 
     def create_new_prompt(self):
         """Open dialog for creating a new prompt."""
         prompt_dialog = tk.Toplevel(self.dialog)
-        prompt_dialog.title("Create New Prompt")
+        prompt_dialog.title(self.parent.get_text("Create New Prompt"))
         prompt_dialog.geometry("600x400")
         prompt_dialog.transient(self.dialog)
         prompt_dialog.grab_set()
@@ -220,12 +220,12 @@ class ManagePromptsDialog:
         # Name entry
         name_frame = ttk.Frame(prompt_dialog, padding="10")
         name_frame.pack(fill=tk.X)
-        ttk.Label(name_frame, text="Prompt Name:").pack(side=tk.LEFT)
+        ttk.Label(name_frame, text=self.parent.get_text("Prompt Name:")).pack(side=tk.LEFT)
         name_entry = ttk.Entry(name_frame)
         name_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # System prompt
-        prompt_frame = ttk.LabelFrame(prompt_dialog, text="System Prompt", padding="10")
+        prompt_frame = ttk.LabelFrame(prompt_dialog, text=self.parent.get_text("System Prompt"), padding="10")
         prompt_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         # Create a frame for the text widget and scrollbar
@@ -253,15 +253,15 @@ class ManagePromptsDialog:
         def save_new_prompt():
             new_name = name_entry.get().strip()
             if not new_name:
-                messagebox.showerror("Error", "Please enter a prompt name")
+                messagebox.showerror("Error", self.parent.get_text("Please enter a prompt name"))
                 return
             if len(new_name) > 25:
-                messagebox.showerror("Error", "Prompt name must be 25 characters or less")
+                messagebox.showerror("Error", self.parent.get_text("Prompt name must be 25 characters or less"))
                 return
             
             new_content = new_prompt_text.get("1.0", tk.END).strip()
             if not new_content:
-                messagebox.showerror("Error", "Please enter a system prompt")
+                messagebox.showerror("Error", self.parent.get_text("Please enter a system prompt"))
                 return
 
             # Save prompt
@@ -291,9 +291,9 @@ class ManagePromptsDialog:
         # Buttons
         button_frame = ttk.Frame(prompt_dialog)
         button_frame.pack(fill=tk.X, pady=10, padx=10)
-        ttk.Button(button_frame, text="Save", 
+        ttk.Button(button_frame, text=self.parent.get_text("Save"), 
                   command=save_new_prompt).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(button_frame, text="Cancel", 
+        ttk.Button(button_frame, text=self.parent.get_text("Cancel"), 
                   command=lambda: (prompt_dialog.destroy(), hasattr(self.parent, 'hotkey_manager') and self.parent.hotkey_manager.resume())).pack(side=tk.RIGHT)
 
     def _show_text_context_menu(self, event, target=None):
@@ -319,7 +319,7 @@ class ManagePromptsDialog:
         if prompt_name == "Default":
             return
         
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete '{prompt_name}'?"):
+        if messagebox.askyesno(self.parent.get_text("Confirm Delete"), self.parent.get_text("Are you sure you want to delete '{}'?").format(prompt_name)):
             if prompt_name == self.parent.current_prompt_name:
                 self.parent.current_prompt_name = "Default"
                 self.parent.save_prompt_to_env(self.parent.current_prompt_name)
@@ -341,7 +341,7 @@ class ManagePromptsDialog:
     def save_and_exit(self):
         """Save the selected prompt and close the dialog."""
         if not self.current_selected_prompt:
-            messagebox.showwarning("No Selection", "Please select a prompt before saving")
+            messagebox.showwarning("No Selection", self.parent.get_text("Please select a prompt before saving"))
             return
         
         prompt_name = self.current_selected_prompt
@@ -361,4 +361,4 @@ class ManagePromptsDialog:
         # Resume hotkeys after closing
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.resume()
-        messagebox.showinfo("Success", f"Now using prompt: {prompt_name}")
+        messagebox.showinfo("Success", f"{self.parent.get_text('Now using prompt')}: {prompt_name}")

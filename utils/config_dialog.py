@@ -10,7 +10,7 @@ class ConfigDialog:
     def __init__(self, parent):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Configuration Settings")
+        self.dialog.title(self.parent.get_text("Configuration Settings"))
         self.dialog.geometry("700x500")
         
         # Center the window
@@ -80,7 +80,7 @@ class ConfigDialog:
         
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""
-        self.nav_frame = ttk.LabelFrame(parent, text="Settings Categories", padding="10")
+        self.nav_frame = ttk.LabelFrame(parent, text=self.parent.get_text("Settings Categories"), padding="10")
         self.nav_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
         
         # Navigation buttons
@@ -88,7 +88,7 @@ class ConfigDialog:
         
         self.nav_buttons["Recording"] = ttk.Button(
             self.nav_frame,
-            text="Recording",
+            text=self.parent.get_text("Recording"),
             command=lambda: self.switch_category("Recording"),
             width=15
         )
@@ -119,7 +119,7 @@ class ConfigDialog:
         # Cancel and Save buttons (Cancel on left, Save on right)
         cancel_button = ctk.CTkButton(
             button_frame,
-            text="Cancel",
+            text=self.parent.get_text("Cancel"),
             corner_radius=20,
             height=35,
             width=150,
@@ -132,7 +132,7 @@ class ConfigDialog:
         
         save_button = ctk.CTkButton(
             button_frame,
-            text="Save Changes",
+            text=self.parent.get_text("Save Changes"),
             corner_radius=20,
             height=35,
             width=150,
@@ -172,7 +172,7 @@ class ConfigDialog:
         # Main title
         title_label = ttk.Label(
             self.content_frame,
-            text="Recording Settings",
+            text=self.parent.get_text("Recording Settings"),
             font=("Arial", 14, "bold")
         )
         title_label.pack(anchor="w", pady=(0, 20))
@@ -180,32 +180,32 @@ class ConfigDialog:
         # Recording Location Section
         location_frame = ttk.LabelFrame(
             self.content_frame,
-            text="Recording Location",
+            text=self.parent.get_text("Recording Location"),
             padding="15"
         )
         location_frame.pack(fill="x", pady=(0, 20))
         
         ttk.Label(
             location_frame,
-            text="Choose where to save audio recording files:",
+            text=self.parent.get_text("Choose where to save audio recording files:"),
             font=("Arial", 10)
         ).pack(anchor="w", pady=(0, 10))
         
         # Radio buttons for location options
         ttk.Radiobutton(
             location_frame,
-            text="Alongside application (recommended)",
+            text=self.parent.get_text("Alongside application (recommended)"),
             variable=self.recording_location_var,
             value="alongside"
         ).pack(anchor="w", pady=2)
         
         # Get the appropriate AppData path based on OS
         if platform.system() == "Windows":
-            appdata_text = "In AppData folder"
+            appdata_text = self.parent.get_text("In AppData folder")
         elif platform.system() == "Darwin":  # macOS
-            appdata_text = "In Application Support folder"
+            appdata_text = self.parent.get_text("In Application Support folder")
         else:  # Linux
-            appdata_text = "In home config folder"
+            appdata_text = self.parent.get_text("In home config folder")
             
         ttk.Radiobutton(
             location_frame,
@@ -216,7 +216,7 @@ class ConfigDialog:
         
         ttk.Radiobutton(
             location_frame,
-            text="Custom folder:",
+            text=self.parent.get_text("Custom folder:"),
             variable=self.recording_location_var,
             value="custom",
             command=self.on_custom_location_selected
@@ -235,7 +235,7 @@ class ConfigDialog:
         
         self.browse_button = ttk.Button(
             self.custom_folder_frame,
-            text="Browse...",
+            text=self.parent.get_text("Browse..."),
             command=self.browse_custom_folder,
             state="disabled" if self.recording_location_var.get() != "custom" else "normal"
         )
@@ -244,27 +244,27 @@ class ConfigDialog:
         # File Handling Section
         handling_frame = ttk.LabelFrame(
             self.content_frame,
-            text="File Handling",
+            text=self.parent.get_text("File Handling"),
             padding="15"
         )
         handling_frame.pack(fill="x", pady=(0, 20))
         
         ttk.Label(
             handling_frame,
-            text="Choose how to handle recording files:",
+            text=self.parent.get_text("Choose how to handle recording files:"),
             font=("Arial", 10)
         ).pack(anchor="w", pady=(0, 10))
         
         ttk.Radiobutton(
             handling_frame,
-            text="Overwrite the same file each time (saves disk space)",
+            text=self.parent.get_text("Overwrite the same file each time (saves disk space)"),
             variable=self.file_handling_var,
             value="overwrite"
         ).pack(anchor="w", pady=2)
         
         ttk.Radiobutton(
             handling_frame,
-            text="Save each recording with date/time in filename",
+            text=self.parent.get_text("Save each recording with date/time in filename"),
             variable=self.file_handling_var,
             value="timestamp"
         ).pack(anchor="w", pady=2)
@@ -275,7 +275,7 @@ class ConfigDialog:
         
         ttk.Label(
             warning_frame,
-            text="⚠️ Warning: This can consume significant disk space over time",
+            text=self.parent.get_text("Warning: This can consume significant disk space over time"),
             font=("Arial", 9),
             foreground="#CC6600"
         ).pack(anchor="w")
@@ -313,19 +313,19 @@ class ConfigDialog:
         if self.recording_location_var.get() == "custom":
             custom_path = self.custom_location_var.get().strip()
             if not custom_path:
-                messagebox.showerror("Error", "Please select a custom folder path.")
+                messagebox.showerror("Error", self.parent.get_text("Please select a custom folder path."))
                 return
                 
             if not os.path.exists(custom_path):
                 create_folder = messagebox.askyesno(
-                    "Folder Does Not Exist",
-                    f"The folder '{custom_path}' does not exist. Would you like to create it?"
+                    self.parent.get_text("Folder Does Not Exist"),
+                    self.parent.get_text("The folder '{}' does not exist. Would you like to create it?").format(custom_path)
                 )
                 if create_folder:
                     try:
                         os.makedirs(custom_path, exist_ok=True)
                     except Exception as e:
-                        messagebox.showerror("Error", f"Could not create folder: {e}")
+                        messagebox.showerror("Error", f"{self.parent.get_text('Could not create folder')}: {e}")
                         return
                 else:
                     return
@@ -357,7 +357,7 @@ class ConfigDialog:
             os.environ["CUSTOM_RECORDING_PATH"] = self.custom_location_var.get()
             os.environ["FILE_HANDLING"] = self.file_handling_var.get()
                         
-            messagebox.showinfo("Success", "Configuration settings saved and applied successfully!")
+            messagebox.showinfo("Success", self.parent.get_text("Configuration settings saved and applied successfully!"))
             
             # Update parent's recording directory (this will now use the updated environment variables)
             self.parent.update_recording_directory()
@@ -365,8 +365,8 @@ class ConfigDialog:
             self._close_dialog()
             
         except Exception as e:
-            messagebox.showerror("Error", f"Could not save settings: {e}") 
-
+            messagebox.showerror("Error", f"{self.parent.get_text('Could not save settings')}: {e}") 
+            
     def _close_dialog(self):
         try:
             self.dialog.destroy()
