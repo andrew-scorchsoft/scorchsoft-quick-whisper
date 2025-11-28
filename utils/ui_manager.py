@@ -35,6 +35,7 @@ class UIManager:
         main_frame = ttk.Frame(self.parent, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+
         row = 0
         
         # Input Device Selection
@@ -44,7 +45,19 @@ class UIManager:
             tk.messagebox.showerror(self.parent.get_text("No Input Devices"), self.parent.get_text("No input audio devices found."))
             self.parent.destroy()
             return
-        self.parent.selected_device.set(list(devices.keys())[0])  # Default selection
+            
+        # Set default selection based on saved setting or first available device
+        initial_device = list(devices.keys())[0]
+        if hasattr(self.parent, 'selected_mic') and self.parent.selected_mic in devices:
+            initial_device = self.parent.selected_mic
+            
+        self.parent.selected_device.set(initial_device)
+
+        # Add trace to save selection when it changes
+        def on_device_change(*args):
+            self.parent.save_mic_setting(self.parent.selected_device.get())
+            
+        self.parent.selected_device.trace("w", on_device_change)
 
         device_menu = ttk.OptionMenu(main_frame, self.parent.selected_device, self.parent.selected_device.get(), *devices.keys())
         device_menu.grid(row=row, column=1, sticky="ew", pady=(0,10))

@@ -4,6 +4,22 @@ import time
 import ctypes
 from ctypes import wintypes
 
+# Define WNDCLASSW structure manually if not available
+if not hasattr(wintypes, 'WNDCLASSW'):
+    class WNDCLASSW(ctypes.Structure):
+        _fields_ = [('style', ctypes.c_uint),
+                    ('lpfnWndProc', ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p)),
+                    ('cbClsExtra', ctypes.c_int),
+                    ('cbWndExtra', ctypes.c_int),
+                    ('hInstance', ctypes.c_void_p),
+                    ('hIcon', ctypes.c_void_p),
+                    ('hCursor', ctypes.c_void_p),
+                    ('hbrBackground', ctypes.c_void_p),
+                    ('lpszMenuName', ctypes.c_wchar_p),
+                    ('lpszClassName', ctypes.c_wchar_p)]
+else:
+    WNDCLASSW = wintypes.WNDCLASSW
+
 class SystemEventListener:
     def __init__(self, parent):
         self.parent = parent
@@ -145,7 +161,7 @@ class SystemEventListener:
     
     def _create_window_class(self):
         """Create a window class for the message-only window"""
-        wndclass = ctypes.wintypes.WNDCLASSW()
+        wndclass = WNDCLASSW()
         wndclass.style = 0
         wndclass.lpfnWndProc = ctypes.WINFUNCTYPE(
             ctypes.c_long, ctypes.c_int, ctypes.c_uint, ctypes.c_int, ctypes.c_int
@@ -179,4 +195,4 @@ class SystemEventListener:
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
         """Window procedure to handle window messages"""
         # We handle WM_WTSSESSION_CHANGE in _listen_for_events now
-        return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam) 
+        return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)

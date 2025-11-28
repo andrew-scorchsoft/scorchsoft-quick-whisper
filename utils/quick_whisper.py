@@ -157,7 +157,18 @@ class QuickWhisper(tk.Tk):
         self.setup_system_tray()
         
         # Check for updates in a separate thread
+        # Check for updates in a separate thread
         self.version_manager.start_check()
+
+        # Schedule UI update and hotkey registration after main window is initialized
+        def after_init():
+            # Update UI with loaded shortcuts
+            self.hotkey_manager.update_shortcut_displays()
+            # Register the loaded shortcuts
+            self.hotkey_manager.force_hotkey_refresh()
+
+        # Delay slightly to ensure UI is ready
+        self.after(100, after_init)
 
     # Load environment variables from config/.env
     def load_env_file(self):
@@ -206,7 +217,11 @@ class QuickWhisper(tk.Tk):
         # Load app language setting
         self.app_language = os.getenv("APP_LANGUAGE", "en")
         if self.app_language not in TRANSLATIONS:
+
             self.app_language = "en"
+
+        # Load selected microphone setting
+        self.selected_mic = os.getenv("SELECTED_MIC")
 
         # Load keyboard shortcuts with defaults
         self.shortcuts = {
@@ -218,14 +233,7 @@ class QuickWhisper(tk.Tk):
         }
         
         # Schedule UI update and hotkey registration after main window is initialized
-        def after_init():
-            # Update UI with loaded shortcuts
-            self.hotkey_manager.update_shortcut_displays()
-            # Register the loaded shortcuts
-            self.hotkey_manager.force_hotkey_refresh()
 
-        # Delay slightly to ensure UI is ready
-        self.after(100, after_init)
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
@@ -430,7 +438,32 @@ class QuickWhisper(tk.Tk):
         
         # Notify user and exit
         messagebox.showinfo(self.get_text("Language Changed"), self.get_text("Please restart manually"))
+        messagebox.showinfo(self.get_text("Language Changed"), self.get_text("Please restart manually"))
         self.on_closing()
+
+    def save_mic_setting(self, mic_name):
+        """Save the selected microphone to config/.env."""
+        config_dir = Path("config")
+        config_dir.mkdir(parents=True, exist_ok=True)
+        env_path = config_dir / ".env"
+        
+        # Read existing settings
+        env_vars = {}
+        if env_path.exists():
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        parts = line.strip().split('=', 1)
+                        if len(parts) == 2:
+                            env_vars[parts[0]] = parts[1]
+        
+        # Update microphone setting
+        env_vars["SELECTED_MIC"] = mic_name
+        
+        # Write back
+        with open(env_path, 'w') as f:
+            for key, val in env_vars.items():
+                f.write(f"{key}={val}\n")
 
     def create_menu(self):
         self.menubar = Menu(self)
@@ -461,6 +494,7 @@ class QuickWhisper(tk.Tk):
         language_menu.delete(0, tk.END)
         language_menu.add_radiobutton(label=self.get_text("English"), command=lambda: self.change_language("en"), variable=self.lang_var, value="en")
         language_menu.add_radiobutton(label=self.get_text("Chinese"), command=lambda: self.change_language("zh"), variable=self.lang_var, value="zh")
+        language_menu.add_radiobutton(label=self.get_text("French"), command=lambda: self.change_language("fr"), variable=self.lang_var, value="fr")
 
         settings_menu.add_separator()
         settings_menu.add_command(label=self.get_text("Change API Key"), command=self.change_api_key)
