@@ -122,12 +122,17 @@ pip install --no-cache-dir pyinstaller
 
 **Windows (no console window):**
 ```bash
-python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py
+python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import keyboard._winkeyboard quick_whisper.py
 ```
 
 **Windows (with console for debugging):**
 ```bash
-python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py
+python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import keyboard._winkeyboard quick_whisper.py
+```
+
+**Windows (using spec file - recommended):**
+```bash
+python -m PyInstaller quick_whisper.spec
 ```
 
 **Mac:**
