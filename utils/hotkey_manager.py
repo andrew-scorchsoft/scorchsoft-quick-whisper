@@ -6,6 +6,7 @@ from pathlib import Path
 import platform
 import threading
 import time
+from utils.config_manager import get_config
 
 
 class HotkeyManager:
@@ -14,6 +15,7 @@ class HotkeyManager:
         self.hotkeys = []
         self.is_mac = platform.system() == 'Darwin'
         self._paused = False
+        self.config = get_config()
         
         # Default shortcuts
         self.shortcuts = {
@@ -24,21 +26,21 @@ class HotkeyManager:
             'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
         }
         
-        # Load shortcuts from environment
-        self.load_shortcuts_from_env()
+        # Load shortcuts from config
+        self.load_shortcuts_from_config()
         
         # A dict to track keys we've intercepted to avoid suppressing modifier keys alone
         self.key_state = {}
     
-    def load_shortcuts_from_env(self):
-        """Load keyboard shortcuts from environment variables"""
-        # Overwrite defaults with any environment-defined shortcuts
+    def load_shortcuts_from_config(self):
+        """Load keyboard shortcuts from config file"""
+        # Overwrite defaults with any config-defined shortcuts
         self.shortcuts = {
-            'record_edit': self.parent._env_get('SHORTCUT_RECORD_EDIT', 'ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
-            'record_transcribe': self.parent._env_get('SHORTCUT_RECORD_TRANSCRIBE', 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
-            'cancel_recording': self.parent._env_get('SHORTCUT_CANCEL_RECORDING', 'ctrl+alt+x' if not self.is_mac else 'command+x'),
-            'cycle_prompt_back': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
-            'cycle_prompt_forward': self.parent._env_get('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
+            'record_edit': self.config.get_shortcut('record_edit') or ('ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
+            'record_transcribe': self.config.get_shortcut('record_transcribe') or ('ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
+            'cancel_recording': self.config.get_shortcut('cancel_recording') or ('ctrl+alt+x' if not self.is_mac else 'command+x'),
+            'cycle_prompt_back': self.config.get_shortcut('cycle_prompt_back') or ('alt+left' if not self.is_mac else 'command+['),
+            'cycle_prompt_forward': self.config.get_shortcut('cycle_prompt_forward') or ('alt+right' if not self.is_mac else 'command+]')
         }
     
     def register_hotkeys(self):
@@ -261,34 +263,14 @@ class HotkeyManager:
             print(f"Error verifying hotkeys: {e}")
             return False
     
-    def save_shortcut_to_env(self, shortcut_name, key_combination):
-        """Save a keyboard shortcut to the .env file."""
+    def save_shortcut_to_config(self, shortcut_name, key_combination):
+        """Save a keyboard shortcut to settings.json."""
         # Format the key combination consistently before saving
         formatted_combination = self.format_shortcut(key_combination.split('+') if isinstance(key_combination, str) else key_combination)
         
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            key, val = line.strip().split('=', 1)
-                            env_vars[key] = val
-                        except ValueError:
-                            continue
-
-        # Update shortcut
-        env_vars[f'SHORTCUT_{shortcut_name.upper()}'] = formatted_combination
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
+        # Update config and save
+        self.config.set_shortcut(shortcut_name, formatted_combination)
+        self.config.save_settings()
 
         # Update runtime shortcut with formatted combination
         self.shortcuts[shortcut_name] = formatted_combination
@@ -346,36 +328,21 @@ class HotkeyManager:
         
         if confirm:
             try:
-                # Read existing .env file
-                config_dir = Path("config")
-                env_path = config_dir / ".env"
-                
-                if env_path.exists():
-                    # Read all env vars
-                    env_vars = {}
-                    with open(env_path, 'r') as f:
-                        for line in f:
-                            if line.strip():
-                                try:
-                                    key, val = line.strip().split('=', 1)
-                                    if not key.startswith('SHORTCUT_'):  # Keep non-shortcut settings
-                                        env_vars[key] = val
-                                except ValueError:
-                                    continue
-                
-                    # Write back without the shortcut settings
-                    with open(env_path, 'w') as f:
-                        for key, val in env_vars.items():
-                            f.write(f"{key}={val}\n")
-                
                 # Reset shortcuts in memory to defaults
-                self.shortcuts = {
+                default_shortcuts = {
                     'record_edit': 'ctrl+alt+j' if not self.is_mac else 'command+alt+j',
                     'record_transcribe': 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j',
                     'cancel_recording': 'win+x' if not self.is_mac else 'command+x',
                     'cycle_prompt_back': 'alt+left' if not self.is_mac else 'command+[',
                     'cycle_prompt_forward': 'alt+right' if not self.is_mac else 'command+]'
                 }
+                
+                self.shortcuts = default_shortcuts.copy()
+                
+                # Update config with default shortcuts and save
+                for name, shortcut in default_shortcuts.items():
+                    self.config.set_shortcut(name, shortcut)
+                self.config.save_settings()
                 
                 # Update all shortcut labels in the dialog
                 if shortcuts_window != self.parent:
@@ -601,8 +568,8 @@ class HotkeyManager:
                                 button.config(text="Edit")
                                 return
                         
-                        # Save to env and update runtime
-                        self.save_shortcut_to_env(shortcut_name, new_shortcut)
+                        # Save to config and update runtime
+                        self.save_shortcut_to_config(shortcut_name, new_shortcut)
                         
                         # Refresh hotkeys with callback
                         def on_refresh_complete(success):

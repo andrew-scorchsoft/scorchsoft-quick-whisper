@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import customtkinter as ctk
 from pathlib import Path
-from dotenv import dotenv_values
 import os
 import platform
+from utils.config_manager import get_config
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -40,24 +40,17 @@ class ConfigDialog:
         self.create_dialog()
         
     def load_current_settings(self):
-        """Load current configuration settings from .env file."""
-        env_path = Path("config") / ".env"
-        if env_path.exists():
-            env_vars = dotenv_values(env_path)
-        else:
-            env_vars = {}
+        """Load current configuration settings from settings.json."""
+        self.config = get_config()
             
         # Recording location (default: alongside)
-        recording_location = env_vars.get("RECORDING_LOCATION", "alongside")
-        self.recording_location_var.set(recording_location)
+        self.recording_location_var.set(self.config.recording_location)
         
         # Custom location path
-        custom_location = env_vars.get("CUSTOM_RECORDING_PATH", "")
-        self.custom_location_var.set(custom_location)
+        self.custom_location_var.set(self.config.custom_recording_path)
         
         # File handling (default: overwrite)
-        file_handling = env_vars.get("FILE_HANDLING", "overwrite")
-        self.file_handling_var.set(file_handling)
+        self.file_handling_var.set(self.config.file_handling)
         
     def create_dialog(self):
         """Create the main dialog layout."""
@@ -308,7 +301,7 @@ class ConfigDialog:
             self.custom_location_var.set(folder_path)
             
     def save_settings(self):
-        """Save the configuration settings to .env file."""
+        """Save the configuration settings to settings.json."""
         # Validate custom path if selected
         if self.recording_location_var.get() == "custom":
             custom_path = self.custom_location_var.get().strip()
@@ -329,37 +322,19 @@ class ConfigDialog:
                         return
                 else:
                     return
-                    
-        # Load existing .env settings
-        env_path = Path("config") / ".env"
-        if env_path.exists():
-            env_vars = dotenv_values(env_path)
-        else:
-            env_vars = {}
-            
-        # Update configuration values
-        env_vars["RECORDING_LOCATION"] = self.recording_location_var.get()
-        env_vars["CUSTOM_RECORDING_PATH"] = self.custom_location_var.get()
-        env_vars["FILE_HANDLING"] = self.file_handling_var.get()
         
-        # Write settings to .env file
+        # Update configuration values
         try:
-            # Ensure config directory exists
-            env_path.parent.mkdir(parents=True, exist_ok=True)
+            self.config.recording_location = self.recording_location_var.get()
+            self.config.custom_recording_path = self.custom_location_var.get()
+            self.config.file_handling = self.file_handling_var.get()
             
-            with open(env_path, 'w') as f:
-                for key, value in env_vars.items():
-                    if value is not None:
-                        f.write(f"{key}={value}\n")
-            
-            # Update the environment variables in memory so changes take effect immediately
-            os.environ["RECORDING_LOCATION"] = self.recording_location_var.get()
-            os.environ["CUSTOM_RECORDING_PATH"] = self.custom_location_var.get()
-            os.environ["FILE_HANDLING"] = self.file_handling_var.get()
+            # Save to file
+            self.config.save_settings()
                         
             messagebox.showinfo("Success", "Configuration settings saved and applied successfully!")
             
-            # Update parent's recording directory (this will now use the updated environment variables)
+            # Update parent's recording directory
             self.parent.update_recording_directory()
             
             self._close_dialog()

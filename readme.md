@@ -12,35 +12,69 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 - **Optional GPT-4 Editing**: Enhance your transcriptions using GPT-4 for a polished, copy-edited text output.
 - **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle GPT-4 editing.
 
+## Screenshot
+
+![QuickWhisper Interface](assets/quick-whisper-v1-5-0.png)
+
 ## Installation
 
 1. Clone the repository or download the code to your local machine.
 
-2. Ensure you have Python 3.x installed. Install the required dependencies with the following command:
-    `pip install pystray pyaudio openai pyperclip python-dotenv pydub audioplayer keyboard customtkinter pyttsx3 packaging`
+2. Ensure you have Python 3.x installed.
 
+3. Set up a virtual environment and install dependencies:
 
-3. Place your OpenAI API key in a `.env` file located in the `config` folder or enter it directly in the app.
+   **Windows:**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-    **Example** `.env` file in `config/.env`:
-    ```plaintext
-    OPENAI_API_KEY=your_openai_api_key_here
-    ```
+   **Mac/Linux:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-    This is optional, if you don't define your key then the app will ask for it on first run
+4. The app will prompt you for your OpenAI API key on first run. Alternatively, you can pre-configure it in `config/credentials.json`:
+
+   ```json
+   {
+     "openai_api_key": "your_openai_api_key_here"
+   }
+   ```
+
+### Mac-Specific Setup
+
+1. Install portaudio first:
+   ```bash
+   brew install portaudio
+   ```
+
+2. You may need to grant accessibility permissions to the app for keyboard shortcuts:
+   - Go to System Preferences > Security & Privacy > Privacy > Accessibility
+   - Add QuickWhisper to the list of allowed apps
 
 ## Usage
 
 1. Run the application:
-
-    ```bash
-    python quick_whisper.py
-    ```
+   ```bash
+   python quick_whisper.py
+   ```
 
 2. Select an input device, then press one of the recording buttons or use the hotkeys:
+
+   **Windows/Linux:**
    - `Ctrl+Alt+J` for Record + AI Edit
    - `Ctrl+Alt+Shift+J` for Record + Transcript
    - `Win+X` to Cancel Recording
+
+   **Mac:**
+   - `⌘+Alt+J` for Record + AI Edit
+   - `⌘+Alt+Shift+J` for Record + Transcript
+   - `⌘+X` to Cancel Recording
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
 
@@ -69,59 +103,44 @@ Control how recording files are managed:
 - **Save each recording with date/time in filename**: Creates unique files like `recording_20240101_143052.wav`
   - ⚠️ **Warning**: This option can consume significant disk space over time
 
-All configuration settings are saved to the `config/.env` file and will persist between application restarts.
+### Config Files
 
-## Screenshot
+All configuration settings are saved to JSON files in the `config/` folder:
+- `settings.json`: User preferences, model settings, shortcuts, recording options
+- `credentials.json`: API key (to be encrypted in a future release)
+- `prompts.json`: Custom AI prompts
 
-![QuickWhisper Interface](assets/quick-whisper-v1-5-0.png)
+Settings will persist between application restarts. If you're upgrading from an older version that used `.env` files, your settings will be automatically migrated to the new JSON format.
 
+## Building an Executable
+
+To create a standalone executable, first ensure you have your virtual environment activated with dependencies installed, then install PyInstaller:
+
+```bash
+pip install --no-cache-dir pyinstaller
+```
+
+**Windows (no console window):**
+```bash
+python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py
+```
+
+**Windows (with console for debugging):**
+```bash
+python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py
+```
+
+**Mac:**
+```bash
+pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder quick_whisper.py
+```
 
 ## License
 
 This project is licensed under the terms specified in the LICENSE.md file.
 
-## Making an installer
+## About Scorchsoft
 
-It's a good idea to use a venv to minimise bundle install size. Do this if you haven't already set one up:
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install --no-cache-dir pyinstaller
-pip install -r requirements.txt
-```
-
-Then you can make the exe:
-
-Windows:
-`python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py`
-
-Windows with terminal:
-`python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder quick_whisper.py`
-
-Mac:
-`pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder quick_whisper.py`
-
-# About Scorchsoft
-
-We can deliver your innovative, technically complex project, using the latest web and mobile application development technologies.
-Scorchsoft develops online portals, applications, web and mobile apps, and AI projects. With over fourteen years experience working with hundreds of small, medium, and large enterprises, in a diverse range of sectors, we'd love to discover how we can apply our expertise to your project.
+We can deliver your innovative, technically complex project, using the latest web and mobile application development technologies. Scorchsoft develops online portals, applications, web and mobile apps, and AI projects. With over fourteen years experience working with hundreds of small, medium, and large enterprises, in a diverse range of sectors, we'd love to discover how we can apply our expertise to your project.
 
 [Scorchsoft App Developers](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
-
-## Mac-Specific Setup
-
-For Mac users:
-1. Install portaudio first:
-   ```bash
-   brew install portaudio
-   ```
-
-2. You may need to grant accessibility permissions to the app for keyboard shortcuts:
-   - Go to System Preferences > Security & Privacy > Privacy > Accessibility
-   - Add QuickWhisper to the list of allowed apps
-
-3. The app uses Command (⌘) instead of Windows key for shortcuts:
-   - ⌘+Alt+J: Record + AI Edit
-   - ⌘+Alt+Shift+J: Record + Transcript
-   - ⌘+X: Cancel Recording

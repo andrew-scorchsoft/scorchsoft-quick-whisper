@@ -6,6 +6,7 @@ from tkinter import messagebox
 from audioplayer import AudioPlayer
 import os
 import sys
+from utils.config_manager import get_config
 
 class AudioManager:
     def __init__(self, parent):
@@ -17,6 +18,7 @@ class AudioManager:
         self.stream = None
         self.device_index = None
         self.audio_file = None
+        self.config = get_config()
         
     def get_input_devices(self):
         """Get a list of available input audio devices."""
@@ -116,7 +118,7 @@ class AudioManager:
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # Determine filename based on file handling setting
-        file_handling = os.getenv("FILE_HANDLING", "overwrite")
+        file_handling = self.config.file_handling
         
         if file_handling == "timestamp":
             # Create timestamped filename
@@ -172,7 +174,7 @@ class AudioManager:
     
     def retry_last_recording(self):
         """Retry processing the last recorded audio file."""
-        file_handling = os.getenv("FILE_HANDLING", "overwrite")
+        file_handling = self.config.file_handling
         
         if file_handling == "timestamp":
             # Find the most recent recording file

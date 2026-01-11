@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import webbrowser
 from pathlib import Path
-from dotenv import dotenv_values
 import customtkinter as ctk
+from utils.config_manager import get_config
 
 class AdjustModelsDialog:
     def __init__(self, parent):
@@ -300,13 +300,7 @@ class AdjustModelsDialog:
         ).pack(pady=(0, 10))
 
     def save_model_settings(self):
-        env_path = Path("config") / ".env"
-        
-        # Load existing .env settings into a dictionary
-        if env_path.exists():
-            env_vars = dotenv_values(env_path)
-        else:
-            env_vars = {}
+        config = get_config()
 
         # Get selected language code from combo box
         selected_language = self.language_combo.get()
@@ -336,26 +330,20 @@ class AdjustModelsDialog:
             
         print(f"Saving LLM model: '{llm_model}'")
             
-        # Update values in the dictionary
-        env_vars["TRANSCRIPTION_MODEL"] = transcription_model
-        env_vars["TRANSCRIPTION_MODEL_TYPE"] = model_type
-        env_vars["AI_MODEL"] = llm_model
-        env_vars["WHISPER_LANGUAGE"] = language_code
-
-        # Write each environment variable to the .env file
+        # Update config values
         try:
-            print(f"Writing to .env file at {env_path}")
-            with open(env_path, 'w') as f:
-                for key, value in env_vars.items():
-                    if value is None or value.strip() == "":
-                        print(f"Warning: Empty value for key {key}, using default")
-                        continue
-                    f.write(f"{key}={value}\n")
-                    print(f"Wrote: {key}={value}")
-            print("Successfully updated .env file")
+            config.transcription_model = transcription_model
+            config.transcription_model_type = model_type
+            config.ai_model = llm_model
+            config.whisper_language = language_code
+            
+            # Save to file
+            config.save_settings()
+            print("Successfully updated settings.json")
         except Exception as e:
-            print(f"Error writing .env file: {e}")
+            print(f"Error saving settings: {e}")
             messagebox.showerror("File Error", f"Could not save settings: {e}")
+            return
 
         # Update parent instance variables
         self.parent.transcription_model = transcription_model
@@ -366,5 +354,4 @@ class AdjustModelsDialog:
         # Update the model label
         self.parent.update_model_label()
         
-        self.dialog.destroy() 
-        self.dialog.destroy() 
+        self.dialog.destroy()

@@ -4,18 +4,18 @@ import threading
 import requests
 import webbrowser
 from pathlib import Path
-import os
 from packaging import version
+from utils.config_manager import get_config
 
 class VersionUpdateManager:
     def __init__(self, parent):
         self.parent = parent
         self.version_check_url = "https://www.scorchsoft.com/public/blog/quick-whisper-speech-to-copyedited-text/latest-version.json"
         self.auto_update_check = tk.BooleanVar(value=True)
+        self.config = get_config()
         
-        # Load settings from env file
-        auto_update = os.getenv("AUTO_UPDATE_CHECK", "true").lower()
-        self.auto_update_check.set(auto_update == "true")
+        # Load settings from config
+        self.auto_update_check.set(self.config.auto_update_check)
         
     def start_check(self, delay=2000):
         """Start the update check with delay to avoid blocking app startup"""
@@ -23,30 +23,9 @@ class VersionUpdateManager:
             self.parent.after(delay, lambda: threading.Thread(target=self.check_for_updates).start())
     
     def save_auto_update_setting(self):
-        """Save the auto update setting to the .env file."""
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            key, val = line.strip().split('=', 1)
-                            env_vars[key] = val
-                        except ValueError:
-                            continue  # Skip malformed lines
-
-        # Update or add the AUTO_UPDATE_CHECK setting
-        env_vars["AUTO_UPDATE_CHECK"] = str(self.auto_update_check.get()).lower()
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
+        """Save the auto update setting to settings.json."""
+        self.config.auto_update_check = self.auto_update_check.get()
+        self.config.save_settings()
 
     def check_for_updates(self, manual_check=False):
         """Check for updates from the version check URL."""

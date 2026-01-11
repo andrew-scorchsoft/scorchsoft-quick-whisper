@@ -14,7 +14,7 @@ from tkinter import filedialog
 import customtkinter as ctk
 from PIL import Image, ImageTk 
 from openai import OpenAI
-from dotenv import load_dotenv, dotenv_values, set_key
+from utils.config_manager import get_config
 from pathlib import Path
 from audioplayer import AudioPlayer
 import keyboard  # For auto-paste functionality
@@ -80,10 +80,10 @@ class QuickWhisper(tk.Tk):
         # Initialize auto hotkey refresh setting (default to True)
         self.auto_hotkey_refresh = tk.BooleanVar(value=True)
 
-        self.load_env_file()
+        self.load_config()
         self.api_key = self.get_api_key()
         if not self.api_key:
-            messagebox.showerror("API Key Missing", "Please set your OpenAI API Key in config/.env or input it now.")
+            messagebox.showerror("API Key Missing", "Please set your OpenAI API Key in config/credentials.json or input it now.")
             self.destroy()
             return
 
@@ -122,22 +122,22 @@ class QuickWhisper(tk.Tk):
         # Create UI widgets
         self.ui_manager.create_widgets()
 
-        # Hide the banner on load if HIDE_BANNER is set to true in .env
+        # Hide the banner on load if hide_banner is set to true in settings
         if self.hide_banner_on_load:
             self.toggle_banner()
 
         self.set_default_prompt()
         
-        # Load selected prompt from .env if it exists
-        env_prompt = os.getenv("SELECTED_PROMPT")
-        if env_prompt:
-            if env_prompt == "Default":
-                self.current_prompt_name = env_prompt
-            elif env_prompt in self.prompts:
-                self.current_prompt_name = env_prompt
+        # Load selected prompt from config if it exists
+        saved_prompt = self.config_manager.selected_prompt
+        if saved_prompt:
+            if saved_prompt == "Default":
+                self.current_prompt_name = saved_prompt
+            elif saved_prompt in self.prompts:
+                self.current_prompt_name = saved_prompt
             else:
                 messagebox.showwarning("Prompt Not Found", 
-                    f"Selected prompt '{env_prompt}' not found. Using default prompt.")
+                    f"Selected prompt '{saved_prompt}' not found. Using default prompt.")
                 self.current_prompt_name = "Default"
 
         # After loading the prompt from env, update the model label
@@ -157,57 +157,43 @@ class QuickWhisper(tk.Tk):
         # Check for updates in a separate thread
         self.version_manager.start_check()
 
-    # Load environment variables from config/.env
-    def load_env_file(self):
+    # Load configuration from JSON files
+    def load_config(self):
+        """Load configuration from settings.json and credentials.json files."""
+        self.config_manager = get_config()
 
-        env_path = Path("config") / ".env"
-        if env_path.exists():
-            load_dotenv(dotenv_path=env_path)
-
-        # Check the HIDE_BANNER setting and set initial visibility
-        self.hide_banner_on_load = os.getenv("HIDE_BANNER", "false").lower() == "true"
+        # Load UI settings
+        self.hide_banner_on_load = self.config_manager.hide_banner
 
         # Load auto hotkey refresh setting
-        auto_refresh = os.getenv("AUTO_HOTKEY_REFRESH", "true").lower()
-        self.auto_hotkey_refresh.set(auto_refresh == "true")
+        self.auto_hotkey_refresh.set(self.config_manager.auto_hotkey_refresh)
 
-        # Overwrite transcription model if set
-        transcription_model = os.getenv("TRANSCRIPTION_MODEL")
-        if transcription_model and transcription_model.strip():
-            self.transcription_model = transcription_model
-            print(f"Loaded transcription model from env: '{transcription_model}'")
-        else:
-            print(f"Using default transcription model: '{self.transcription_model}'")
+        # Load model settings
+        self.transcription_model = self.config_manager.transcription_model
+        print(f"Loaded transcription model: '{self.transcription_model}'")
+        
+        self.transcription_model_type = self.config_manager.transcription_model_type
+        # Determine model type from name if not set
+        if not self.transcription_model_type or self.transcription_model_type == "unknown":
+            if "gpt" in self.transcription_model.lower():
+                self.transcription_model_type = "gpt"
+            else:
+                self.transcription_model_type = "whisper"
+        print(f"Loaded model type: '{self.transcription_model_type}'")
 
-        # Overwrite transcription model type if set
-        transcription_model_type = os.getenv("TRANSCRIPTION_MODEL_TYPE")
-        if transcription_model_type and transcription_model_type.strip():
-            self.transcription_model_type = transcription_model_type
-            print(f"Loaded model type from env: '{transcription_model_type}'")
-        elif "gpt" in self.transcription_model.lower():
-            self.transcription_model_type = "gpt"
-            print(f"Determined model type from name: '{self.transcription_model_type}'")
-        else:
-            self.transcription_model_type = "whisper"
-            print(f"Set default model type: '{self.transcription_model_type}'")
+        self.ai_model = self.config_manager.ai_model
+        print(f"Loaded AI model: '{self.ai_model}'")
 
-        # Overwrite AI model if set
-        ai_model = os.getenv("AI_MODEL")
-        if ai_model:
-            self.ai_model = ai_model
+        self.whisper_language = self.config_manager.whisper_language
+        print(f"Loaded whisper language: '{self.whisper_language}'")
 
-        # Load whisper language setting
-        whisper_language = os.getenv("WHISPER_LANGUAGE")
-        if whisper_language:
-            self.whisper_language = whisper_language
-
-        # Load keyboard shortcuts with defaults
+        # Load keyboard shortcuts from config
         self.shortcuts = {
-            'record_edit': os.getenv('SHORTCUT_RECORD_EDIT', 'ctrl+alt+j' if not self.is_mac else 'command+alt+j'),
-            'record_transcribe': os.getenv('SHORTCUT_RECORD_TRANSCRIBE', 'ctrl+alt+shift+j' if not self.is_mac else 'command+alt+shift+j'),
-            'cancel_recording': os.getenv('SHORTCUT_CANCEL_RECORDING', 'win+x' if not self.is_mac else 'command+x'),
-            'cycle_prompt_back': os.getenv('SHORTCUT_CYCLE_PROMPT_BACK', 'alt+left' if not self.is_mac else 'command+['),
-            'cycle_prompt_forward': os.getenv('SHORTCUT_CYCLE_PROMPT_FORWARD', 'alt+right' if not self.is_mac else 'command+]')
+            'record_edit': self.config_manager.get_shortcut('record_edit'),
+            'record_transcribe': self.config_manager.get_shortcut('record_transcribe'),
+            'cancel_recording': self.config_manager.get_shortcut('cancel_recording'),
+            'cycle_prompt_back': self.config_manager.get_shortcut('cycle_prompt_back'),
+            'cycle_prompt_forward': self.config_manager.get_shortcut('cycle_prompt_forward')
         }
         
         # Schedule UI update and hotkey registration after main window is initialized
@@ -222,7 +208,7 @@ class QuickWhisper(tk.Tk):
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = self.config_manager.openai_api_key
         if not api_key:  # Prompt for the key if it's not set
             api_key = self.openai_key_dialog()  # Call custom dialog
             if api_key:
@@ -363,28 +349,9 @@ class QuickWhisper(tk.Tk):
 
 
     def save_api_key(self, api_key):
-        """Save the API key to config/.env without overwriting existing variables."""
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings to preserve them
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        key, val = line.strip().split('=', 1)
-                        env_vars[key] = val
-
-        # Update or add the OPENAI_API_KEY
-        env_vars["OPENAI_API_KEY"] = api_key
-        env_vars["HIDE_BANNER"] = self.hide_banner_on_load
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
+        """Save the API key to credentials.json."""
+        self.config_manager.openai_api_key = api_key
+        self.config_manager.save_credentials()
 
     def create_menu(self):
         self.menubar = Menu(self)
@@ -907,31 +874,10 @@ class QuickWhisper(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save prompts: {e}")
 
-    def save_prompt_to_env(self, prompt_name):
-        """Save selected prompt to .env file."""
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            key, val = line.strip().split('=', 1)
-                            env_vars[key] = val
-                        except ValueError:
-                            continue  # Skip malformed lines
-
-        # Update or add the SELECTED_PROMPT
-        env_vars["SELECTED_PROMPT"] = prompt_name
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
+    def save_prompt_to_config(self, prompt_name):
+        """Save selected prompt to settings.json."""
+        self.config_manager.selected_prompt = prompt_name
+        self.config_manager.save_settings()
 
     def get_system_prompt(self):
         """Get the current system prompt based on selection."""
@@ -1000,7 +946,7 @@ class QuickWhisper(tk.Tk):
         
         # Update current prompt
         self.current_prompt_name = prompt_names[next_index]
-        self.save_prompt_to_env(self.current_prompt_name)
+        self.save_prompt_to_config(self.current_prompt_name)
         
         # Update UI
         self.update_model_label()
@@ -1024,7 +970,7 @@ class QuickWhisper(tk.Tk):
         
         # Update current prompt
         self.current_prompt_name = prompt_names[prev_index]
-        self.save_prompt_to_env(self.current_prompt_name)
+        self.save_prompt_to_config(self.current_prompt_name)
         
         # Update UI
         self.update_model_label()
@@ -1060,31 +1006,9 @@ class QuickWhisper(tk.Tk):
         self.after(self.hotkey_check_interval, check_hotkey_health)
 
     def save_auto_hotkey_refresh(self):
-        """Save the auto hotkey refresh setting to the .env file"""
-        config_dir = Path("config")
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
-
-        # Read existing settings to preserve them
-        env_vars = {}
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            key, val = line.strip().split('=', 1)
-                            env_vars[key] = val
-                        except ValueError:
-                            continue
-
-        # Update or add the setting
-        env_vars["AUTO_HOTKEY_REFRESH"] = str(self.auto_hotkey_refresh.get()).lower()
-
-        # Write back all variables
-        with open(env_path, 'w') as f:
-            for key, val in env_vars.items():
-                f.write(f"{key}={val}\n")
-                
+        """Save the auto hotkey refresh setting to settings.json."""
+        self.config_manager.auto_hotkey_refresh = self.auto_hotkey_refresh.get()
+        self.config_manager.save_settings()
         print(f"Auto hotkey refresh setting saved: {self.auto_hotkey_refresh.get()}")
 
     def setup_system_tray(self):
@@ -1110,8 +1034,8 @@ class QuickWhisper(tk.Tk):
 
     def update_recording_directory(self):
         """Update the recording directory based on configuration settings."""
-        # Load recording location setting
-        recording_location = os.getenv("RECORDING_LOCATION", "alongside")
+        # Load recording location setting from config
+        recording_location = self.config_manager.recording_location
         
         if recording_location == "appdata":
             # Use OS-appropriate app data directory
@@ -1123,7 +1047,7 @@ class QuickWhisper(tk.Tk):
                 appdata_dir = Path.home() / ".config" / "QuickWhisper"
             self.tmp_dir = appdata_dir
         elif recording_location == "custom":
-            custom_path = os.getenv("CUSTOM_RECORDING_PATH", "")
+            custom_path = self.config_manager.custom_recording_path
             if custom_path and os.path.exists(custom_path):
                 self.tmp_dir = Path(custom_path)
             else:
