@@ -164,13 +164,38 @@ class StyledPopupMenu:
         self.popup.overrideredirect(True)  # Remove window decorations
         self.popup.attributes('-topmost', True)
         
-        # Set dark title bar if on Windows
-        set_dark_title_bar(self.popup)
+        # Check current theme setting
+        config = get_config()
+        is_dark = config.dark_mode
+        
+        # Set title bar based on theme
+        if is_dark:
+            set_dark_title_bar(self.popup)
+        
+        # Theme-aware colors for the popup menu
+        if is_dark:
+            border_color = self.theme.BORDER
+            bg_color = self.theme.BG_SECONDARY
+            hover_color = self.theme.BG_HOVER
+            text_color = self.theme.TEXT_PRIMARY
+            text_muted = self.theme.TEXT_MUTED
+        else:
+            border_color = "#d0d0d0"
+            bg_color = "#ffffff"
+            hover_color = "#f0f0f0"
+            text_color = "#1c1c1c"
+            text_muted = "#666666"
+        
+        # Store colors for use in menu item creation
+        self._current_bg = bg_color
+        self._current_hover = hover_color
+        self._current_text = text_color
+        self._current_text_muted = text_muted
         
         # Main frame with border
         outer_frame = tk.Frame(
             self.popup,
-            bg=self.theme.BORDER,
+            bg=border_color,
             padx=1,
             pady=1
         )
@@ -179,7 +204,7 @@ class StyledPopupMenu:
         # Inner content frame
         inner_frame = tk.Frame(
             outer_frame,
-            bg=self.theme.BG_SECONDARY,
+            bg=bg_color,
             padx=4,
             pady=6
         )
@@ -188,7 +213,7 @@ class StyledPopupMenu:
         # Create menu items
         for item_type, label, command, variable, accelerator in self.items:
             if item_type == 'separator':
-                sep = tk.Frame(inner_frame, height=1, bg=self.theme.BORDER)
+                sep = tk.Frame(inner_frame, height=1, bg=border_color)
                 sep.pack(fill=tk.X, pady=6, padx=8)
             elif item_type == 'command':
                 self._create_command_item(inner_frame, label, command, accelerator)
@@ -251,7 +276,12 @@ class StyledPopupMenu:
         
     def _create_command_item(self, parent, label, command, accelerator=None):
         """Create a command menu item."""
-        item_frame = tk.Frame(parent, bg=self.theme.BG_SECONDARY, cursor='hand2')
+        bg = self._current_bg
+        hover = self._current_hover
+        text = self._current_text
+        text_muted = self._current_text_muted
+        
+        item_frame = tk.Frame(parent, bg=bg, cursor='hand2')
         item_frame.pack(fill=tk.X, pady=1)
         
         # Label
@@ -259,8 +289,8 @@ class StyledPopupMenu:
             item_frame,
             text=f"    {label}",
             font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
-            fg=self.theme.TEXT_PRIMARY,
-            bg=self.theme.BG_SECONDARY,
+            fg=text,
+            bg=bg,
             anchor='w',
             padx=12,
             pady=6
@@ -273,24 +303,24 @@ class StyledPopupMenu:
                 item_frame,
                 text=accelerator,
                 font=(self.theme.FONT, self.theme.FONT_SIZE_XS),
-                fg=self.theme.TEXT_MUTED,
-                bg=self.theme.BG_SECONDARY,
+                fg=text_muted,
+                bg=bg,
                 anchor='e',
                 padx=12
             )
             accel_lbl.pack(side=tk.RIGHT)
         
         def on_enter(e):
-            item_frame.configure(bg=self.theme.BG_HOVER)
-            lbl.configure(bg=self.theme.BG_HOVER)
+            item_frame.configure(bg=hover)
+            lbl.configure(bg=hover)
             if accelerator:
-                accel_lbl.configure(bg=self.theme.BG_HOVER)
+                accel_lbl.configure(bg=hover)
         
         def on_leave(e):
-            item_frame.configure(bg=self.theme.BG_SECONDARY)
-            lbl.configure(bg=self.theme.BG_SECONDARY)
+            item_frame.configure(bg=bg)
+            lbl.configure(bg=bg)
             if accelerator:
-                accel_lbl.configure(bg=self.theme.BG_SECONDARY)
+                accel_lbl.configure(bg=bg)
         
         def on_click(e):
             self._close()
@@ -304,7 +334,12 @@ class StyledPopupMenu:
     
     def _create_checkbutton_item(self, parent, label, command, variable):
         """Create a checkbutton menu item."""
-        item_frame = tk.Frame(parent, bg=self.theme.BG_SECONDARY, cursor='hand2')
+        bg = self._current_bg
+        hover = self._current_hover
+        text = self._current_text
+        text_muted = self._current_text_muted
+        
+        item_frame = tk.Frame(parent, bg=bg, cursor='hand2')
         item_frame.pack(fill=tk.X, pady=1)
         
         # Checkmark indicator
@@ -314,8 +349,8 @@ class StyledPopupMenu:
             item_frame,
             text=check_text,
             font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
-            fg=self.theme.ACCENT_PRIMARY if is_checked else self.theme.TEXT_MUTED,
-            bg=self.theme.BG_SECONDARY,
+            fg=self.theme.ACCENT_PRIMARY if is_checked else text_muted,
+            bg=bg,
             width=3,
             anchor='center'
         )
@@ -326,8 +361,8 @@ class StyledPopupMenu:
             item_frame,
             text=label,
             font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
-            fg=self.theme.TEXT_PRIMARY,
-            bg=self.theme.BG_SECONDARY,
+            fg=text,
+            bg=bg,
             anchor='w',
             padx=4,
             pady=6
@@ -335,14 +370,14 @@ class StyledPopupMenu:
         lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
         
         def on_enter(e):
-            item_frame.configure(bg=self.theme.BG_HOVER)
-            check_lbl.configure(bg=self.theme.BG_HOVER)
-            lbl.configure(bg=self.theme.BG_HOVER)
+            item_frame.configure(bg=hover)
+            check_lbl.configure(bg=hover)
+            lbl.configure(bg=hover)
         
         def on_leave(e):
-            item_frame.configure(bg=self.theme.BG_SECONDARY)
-            check_lbl.configure(bg=self.theme.BG_SECONDARY)
-            lbl.configure(bg=self.theme.BG_SECONDARY)
+            item_frame.configure(bg=bg)
+            check_lbl.configure(bg=bg)
+            lbl.configure(bg=bg)
         
         def on_click(e):
             # Toggle the variable
@@ -703,10 +738,16 @@ class UIManager:
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
         
-        set_dark_title_bar(self.parent)
+        # Get dark mode setting from config
+        config = get_config()
+        is_dark = config.dark_mode
         
-        # Apply Sun Valley dark theme FIRST
-        sv_ttk.set_theme("dark")
+        # Apply title bar styling based on theme
+        if is_dark:
+            set_dark_title_bar(self.parent)
+        
+        # Apply Sun Valley theme based on setting
+        sv_ttk.set_theme("dark" if is_dark else "light")
         
         # Setup custom styles
         self._setup_styles()
@@ -953,6 +994,9 @@ class UIManager:
         # Calculate button width (will be adjusted on resize)
         btn_width = 200  # Default, will resize
         
+        # Use theme-appropriate background color for buttons
+        btn_bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        
         self.record_button_transcribe = GradientButton(
             buttons_frame,
             text="Record + Transcript",
@@ -967,7 +1011,7 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             text_color=self.theme.TEXT_PRIMARY,
-            bg_color="#1c1c1c",  # Match Sun Valley dark theme background
+            bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("transcribe")
         )
         self.record_button_transcribe.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
@@ -986,7 +1030,7 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             text_color=self.theme.TEXT_PRIMARY,
-            bg_color="#1c1c1c",  # Match Sun Valley dark theme background
+            bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("edit")
         )
         self.record_button_edit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
@@ -1102,9 +1146,20 @@ class UIManager:
         )
         
     def _update_nav_button_appearance(self):
-        """Update navigation button colors based on disabled state."""
-        enabled_color = self.theme.TEXT_SECONDARY
-        disabled_color = self.theme.TEXT_MUTED
+        """Update navigation button colors based on disabled state and theme."""
+        # Get current theme setting
+        config = get_config()
+        is_dark = config.dark_mode
+        
+        # Use appropriate colors for current theme
+        if is_dark:
+            enabled_color = self.theme.TEXT_SECONDARY  # Light gray on dark background
+            disabled_color = self.theme.TEXT_MUTED     # Darker gray (muted)
+            copy_color = self.theme.TEXT_SECONDARY     # Light gray for clickable Copy
+        else:
+            enabled_color = "#333333"   # Dark gray on light background (clickable)
+            disabled_color = "#b0b0b0"  # Lighter gray (muted/disabled)
+            copy_color = "#333333"      # Dark gray for clickable Copy
         
         self.button_first_page.configure(
             foreground=disabled_color if self._nav_button_disabled["first"] else enabled_color,
@@ -1118,6 +1173,10 @@ class UIManager:
             foreground=disabled_color if self._nav_button_disabled["right"] else enabled_color,
             cursor="" if self._nav_button_disabled["right"] else "hand2"
         )
+        
+        # Update Copy button color for current theme
+        if hasattr(self, 'button_copy') and self.button_copy:
+            self.button_copy.configure(foreground=copy_color)
     
     def update_navigation_buttons(self):
         # Update disabled states
@@ -1322,3 +1381,71 @@ class UIManager:
             self.shortcut_label_left.configure(text=transcribe_shortcut)
         if hasattr(self, 'shortcut_label_right') and self.shortcut_label_right:
             self.shortcut_label_right.configure(text=edit_shortcut)
+    
+    def apply_theme(self, is_dark: bool):
+        """Apply the Sun Valley theme (dark or light mode).
+        
+        Args:
+            is_dark: True for dark mode, False for light mode
+        """
+        theme_name = "dark" if is_dark else "light"
+        sv_ttk.set_theme(theme_name)
+        
+        # Update title bar styling on Windows
+        if is_dark:
+            set_dark_title_bar(self.parent)
+        else:
+            # For light mode, we need to set the title bar to light
+            self._set_light_title_bar(self.parent)
+        
+        # Update gradient buttons background color to match theme
+        bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        if self.record_button_transcribe:
+            self.record_button_transcribe.configure(bg=bg_color)
+            self.record_button_transcribe.bg_color = bg_color
+            self.record_button_transcribe._draw()
+        if self.record_button_edit:
+            self.record_button_edit.configure(bg=bg_color)
+            self.record_button_edit.bg_color = bg_color
+            self.record_button_edit._draw()
+        
+        # Update text widget colors based on theme
+        if self.transcription_text:
+            if is_dark:
+                self.transcription_text.configure(
+                    bg="#1c1c1c",
+                    fg="#ffffff",
+                    insertbackground="#ffffff",
+                    highlightbackground="#404040",
+                    highlightcolor="#505050"
+                )
+            else:
+                self.transcription_text.configure(
+                    bg="#ffffff",
+                    fg="#1c1c1c",
+                    insertbackground="#1c1c1c",
+                    highlightbackground="#d0d0d0",
+                    highlightcolor="#a0a0a0"
+                )
+        
+        # Update navigation button colors for the new theme
+        if hasattr(self, 'button_first_page') and self.button_first_page:
+            self._update_nav_button_appearance()
+        
+        print(f"Theme applied: {theme_name}")
+    
+    def _set_light_title_bar(self, window):
+        """Set Windows title bar to light mode."""
+        if platform.system() != "Windows":
+            return
+        try:
+            window.update()
+            hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            value = ctypes.c_int(0)  # 0 for light mode
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value), ctypes.sizeof(value)
+            )
+        except Exception as e:
+            print(f"Could not set light title bar: {e}")

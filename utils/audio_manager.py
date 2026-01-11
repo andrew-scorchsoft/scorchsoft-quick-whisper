@@ -30,18 +30,23 @@ class AudioManager:
         return devices
 
     def get_device_index_by_name(self, device_name):
-        """Find device index based on selected device name."""
+        """Find device index based on selected device name (input devices only)."""
         for i in range(self.audio.get_device_count()):
             info = self.audio.get_device_info_by_index(i)
-            if info['name'] == device_name:
+            # Must match name AND be an input device (maxInputChannels > 0)
+            if info['name'] == device_name and info['maxInputChannels'] > 0:
                 return i
-        raise ValueError(f"Device '{device_name}' not found.")
+        raise ValueError(f"Input device '{device_name}' not found.")
         
     def start_recording(self):
         """Start recording audio from the selected device."""
-        print("Getting Device Index")
+        selected_name = self.parent.selected_device.get()
+        print(f"Getting Device Index for: '{selected_name}'")
         try:
-            self.device_index = self.get_device_index_by_name(self.parent.selected_device.get())
+            self.device_index = self.get_device_index_by_name(selected_name)
+            # Log the actual device info for verification
+            device_info = self.audio.get_device_info_by_index(self.device_index)
+            print(f"Recording from device index {self.device_index}: '{device_info['name']}' (Input channels: {device_info['maxInputChannels']})")
         except ValueError as e:
             messagebox.showerror("Device Error", str(e))
             return False

@@ -20,9 +20,12 @@ class AdjustModelsDialog:
         self.dialog.title("Adjust AI Models")
         self.dialog.geometry("450x620")
         
-        # Apply Sun Valley dark theme and dark title bar
-        sv_ttk.set_theme("dark")
-        set_dark_title_bar(self.dialog)
+        # Apply Sun Valley theme based on current setting
+        config = get_config()
+        is_dark = config.dark_mode
+        sv_ttk.set_theme("dark" if is_dark else "light")
+        if is_dark:
+            set_dark_title_bar(self.dialog)
         
         self.center_dialog()
 

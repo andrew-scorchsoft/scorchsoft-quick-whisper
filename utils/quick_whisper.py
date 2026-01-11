@@ -79,6 +79,9 @@ class QuickWhisper(tk.Tk):
 
         # Initialize auto hotkey refresh setting (default to True)
         self.auto_hotkey_refresh = tk.BooleanVar(value=True)
+        
+        # Initialize dark mode setting (default to True)
+        self.dark_mode = tk.BooleanVar(value=True)
 
         self.load_config()
         self.api_key = self.get_api_key()
@@ -167,6 +170,9 @@ class QuickWhisper(tk.Tk):
 
         # Load auto hotkey refresh setting
         self.auto_hotkey_refresh.set(self.config_manager.auto_hotkey_refresh)
+        
+        # Load dark mode setting (default to True if not present)
+        self.dark_mode.set(self.config_manager.dark_mode)
 
         # Load model settings
         self.transcription_model = self.config_manager.transcription_model
@@ -418,6 +424,9 @@ class QuickWhisper(tk.Tk):
         self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
                                     variable=self.auto_hotkey_refresh, 
                                     command=self.save_auto_hotkey_refresh)
+        self.settings_menu.add_checkbutton(label="Dark Mode", 
+                                    variable=self.dark_mode, 
+                                    command=self.toggle_dark_mode)
         self.settings_menu.add_separator()
         self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
         self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
@@ -481,7 +490,6 @@ class QuickWhisper(tk.Tk):
         self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
         self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
-        self.help_menu.add_command(label="Version", command=self.show_version)
 
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
@@ -834,6 +842,29 @@ class QuickWhisper(tk.Tk):
         
         theme = ModernTheme()
         
+        # Check current theme setting
+        is_dark = self.config_manager.dark_mode
+        
+        # Theme-aware colors
+        if is_dark:
+            bg_primary = theme.BG_PRIMARY
+            bg_secondary = theme.BG_SECONDARY
+            bg_tertiary = theme.BG_TERTIARY
+            bg_hover = theme.BG_HOVER
+            text_primary = theme.TEXT_PRIMARY
+            text_secondary = theme.TEXT_SECONDARY
+            text_tertiary = theme.TEXT_TERTIARY
+            text_muted = theme.TEXT_MUTED
+        else:
+            bg_primary = "#fafafa"
+            bg_secondary = "#f0f0f0"
+            bg_tertiary = "#e8e8e8"
+            bg_hover = "#e0e0e0"
+            text_primary = "#1c1c1c"
+            text_secondary = "#333333"
+            text_tertiary = "#555555"
+            text_muted = "#777777"
+        
         dialog = tk.Toplevel(self)
         dialog.title("About Quick Whisper")
         
@@ -845,19 +876,20 @@ class QuickWhisper(tk.Tk):
         dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
         
-        # Apply dark title bar
-        set_dark_title_bar(dialog)
+        # Apply title bar based on theme
+        if is_dark:
+            set_dark_title_bar(dialog)
         
         # Make dialog modal
         dialog.transient(self)
         dialog.grab_set()
         
-        # Main container with dark background
-        main_frame = tk.Frame(dialog, bg=theme.BG_PRIMARY)
+        # Main container with theme-aware background
+        main_frame = tk.Frame(dialog, bg=bg_primary)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Content area with padding
-        content = tk.Frame(main_frame, bg=theme.BG_PRIMARY, padx=32, pady=24)
+        content = tk.Frame(main_frame, bg=bg_primary, padx=32, pady=24)
         content.pack(fill=tk.BOTH, expand=True)
         
         # App icon/logo area with gradient accent line
@@ -869,8 +901,8 @@ class QuickWhisper(tk.Tk):
             content,
             text="Quick Whisper",
             font=(theme.FONT, 24, "bold"),
-            fg=theme.TEXT_PRIMARY,
-            bg=theme.BG_PRIMARY
+            fg=text_primary,
+            bg=bg_primary
         )
         title_label.pack(anchor="w", pady=(0, 4))
         
@@ -880,7 +912,7 @@ class QuickWhisper(tk.Tk):
             text="AI-Powered Speech-to-Copy-Edited-Text",
             font=(theme.FONT, 12),
             fg=theme.ACCENT_PRIMARY,
-            bg=theme.BG_PRIMARY
+            bg=bg_primary
         )
         tagline_label.pack(anchor="w", pady=(0, 16))
         
@@ -889,13 +921,13 @@ class QuickWhisper(tk.Tk):
             content,
             text=f"Version {self.version}",
             font=(theme.FONT, 10),
-            fg=theme.TEXT_MUTED,
-            bg=theme.BG_PRIMARY
+            fg=text_muted,
+            bg=bg_primary
         )
         version_label.pack(anchor="w", pady=(0, 20))
         
         # Description text frame
-        desc_frame = tk.Frame(content, bg=theme.BG_SECONDARY, padx=16, pady=16)
+        desc_frame = tk.Frame(content, bg=bg_secondary, padx=16, pady=16)
         desc_frame.pack(fill=tk.X, pady=(0, 20))
         
         description = (
@@ -911,8 +943,8 @@ class QuickWhisper(tk.Tk):
             desc_frame,
             text=description,
             font=(theme.FONT, 11),
-            fg=theme.TEXT_SECONDARY,
-            bg=theme.BG_SECONDARY,
+            fg=text_secondary,
+            bg=bg_secondary,
             wraplength=490,
             justify=tk.LEFT
         )
@@ -923,8 +955,8 @@ class QuickWhisper(tk.Tk):
             content,
             text="Key Features",
             font=(theme.FONT, 13, "bold"),
-            fg=theme.TEXT_PRIMARY,
-            bg=theme.BG_PRIMARY
+            fg=text_primary,
+            bg=bg_primary
         )
         features_label.pack(anchor="w", pady=(0, 10))
         
@@ -937,31 +969,31 @@ class QuickWhisper(tk.Tk):
         ]
         
         for icon, feature in features:
-            feature_frame = tk.Frame(content, bg=theme.BG_PRIMARY)
+            feature_frame = tk.Frame(content, bg=bg_primary)
             feature_frame.pack(fill=tk.X, pady=2)
             
             tk.Label(
                 feature_frame,
                 text=icon,
                 font=(theme.FONT, 11),
-                fg=theme.TEXT_PRIMARY,
-                bg=theme.BG_PRIMARY
+                fg=text_primary,
+                bg=bg_primary
             ).pack(side=tk.LEFT, padx=(0, 10))
             
             tk.Label(
                 feature_frame,
                 text=feature,
                 font=(theme.FONT, 11),
-                fg=theme.TEXT_SECONDARY,
-                bg=theme.BG_PRIMARY,
+                fg=text_secondary,
+                bg=bg_primary,
                 anchor="w"
             ).pack(side=tk.LEFT, fill=tk.X)
         
         # Spacer
-        tk.Frame(content, height=12, bg=theme.BG_PRIMARY).pack()
+        tk.Frame(content, height=12, bg=bg_primary).pack()
         
         # How to use section
-        usage_frame = tk.Frame(content, bg=theme.BG_TERTIARY, padx=16, pady=12)
+        usage_frame = tk.Frame(content, bg=bg_tertiary, padx=16, pady=12)
         usage_frame.pack(fill=tk.X, pady=(0, 16))
         
         usage_text = (
@@ -974,14 +1006,14 @@ class QuickWhisper(tk.Tk):
             usage_frame,
             text=usage_text,
             font=(theme.FONT, 10),
-            fg=theme.TEXT_TERTIARY,
-            bg=theme.BG_TERTIARY,
+            fg=text_tertiary,
+            bg=bg_tertiary,
             wraplength=490,
             justify=tk.LEFT
         ).pack(anchor="w")
         
         # Bottom buttons frame
-        button_frame = tk.Frame(content, bg=theme.BG_PRIMARY)
+        button_frame = tk.Frame(content, bg=bg_primary)
         button_frame.pack(fill=tk.X, pady=(10, 20))
         
         # Learn More button (styled link to blog)
@@ -996,7 +1028,7 @@ class QuickWhisper(tk.Tk):
             width=220,
             fg_color=theme.GRADIENT_START,
             hover_color=theme.GRADIENT_HOVER_START,
-            text_color=theme.BG_PRIMARY,
+            text_color="#ffffff" if not is_dark else theme.BG_PRIMARY,
             font=(theme.FONT, 12, "bold"),
             command=open_blog
         )
@@ -1009,9 +1041,9 @@ class QuickWhisper(tk.Tk):
             corner_radius=20,
             height=40,
             width=100,
-            fg_color=theme.BG_TERTIARY,
-            hover_color=theme.BG_HOVER,
-            text_color=theme.TEXT_PRIMARY,
+            fg_color=bg_tertiary,
+            hover_color=bg_hover,
+            text_color=text_primary,
             font=(theme.FONT, 12),
             command=dialog.destroy
         )
@@ -1023,7 +1055,7 @@ class QuickWhisper(tk.Tk):
             text="Developed by Scorchsoft.com | App & AI Developers",
             font=(theme.FONT, 10),
             fg=theme.ACCENT_PRIMARY,
-            bg=theme.BG_PRIMARY,
+            bg=bg_primary,
             cursor="hand2"
         )
         credit_label.pack(anchor="center", pady=(0, 0))
@@ -1251,6 +1283,14 @@ class QuickWhisper(tk.Tk):
         self.config_manager.auto_hotkey_refresh = self.auto_hotkey_refresh.get()
         self.config_manager.save_settings()
         print(f"Auto hotkey refresh setting saved: {self.auto_hotkey_refresh.get()}")
+
+    def toggle_dark_mode(self):
+        """Toggle between dark and light mode and save the setting."""
+        is_dark = self.dark_mode.get()
+        self.config_manager.dark_mode = is_dark
+        self.config_manager.save_settings()
+        self.ui_manager.apply_theme(is_dark)
+        print(f"Dark mode setting saved: {is_dark}")
 
     def setup_system_tray(self):
         """Initialize and show the system tray icon"""

@@ -34,7 +34,8 @@ class ConfigManager:
         "ui": {
             "hide_banner": True,
             "selected_prompt": "Default",
-            "selected_input_device": ""
+            "selected_input_device": "",
+            "dark_mode": True
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -370,6 +371,14 @@ class ConfigManager:
     @selected_input_device.setter
     def selected_input_device(self, value: str):
         self._settings["ui"]["selected_input_device"] = value
+    
+    @property
+    def dark_mode(self) -> bool:
+        return self._settings["ui"].get("dark_mode", True)
+    
+    @dark_mode.setter
+    def dark_mode(self, value: bool):
+        self._settings["ui"]["dark_mode"] = value
     
     # Shortcuts
     @property
