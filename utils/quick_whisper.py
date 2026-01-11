@@ -354,90 +354,98 @@ class QuickWhisper(tk.Tk):
         self.config_manager.save_credentials()
 
     def create_menu(self):
-        self.menubar = Menu(self)
-        self.config(menu=self.menubar)
+        # Dark menu styling
+        menu_style = {
+            'bg': '#141414',
+            'fg': '#ffffff',
+            'activebackground': '#2a2a2a',
+            'activeforeground': '#ffffff',
+            'relief': 'flat',
+            'bd': 0
+        }
+        
+        # Create a hidden menubar (we use a custom dark one in UI)
+        self.menubar = Menu(self, **menu_style)
+        # Don't set the menu - we'll use custom menu bar
+        # self.config(menu=self.menubar)
 
-        # File menu
-        file_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Save Session History", command=self.save_session_history)
-        file_menu.add_separator()
-        file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
-        file_menu.add_command(label="Exit", command=self.on_closing)
+        # File menu - store reference for custom menu bar
+        self.file_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        self.file_menu.add_command(label="Save Session History", command=self.save_session_history)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
+        self.file_menu.add_command(label="Exit", command=self.on_closing)
 
-        # Settings menu
-        settings_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Settings", menu=settings_menu)
-        settings_menu.add_command(label="Change API Key", command=self.change_api_key)
-        settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
-        settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
-        settings_menu.add_command(label="Config", command=self.open_config)
-        settings_menu.add_separator()
-        settings_menu.add_checkbutton(label="Automatically Check for Updates", 
+        # Settings menu - store reference
+        self.settings_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        self.settings_menu.add_command(label="Change API Key", command=self.change_api_key)
+        self.settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
+        self.settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
+        self.settings_menu.add_command(label="Config", command=self.open_config)
+        self.settings_menu.add_separator()
+        self.settings_menu.add_checkbutton(label="Automatically Check for Updates", 
                                     variable=self.version_manager.auto_update_check, 
                                     command=self.version_manager.save_auto_update_setting)
-        settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
+        self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
                                     variable=self.auto_hotkey_refresh, 
                                     command=self.save_auto_hotkey_refresh)
-        settings_menu.add_separator()
-        settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
-        settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
+        self.settings_menu.add_separator()
+        self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
+        self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
 
-        # Actions Menu (combining Play and Copy menus)
-        actions_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Actions", menu=actions_menu)
+        # Actions Menu - store reference
+        self.actions_menu = Menu(self.menubar, tearoff=0, **menu_style)
         
         # Recording actions group
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Record & Edit", 
             command=lambda: self.toggle_recording("edit"),
             accelerator=self.shortcuts['record_edit']
         )
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Record & Transcribe", 
             command=lambda: self.toggle_recording("transcribe"),
             accelerator=self.shortcuts['record_transcribe']
         )
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Cancel Recording", 
             command=self.cancel_recording,
             accelerator=self.shortcuts['cancel_recording']
         )
-        actions_menu.add_separator()
+        self.actions_menu.add_separator()
         
         # Retry and copy actions group
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Retry Last Recording", 
             command=self.retry_last_recording
         )
-        actions_menu.add_separator()
+        self.actions_menu.add_separator()
         
         # Copy actions group
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Copy Last Transcript", 
             command=self.copy_last_transcription
         )
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Copy Last Edit", 
             command=self.copy_last_edit
         )
-        actions_menu.add_separator()
+        self.actions_menu.add_separator()
         
         # Prompt navigation group
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Previous Prompt", 
             command=self.cycle_prompt_backward,
             accelerator=self.shortcuts['cycle_prompt_back']
         )
-        actions_menu.add_command(
+        self.actions_menu.add_command(
             label="Next Prompt", 
             command=self.cycle_prompt_forward,
             accelerator=self.shortcuts['cycle_prompt_forward']
         )
 
-        # Help menu
-        self.help_menu = Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        # Help menu - store reference
+        self.help_menu = Menu(self.menubar, tearoff=0, **menu_style)
         
         self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)

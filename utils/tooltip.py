@@ -2,10 +2,10 @@ import tkinter as tk
 
 
 class ToolTip():
-    """Minimal, refined tooltip."""
+    """Minimal tooltip matching the dark theme."""
     
-    BG_COLOR = "#27272a"
-    TEXT_COLOR = "#fafafa"
+    BG_COLOR = "#1a1a1a"
+    TEXT_COLOR = "#ffffff"
     
     def __init__(self, widget, text):
         self.widget = widget

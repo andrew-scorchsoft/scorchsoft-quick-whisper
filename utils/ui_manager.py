@@ -3,58 +3,77 @@ from tkinter import ttk
 import customtkinter as ctk
 from PIL import Image, ImageTk
 import webbrowser
+import platform
+import ctypes
 
 from utils.tooltip import ToolTip
 from utils.config_manager import get_config
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# REFINED MINIMAL THEME
+# SCORCHSOFT BRAND THEME - Dark with Red Accents
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ModernTheme:
-    """Refined, minimal dark theme - sophisticated and clean."""
+    """Scorchsoft-branded dark theme with proper contrast."""
     
-    # Background colors - subtle gradient of grays
-    BG_PRIMARY = "#111113"        # Deep background
-    BG_SECONDARY = "#18181b"      # Card/elevated surfaces
-    BG_TERTIARY = "#1f1f23"       # Input fields
-    BG_HOVER = "#27272a"          # Hover states
+    # Background colors
+    BG_PRIMARY = "#0d0d0d"        # Deep black
+    BG_SECONDARY = "#171717"      # Card surfaces  
+    BG_TERTIARY = "#1f1f1f"       # Input fields
+    BG_HOVER = "#2a2a2a"          # Hover states
+    BG_MENU = "#141414"           # Menu bar background
     
-    # Primary accent - soft blue-violet (sophisticated, not harsh)
-    ACCENT_PRIMARY = "#8b5cf6"    # Soft violet
-    ACCENT_HOVER = "#a78bfa"      # Lighter violet on hover
-    ACCENT_MUTED = "#8b5cf620"    # Transparent accent
+    # Scorchsoft Brand - Red/Crimson palette
+    ACCENT_PRIMARY = "#dc2626"    # Scorchsoft red
+    ACCENT_HOVER = "#ef4444"      # Lighter red on hover
+    ACCENT_MUTED = "#dc262630"    # Transparent accent
     
-    # Secondary action - warm but muted
-    SECONDARY_PRIMARY = "#f97316"  # Soft orange
-    SECONDARY_HOVER = "#fb923c"    # Lighter orange
-    SECONDARY_MUTED = "#f9731620"
+    # Secondary - Darker, muted red for second button
+    SECONDARY_PRIMARY = "#991b1b"  # Darker crimson
+    SECONDARY_HOVER = "#b91c1c"    # Mid crimson
     
-    # Text colors - careful hierarchy
-    TEXT_PRIMARY = "#fafafa"      # Primary text (not pure white)
-    TEXT_SECONDARY = "#a1a1aa"    # Secondary/labels
-    TEXT_TERTIARY = "#52525b"     # Muted/disabled
+    # Text colors - GOOD CONTRAST for accessibility
+    TEXT_PRIMARY = "#ffffff"      # Pure white for main text
+    TEXT_SECONDARY = "#e5e5e5"    # Very light gray - highly readable
+    TEXT_TERTIARY = "#b3b3b3"     # Light gray - readable
+    TEXT_MUTED = "#808080"        # Medium gray for less important
     
-    # Status colors - muted and elegant
-    STATUS_IDLE = "#a1a1aa"       # Neutral gray
-    STATUS_PROCESSING = "#fbbf24" # Soft amber
-    STATUS_RECORDING = "#ef4444"  # Clear red
-    STATUS_SUCCESS = "#22c55e"    # Soft green
+    # Status colors
+    STATUS_IDLE = "#b3b3b3"       # Neutral
+    STATUS_PROCESSING = "#fbbf24" # Amber
+    STATUS_RECORDING = "#ef4444"  # Red
+    STATUS_SUCCESS = "#22c55e"    # Green
     
-    # Borders - barely visible
-    BORDER = "#27272a"
-    BORDER_SUBTLE = "#1f1f23"
-    BORDER_FOCUS = "#8b5cf6"
+    # Borders
+    BORDER = "#2a2a2a"
+    BORDER_SUBTLE = "#1f1f1f"
+    BORDER_FOCUS = "#dc2626"
     
     # Font
     FONT_FAMILY = "Segoe UI"
     
-    # Sizing - generous spacing
-    CORNER_RADIUS = 10
+    # Sizing
+    CORNER_RADIUS = 8
     CORNER_RADIUS_SM = 6
-    PADDING = 20
-    PADDING_SM = 12
+
+
+def set_dark_title_bar(window):
+    """Set Windows title bar to dark mode."""
+    if platform.system() != "Windows":
+        return
+        
+    try:
+        window.update()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+        value = ctypes.c_int(1)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ctypes.byref(value), ctypes.sizeof(value)
+        )
+    except Exception as e:
+        print(f"Could not set dark title bar: {e}")
 
 
 class UIManager:
@@ -79,20 +98,20 @@ class UIManager:
         self.button_arrow_right = None
         self.main_frame = None
         self.banner_frame = None
+        self.shortcut_label_left = None
+        self.shortcut_label_right = None
+        self.custom_menubar = None
         
-        # Icons
-        self.icon_first_page = None
-        self.icon_arrow_left = None
-        self.icon_arrow_right = None
-        
-        # Configure customtkinter
         ctk.set_appearance_mode("dark")
         
     def create_widgets(self):
-        """Create all UI widgets with refined minimal styling."""
+        """Create all UI widgets with Scorchsoft branding."""
         
-        # Configure the main window
+        set_dark_title_bar(self.parent)
         self.parent.configure(bg=self.theme.BG_PRIMARY)
+        
+        # Hide the default tkinter menu bar - we'll create a custom one
+        # Note: The parent still has the menu for functionality, but we overlay it
         
         # Main container
         self.main_frame = ctk.CTkFrame(
@@ -102,24 +121,70 @@ class UIManager:
         )
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
+        # ─────────────────────────────────────────────────────────────────────
+        # CUSTOM DARK MENU BAR
+        # ─────────────────────────────────────────────────────────────────────
+        
+        self.custom_menubar = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.theme.BG_MENU,
+            height=32,
+            corner_radius=0
+        )
+        self.custom_menubar.pack(fill=tk.X, side=tk.TOP)
+        self.custom_menubar.pack_propagate(False)
+        
+        menu_btn_style = {
+            "font": (self.theme.FONT_FAMILY, 11),
+            "text_color": self.theme.TEXT_SECONDARY,
+            "fg_color": "transparent",
+            "hover_color": self.theme.BG_HOVER,
+            "corner_radius": 4,
+            "height": 26,
+            "anchor": "center"
+        }
+        
+        # Menu buttons that trigger the actual menus
+        file_btn = ctk.CTkButton(self.custom_menubar, text="File", width=50,
+                                  command=lambda: self._show_menu("file"), **menu_btn_style)
+        file_btn.pack(side=tk.LEFT, padx=(8, 0), pady=3)
+        
+        settings_btn = ctk.CTkButton(self.custom_menubar, text="Settings", width=65,
+                                      command=lambda: self._show_menu("settings"), **menu_btn_style)
+        settings_btn.pack(side=tk.LEFT, padx=0, pady=3)
+        
+        actions_btn = ctk.CTkButton(self.custom_menubar, text="Actions", width=60,
+                                     command=lambda: self._show_menu("actions"), **menu_btn_style)
+        actions_btn.pack(side=tk.LEFT, padx=0, pady=3)
+        
+        help_btn = ctk.CTkButton(self.custom_menubar, text="Help", width=50,
+                                  command=lambda: self._show_menu("help"), **menu_btn_style)
+        help_btn.pack(side=tk.LEFT, padx=0, pady=3)
+        
+        # Store button references for menu positioning
+        self._menu_buttons = {
+            "file": file_btn,
+            "settings": settings_btn,
+            "actions": actions_btn,
+            "help": help_btn
+        }
+        
         # Content with generous margins
         content = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        content.pack(fill=tk.BOTH, expand=True, padx=28, pady=24)
+        content.pack(fill=tk.BOTH, expand=True, padx=28, pady=(16, 24))
         
         # ─────────────────────────────────────────────────────────────────────
         # INPUT DEVICE SECTION
         # ─────────────────────────────────────────────────────────────────────
         
-        # Section label
         device_label = ctk.CTkLabel(
             content,
             text="Input Device",
-            font=(self.theme.FONT_FAMILY, 12),
+            font=(self.theme.FONT_FAMILY, 12, "bold"),
             text_color=self.theme.TEXT_SECONDARY
         )
         device_label.pack(anchor="w", pady=(0, 8))
         
-        # Device dropdown - clean, minimal
         devices = self.parent.audio_manager.get_input_devices()
         if not devices:
             tk.messagebox.showerror("No Input Devices", "No input audio devices found.")
@@ -145,73 +210,76 @@ class UIManager:
             variable=self.parent.selected_device,
             values=list(devices.keys()),
             fg_color=self.theme.BG_SECONDARY,
-            button_color=self.theme.BG_TERTIARY,
+            button_color=self.theme.BG_SECONDARY,
             button_hover_color=self.theme.BG_HOVER,
             dropdown_fg_color=self.theme.BG_SECONDARY,
             dropdown_hover_color=self.theme.BG_HOVER,
+            dropdown_text_color=self.theme.TEXT_PRIMARY,
             text_color=self.theme.TEXT_PRIMARY,
             font=(self.theme.FONT_FAMILY, 13),
+            dropdown_font=(self.theme.FONT_FAMILY, 13),
             corner_radius=self.theme.CORNER_RADIUS_SM,
-            height=42,
+            height=44,
             anchor="w",
             dynamic_resizing=False
         )
-        device_menu.pack(fill=tk.X, pady=(0, 24))
+        device_menu.pack(fill=tk.X, pady=(0, 20))
         
         # ─────────────────────────────────────────────────────────────────────
         # TRANSCRIPTION SECTION
         # ─────────────────────────────────────────────────────────────────────
         
-        # Header row
         header_row = ctk.CTkFrame(content, fg_color="transparent")
         header_row.pack(fill=tk.X, pady=(0, 8))
         
         transcription_label = ctk.CTkLabel(
             header_row,
             text="Transcription",
-            font=(self.theme.FONT_FAMILY, 12),
+            font=(self.theme.FONT_FAMILY, 12, "bold"),
             text_color=self.theme.TEXT_SECONDARY
         )
         transcription_label.pack(side=tk.LEFT)
         
-        # Navigation - minimal icon buttons
+        # Navigation buttons - NOW VISIBLE with proper contrast
         nav_frame = ctk.CTkFrame(header_row, fg_color="transparent")
         nav_frame.pack(side=tk.RIGHT)
         
         nav_btn_style = {
-            "width": 28,
-            "height": 28,
+            "width": 30,
+            "height": 30,
             "corner_radius": 6,
-            "fg_color": "transparent",
+            "fg_color": self.theme.BG_TERTIARY,  # Visible background
             "hover_color": self.theme.BG_HOVER,
-            "text_color": self.theme.TEXT_TERTIARY,
-            "text_color_disabled": self.theme.BG_HOVER,
-            "font": (self.theme.FONT_FAMILY, 14)
+            "text_color": self.theme.TEXT_SECONDARY,  # Bright text
+            "text_color_disabled": self.theme.TEXT_MUTED,
+            "font": (self.theme.FONT_FAMILY, 12),
+            "border_width": 1,
+            "border_color": self.theme.BORDER
         }
         
         self.button_first_page = ctk.CTkButton(
             nav_frame, text="⏮", command=self.parent.go_to_first_page,
             state="disabled", **nav_btn_style
         )
-        self.button_first_page.pack(side=tk.LEFT, padx=1)
+        self.button_first_page.pack(side=tk.LEFT, padx=2)
         
         self.button_arrow_left = ctk.CTkButton(
             nav_frame, text="◀", command=self.parent.navigate_left,
             state="disabled", **nav_btn_style
         )
-        self.button_arrow_left.pack(side=tk.LEFT, padx=1)
+        self.button_arrow_left.pack(side=tk.LEFT, padx=2)
         
         self.button_arrow_right = ctk.CTkButton(
             nav_frame, text="▶", command=self.parent.navigate_right,
             state="disabled", **nav_btn_style
         )
-        self.button_arrow_right.pack(side=tk.LEFT, padx=1)
+        self.button_arrow_right.pack(side=tk.LEFT, padx=2)
         
         ToolTip(self.button_first_page, "Latest entry")
         ToolTip(self.button_arrow_left, "Newer")
         ToolTip(self.button_arrow_right, "Older")
         
-        # Text area - clean with subtle border
+        # Text area
         self.transcription_text = ctk.CTkTextbox(
             content,
             height=200,
@@ -220,43 +288,42 @@ class UIManager:
             font=(self.theme.FONT_FAMILY, 14),
             corner_radius=self.theme.CORNER_RADIUS_SM,
             border_width=1,
-            border_color=self.theme.BORDER_SUBTLE,
+            border_color=self.theme.BORDER,
             wrap="word"
         )
-        self.transcription_text.pack(fill=tk.BOTH, expand=True, pady=(0, 16))
+        self.transcription_text.pack(fill=tk.BOTH, expand=True, pady=(0, 12))
         self.transcription_text.bind("<Button-3>", self._show_text_context_menu)
         
         # ─────────────────────────────────────────────────────────────────────
-        # STATUS BAR
+        # STATUS BAR - LARGER FONT
         # ─────────────────────────────────────────────────────────────────────
         
         status_row = ctk.CTkFrame(content, fg_color="transparent")
-        status_row.pack(fill=tk.X, pady=(0, 16))
+        status_row.pack(fill=tk.X, pady=(0, 12))
         
-        # Status indicator (left)
         status_left = ctk.CTkFrame(status_row, fg_color="transparent")
         status_left.pack(side=tk.LEFT)
         
         self.status_dot = ctk.CTkLabel(
             status_left, text="●", width=16,
-            font=(self.theme.FONT_FAMILY, 8),
+            font=(self.theme.FONT_FAMILY, 10),
             text_color=self.theme.STATUS_IDLE
         )
         self.status_dot.pack(side=tk.LEFT, padx=(0, 6))
         
         self.status_label = ctk.CTkLabel(
             status_left, text="Idle",
-            font=(self.theme.FONT_FAMILY, 12),
-            text_color=self.theme.TEXT_SECONDARY
+            font=(self.theme.FONT_FAMILY, 13),  # Larger
+            text_color=self.theme.TEXT_TERTIARY
         )
         self.status_label.pack(side=tk.LEFT)
         
-        # Model info (right) - very subtle
+        # Model info - LARGER AND BRIGHTER
         self.model_label = ctk.CTkLabel(
             status_row,
             text=f"{self.parent.transcription_model} · {self.parent.ai_model}",
-            font=(self.theme.FONT_FAMILY, 11),
-            text_color=self.theme.TEXT_TERTIARY
+            font=(self.theme.FONT_FAMILY, 12),  # Larger
+            text_color=self.theme.TEXT_TERTIARY  # Brighter
         )
         self.model_label.pack(side=tk.RIGHT)
         
@@ -265,14 +332,14 @@ class UIManager:
         # ─────────────────────────────────────────────────────────────────────
         
         options_row = ctk.CTkFrame(content, fg_color="transparent")
-        options_row.pack(fill=tk.X, pady=(0, 20))
+        options_row.pack(fill=tk.X, pady=(0, 16))
         
         cb_style = {
             "font": (self.theme.FONT_FAMILY, 12),
             "text_color": self.theme.TEXT_SECONDARY,
             "fg_color": self.theme.ACCENT_PRIMARY,
             "hover_color": self.theme.ACCENT_HOVER,
-            "border_color": self.theme.TEXT_TERTIARY,
+            "border_color": self.theme.TEXT_MUTED,
             "checkmark_color": self.theme.TEXT_PRIMARY,
             "corner_radius": 4,
             "border_width": 2,
@@ -293,21 +360,17 @@ class UIManager:
         auto_paste_cb.pack(side=tk.RIGHT)
         
         # ─────────────────────────────────────────────────────────────────────
-        # ACTION BUTTONS - Clean, sophisticated
+        # ACTION BUTTONS
         # ─────────────────────────────────────────────────────────────────────
         
         buttons_frame = ctk.CTkFrame(content, fg_color="transparent")
-        buttons_frame.pack(fill=tk.X, pady=(0, 20))
+        buttons_frame.pack(fill=tk.X, pady=(0, 6))
         buttons_frame.columnconfigure(0, weight=1)
         buttons_frame.columnconfigure(1, weight=1)
         
-        shortcut_edit = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
-        shortcut_transcribe = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
-        
-        # Primary button - Transcript (subtle violet)
         self.record_button_transcribe = ctk.CTkButton(
             buttons_frame,
-            text=f"Record + Transcript",
+            text="Record + Transcript",
             corner_radius=self.theme.CORNER_RADIUS,
             height=48,
             fg_color=self.theme.ACCENT_PRIMARY,
@@ -318,10 +381,9 @@ class UIManager:
         )
         self.record_button_transcribe.grid(row=0, column=0, sticky="ew", padx=(0, 6))
         
-        # Secondary button - AI Edit (warm orange)
         self.record_button_edit = ctk.CTkButton(
             buttons_frame,
-            text=f"Record + AI Edit",
+            text="Record + AI Edit",
             corner_radius=self.theme.CORNER_RADIUS,
             height=48,
             fg_color=self.theme.SECONDARY_PRIMARY,
@@ -332,25 +394,28 @@ class UIManager:
         )
         self.record_button_edit.grid(row=0, column=1, sticky="ew", padx=(6, 0))
         
-        # Shortcut hints below buttons - very subtle
+        # Shortcut hints - LARGER FONT
         hints_frame = ctk.CTkFrame(content, fg_color="transparent")
-        hints_frame.pack(fill=tk.X, pady=(0, 16))
+        hints_frame.pack(fill=tk.X, pady=(4, 12))
         hints_frame.columnconfigure(0, weight=1)
         hints_frame.columnconfigure(1, weight=1)
         
-        hint_left = ctk.CTkLabel(
-            hints_frame, text=shortcut_transcribe,
-            font=(self.theme.FONT_FAMILY, 10),
-            text_color=self.theme.TEXT_TERTIARY
-        )
-        hint_left.grid(row=0, column=0)
+        shortcut_transcribe = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
+        shortcut_edit = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
         
-        hint_right = ctk.CTkLabel(
-            hints_frame, text=shortcut_edit,
-            font=(self.theme.FONT_FAMILY, 10),
-            text_color=self.theme.TEXT_TERTIARY
+        self.shortcut_label_left = ctk.CTkLabel(
+            hints_frame, text=shortcut_transcribe,
+            font=(self.theme.FONT_FAMILY, 12),  # Larger
+            text_color=self.theme.TEXT_TERTIARY  # Brighter
         )
-        hint_right.grid(row=0, column=1)
+        self.shortcut_label_left.grid(row=0, column=0)
+        
+        self.shortcut_label_right = ctk.CTkLabel(
+            hints_frame, text=shortcut_edit,
+            font=(self.theme.FONT_FAMILY, 12),  # Larger
+            text_color=self.theme.TEXT_TERTIARY  # Brighter
+        )
+        self.shortcut_label_right.grid(row=0, column=1)
         
         # ─────────────────────────────────────────────────────────────────────
         # BANNER SECTION
@@ -375,24 +440,41 @@ class UIManager:
         
         self.hide_banner_link = ctk.CTkLabel(
             self.banner_frame, text="Hide Banner",
-            font=(self.theme.FONT_FAMILY, 10),
-            text_color=self.theme.TEXT_TERTIARY, cursor="hand2"
+            font=(self.theme.FONT_FAMILY, 11),
+            text_color=self.theme.TEXT_MUTED, cursor="hand2"
         )
         self.hide_banner_link.pack()
         self.hide_banner_link.bind("<Button-1>", lambda e: self.parent.toggle_banner())
         self.hide_banner_link.bind("<Enter>", lambda e: self.hide_banner_link.configure(text_color=self.theme.ACCENT_PRIMARY))
-        self.hide_banner_link.bind("<Leave>", lambda e: self.hide_banner_link.configure(text_color=self.theme.TEXT_TERTIARY))
+        self.hide_banner_link.bind("<Leave>", lambda e: self.hide_banner_link.configure(text_color=self.theme.TEXT_MUTED))
         
         self.powered_by_label = ctk.CTkLabel(
             self.banner_frame, text="Powered by Scorchsoft.com",
-            font=(self.theme.FONT_FAMILY, 10),
-            text_color=self.theme.TEXT_TERTIARY, cursor="hand2"
+            font=(self.theme.FONT_FAMILY, 11),
+            text_color=self.theme.TEXT_MUTED, cursor="hand2"
         )
         self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
         self.powered_by_label.bind("<Enter>", lambda e: self.powered_by_label.configure(text_color=self.theme.ACCENT_PRIMARY))
-        self.powered_by_label.bind("<Leave>", lambda e: self.powered_by_label.configure(text_color=self.theme.TEXT_TERTIARY))
+        self.powered_by_label.bind("<Leave>", lambda e: self.powered_by_label.configure(text_color=self.theme.TEXT_MUTED))
         
         return self.main_frame
+    
+    def _show_menu(self, menu_name):
+        """Show the corresponding menu at the button location."""
+        menu_map = {
+            "file": getattr(self.parent, 'file_menu', None),
+            "settings": getattr(self.parent, 'settings_menu', None),
+            "actions": getattr(self.parent, 'actions_menu', None),
+            "help": getattr(self.parent, 'help_menu', None)
+        }
+        
+        menu = menu_map.get(menu_name)
+        btn = self._menu_buttons.get(menu_name)
+        
+        if menu and btn:
+            x = btn.winfo_rootx()
+            y = btn.winfo_rooty() + btn.winfo_height()
+            menu.tk_popup(x, y)
         
     def open_scorchsoft(self, event=None):
         webbrowser.open('https://www.scorchsoft.com/contact-scorchsoft')
@@ -445,12 +527,12 @@ class UIManager:
             
     def set_status(self, message, color="blue"):
         color_map = {
-            "blue": (self.theme.STATUS_IDLE, self.theme.TEXT_SECONDARY),
+            "blue": (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY),
             "green": (self.theme.STATUS_SUCCESS, self.theme.STATUS_SUCCESS),
             "red": (self.theme.STATUS_RECORDING, self.theme.STATUS_RECORDING),
             "orange": (self.theme.STATUS_PROCESSING, self.theme.STATUS_PROCESSING)
         }
-        dot_color, text_color = color_map.get(color, (self.theme.STATUS_IDLE, self.theme.TEXT_SECONDARY))
+        dot_color, text_color = color_map.get(color, (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY))
         
         self.status_label.configure(text=message, text_color=text_color)
         self.status_dot.configure(text_color=dot_color)
@@ -465,15 +547,18 @@ class UIManager:
         if "Recording" in self.status_label.cget("text"):
             self._pulse_state = not self._pulse_state
             self.status_dot.configure(
-                text_color=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_TERTIARY
+                text_color=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_MUTED
             )
             self.parent.after(500, self._pulse_recording)
 
     def _show_text_context_menu(self, event):
-        menu = tk.Menu(self.parent, tearoff=0, 
-                      bg=self.theme.BG_SECONDARY, fg=self.theme.TEXT_PRIMARY,
-                      activebackground=self.theme.BG_HOVER, activeforeground=self.theme.TEXT_PRIMARY,
-                      bd=0)
+        menu = tk.Menu(
+            self.parent, tearoff=0,
+            bg=self.theme.BG_MENU, fg=self.theme.TEXT_PRIMARY,
+            activebackground=self.theme.BG_HOVER, 
+            activeforeground=self.theme.TEXT_PRIMARY,
+            bd=0, relief="flat"
+        )
         menu.add_command(label="Cut", command=lambda: self.transcription_text.event_generate('<<Cut>>'))
         menu.add_command(label="Copy", command=lambda: self.transcription_text.event_generate('<<Copy>>'))
         menu.add_command(label="Paste", command=lambda: self.transcription_text.event_generate('<<Paste>>'))
@@ -486,7 +571,6 @@ class UIManager:
     
     def update_button_states(self, recording=False, mode=None):
         if recording:
-            # Recording state - show stop buttons
             self.record_button_transcribe.configure(
                 text="Stop Recording",
                 fg_color=self.theme.STATUS_RECORDING if mode == "transcribe" else self.theme.BG_TERTIARY,
@@ -518,3 +602,8 @@ class UIManager:
             fg_color=self.theme.SECONDARY_PRIMARY,
             hover_color=self.theme.SECONDARY_HOVER
         )
+        
+        if hasattr(self, 'shortcut_label_left') and self.shortcut_label_left:
+            self.shortcut_label_left.configure(text=transcribe_shortcut)
+        if hasattr(self, 'shortcut_label_right') and self.shortcut_label_right:
+            self.shortcut_label_right.configure(text=edit_shortcut)
