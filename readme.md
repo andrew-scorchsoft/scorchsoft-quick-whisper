@@ -14,7 +14,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Screenshot
 
-![QuickWhisper Interface](assets/quick-whisper-v1-5-0.png)
+![QuickWhisper Interface](assets/screenshots/quick-whisper-v1-11-0-modes.png)
 
 ## Installation
 
