@@ -53,9 +53,9 @@ class QuickWhisper(tk.Tk):
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        # Set window size
-        window_width = 600
-        window_height = 700
+        # Set window size (slightly wider for modern UI)
+        window_width = 640
+        window_height = 720
         
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()

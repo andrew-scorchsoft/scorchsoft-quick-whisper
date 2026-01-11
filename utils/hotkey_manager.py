@@ -280,13 +280,20 @@ class HotkeyManager:
     
     def update_shortcut_displays(self):
         """Update all UI elements that display keyboard shortcuts"""
-        # Update record buttons
-        self.parent.ui_manager.record_button_edit.configure(
-            text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
-        )
-        self.parent.ui_manager.record_button_transcribe.configure(
-            text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
-        )
+        # Use the UI manager's method to update buttons with proper formatting
+        if hasattr(self.parent.ui_manager, 'update_button_shortcuts'):
+            self.parent.ui_manager.update_button_shortcuts(
+                transcribe_shortcut=self.shortcuts['record_transcribe'],
+                edit_shortcut=self.shortcuts['record_edit']
+            )
+        else:
+            # Fallback for older UI manager versions
+            self.parent.ui_manager.record_button_edit.configure(
+                text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
+            )
+            self.parent.ui_manager.record_button_transcribe.configure(
+                text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
+            )
         
         # Update menu items if they exist
         try:
