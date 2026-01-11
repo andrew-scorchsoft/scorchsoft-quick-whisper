@@ -28,7 +28,8 @@ class ConfigManager:
         },
         "ui": {
             "hide_banner": False,
-            "selected_prompt": "Default"
+            "selected_prompt": "Default",
+            "selected_input_device": ""
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -300,6 +301,14 @@ class ConfigManager:
     @selected_prompt.setter
     def selected_prompt(self, value: str):
         self._settings["ui"]["selected_prompt"] = value
+    
+    @property
+    def selected_input_device(self) -> str:
+        return self._settings["ui"].get("selected_input_device", "")
+    
+    @selected_input_device.setter
+    def selected_input_device(self, value: str):
+        self._settings["ui"]["selected_input_device"] = value
     
     # Shortcuts
     @property

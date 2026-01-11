@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 import webbrowser
 
 from utils.tooltip import ToolTip
+from utils.config_manager import get_config
 
 class UIManager:
     def __init__(self, parent):
@@ -44,7 +45,26 @@ class UIManager:
             tk.messagebox.showerror("No Input Devices", "No input audio devices found.")
             self.parent.destroy()
             return
-        self.parent.selected_device.set(list(devices.keys())[0])  # Default selection
+        
+        # Try to restore previously selected device, fall back to first device
+        config = get_config()
+        saved_device = config.selected_input_device
+        if saved_device and saved_device in devices:
+            self.parent.selected_device.set(saved_device)
+            print(f"Restored saved input device: '{saved_device}'")
+        else:
+            self.parent.selected_device.set(list(devices.keys())[0])  # Default selection
+            if saved_device:
+                print(f"Saved device '{saved_device}' not found, using default")
+
+        # Save device selection when changed
+        def on_device_change(*args):
+            new_device = self.parent.selected_device.get()
+            config.selected_input_device = new_device
+            config.save_settings()
+            print(f"Saved input device selection: '{new_device}'")
+        
+        self.parent.selected_device.trace_add("write", on_device_change)
 
         device_menu = ttk.OptionMenu(main_frame, self.parent.selected_device, self.parent.selected_device.get(), *devices.keys())
         device_menu.grid(row=row, column=1, sticky="ew", pady=(0,10))
