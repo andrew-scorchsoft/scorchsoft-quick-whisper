@@ -32,7 +32,7 @@ class ConfigManager:
             "whisper_language": "auto"
         },
         "ui": {
-            "hide_banner": False,
+            "hide_banner": True,
             "selected_prompt": "Default",
             "selected_input_device": ""
         },

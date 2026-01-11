@@ -58,8 +58,7 @@ class AudioManager:
         self.recording = True
 
         # Update UI in parent - now through ui_manager
-        self.parent.ui_manager.record_button_transcribe.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
-        self.parent.ui_manager.record_button_edit.configure(text="Stop and Process", fg_color="red", hover_color="#a83232")
+        self.parent.ui_manager.update_button_states(recording=True)
         self.parent.ui_manager.set_status("Recording...", "red")
 
         # Play start recording sound
@@ -95,18 +94,8 @@ class AudioManager:
 
         print(f"Stopping, about to trigger '{self.parent.current_button_mode}' mode...")
 
-        # Reset buttons to normal state with correct colors - now through ui_manager
-        self.parent.ui_manager.record_button_transcribe.configure(
-            fg_color="#058705",
-            hover_color="#046a38"
-        )
-        self.parent.ui_manager.record_button_edit.configure(
-            fg_color="#058705",
-            hover_color="#046a38"
-        )
-
-        # Update the buttons with correct shortcuts
-        self.parent.hotkey_manager.update_shortcut_displays()
+        # Reset buttons to normal state - now through ui_manager
+        self.parent.ui_manager.update_button_states(recording=False)
 
         self.parent.ui_manager.set_status("Processing - Audio File...", "green")
 
@@ -152,17 +141,7 @@ class AudioManager:
                 self.stream.close()
 
             # Reset buttons back to original state - now through ui_manager
-            self.parent.ui_manager.record_button_transcribe.configure(
-                fg_color="#058705", 
-                hover_color="#046a38"
-            )
-            self.parent.ui_manager.record_button_edit.configure(
-                fg_color="#058705", 
-                hover_color="#046a38"
-            )
-            
-            # Update button text
-            self.parent.hotkey_manager.update_shortcut_displays()
+            self.parent.ui_manager.update_button_states(recording=False)
 
             # Reset status
             self.parent.ui_manager.set_status("Idle", "blue")

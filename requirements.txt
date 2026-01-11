@@ -10,3 +10,4 @@ pyperclip
 pystray
 pyttsx3
 requests
+sv_ttk

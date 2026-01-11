@@ -478,9 +478,8 @@ class QuickWhisper(tk.Tk):
 
     def start_recording(self):
         """Start audio recording."""
-        if self.audio_manager.start_recording():
-            # Recording started successfully
-            self.hotkey_manager.update_shortcut_displays()
+        # audio_manager.start_recording() handles all UI updates including button states
+        self.audio_manager.start_recording()
 
     def stop_recording(self):
         """Stop recording and process audio."""
