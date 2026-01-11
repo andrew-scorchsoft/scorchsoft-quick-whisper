@@ -1,4 +1,5 @@
 audioplayer
+cryptography
 customtkinter
 keyboard
 openai

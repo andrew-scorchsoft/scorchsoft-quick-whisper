@@ -53,9 +53,9 @@ class QuickWhisper(tk.Tk):
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
         self.iconbitmap(self.resource_path("assets/icon.ico"))
 
-        # Set window size (slightly wider for modern UI)
+        # Set window size (sized to fit all content including full banner)
         window_width = 640
-        window_height = 720
+        window_height = 920
         
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
@@ -354,14 +354,15 @@ class QuickWhisper(tk.Tk):
         self.config_manager.save_credentials()
 
     def create_menu(self):
-        # Dark menu styling
+        # Dark menu styling with readable font
         menu_style = {
-            'bg': '#141414',
+            'bg': '#111111',
             'fg': '#ffffff',
-            'activebackground': '#2a2a2a',
+            'activebackground': '#262626',
             'activeforeground': '#ffffff',
             'relief': 'flat',
-            'bd': 0
+            'bd': 0,
+            'font': ('Segoe UI', 11)  # Readable menu items
         }
         
         # Create a hidden menubar (we use a custom dark one in UI)

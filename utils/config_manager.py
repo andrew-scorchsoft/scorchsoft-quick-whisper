@@ -3,16 +3,21 @@ Configuration Manager for QuickWhisper
 
 Handles loading and saving of application settings and credentials.
 - settings.json: User preferences, UI settings, shortcuts, etc.
-- credentials.json: Sensitive data like API keys (to be encrypted in future)
+- credentials.json: Sensitive data like API keys (encrypted)
 
 Includes automatic migration from legacy .env files.
 """
 
+import base64
 import json
 import os
 import platform
 from pathlib import Path
 from typing import Any, Optional
+
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 class ConfigManager:
@@ -51,8 +56,14 @@ class ConfigManager:
     
     # Default credentials structure
     DEFAULT_CREDENTIALS = {
-        "openai_api_key": ""
+        "openai_api_key": "",
+        "openai_api_key_encrypted": False
     }
+    
+    # Hardcoded encryption key components (not ideal, but better than plaintext)
+    # In a production app, this would be derived from machine-specific info or user password
+    _ENCRYPTION_SALT = b'QuickWhisper_Salt_2024'
+    _ENCRYPTION_PASSWORD = b'QW_Secure_Key_v1_xK9mP2nL'
     
     def __init__(self, config_dir: str = "config"):
         """Initialize the config manager.
@@ -91,6 +102,38 @@ class ConfigManager:
             self.DEFAULT_SETTINGS["shortcuts"]["cancel_recording"] = "win+x"
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_back"] = "alt+left"
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_forward"] = "alt+right"
+    
+    def _get_fernet(self) -> Fernet:
+        """Get a Fernet instance for encryption/decryption."""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=self._ENCRYPTION_SALT,
+            iterations=100000,
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(self._ENCRYPTION_PASSWORD))
+        return Fernet(key)
+    
+    def _encrypt_value(self, plaintext: str) -> str:
+        """Encrypt a string value and return base64-encoded ciphertext."""
+        if not plaintext:
+            return ""
+        fernet = self._get_fernet()
+        encrypted = fernet.encrypt(plaintext.encode('utf-8'))
+        return base64.urlsafe_b64encode(encrypted).decode('utf-8')
+    
+    def _decrypt_value(self, ciphertext: str) -> str:
+        """Decrypt a base64-encoded ciphertext and return the plaintext."""
+        if not ciphertext:
+            return ""
+        try:
+            fernet = self._get_fernet()
+            encrypted = base64.urlsafe_b64decode(ciphertext.encode('utf-8'))
+            decrypted = fernet.decrypt(encrypted)
+            return decrypted.decode('utf-8')
+        except Exception as e:
+            print(f"Error decrypting value: {e}")
+            return ""
     
     def _load_config(self):
         """Load configuration from files, migrating from .env if necessary."""
@@ -162,10 +205,12 @@ class ConfigManager:
         if env_vars.get("AUTO_UPDATE_CHECK"):
             self._settings["behavior"]["auto_update_check"] = env_vars["AUTO_UPDATE_CHECK"].lower() == "true"
         
-        # Build credentials from env vars
+        # Build credentials from env vars (store encrypted)
         self._credentials = self._deep_copy(self.DEFAULT_CREDENTIALS)
         if env_vars.get("OPENAI_API_KEY"):
-            self._credentials["openai_api_key"] = env_vars["OPENAI_API_KEY"]
+            # Encrypt the API key during migration
+            self._credentials["openai_api_key"] = self._encrypt_value(env_vars["OPENAI_API_KEY"])
+            self._credentials["openai_api_key_encrypted"] = True
         
         # Save to new format
         self.save_settings()
@@ -196,7 +241,7 @@ class ConfigManager:
             self._settings = self._deep_copy(self.DEFAULT_SETTINGS)
     
     def _load_credentials(self):
-        """Load credentials from JSON file."""
+        """Load credentials from JSON file and encrypt if necessary."""
         if self.credentials_path.exists():
             try:
                 with open(self.credentials_path, 'r', encoding='utf-8') as f:
@@ -207,6 +252,22 @@ class ConfigManager:
                 self._credentials = self._deep_copy(self.DEFAULT_CREDENTIALS)
         else:
             self._credentials = self._deep_copy(self.DEFAULT_CREDENTIALS)
+        
+        # Check if API key needs to be encrypted
+        self._ensure_api_key_encrypted()
+    
+    def _ensure_api_key_encrypted(self):
+        """Encrypt the API key if it's stored in plaintext."""
+        api_key = self._credentials.get("openai_api_key", "")
+        is_encrypted = self._credentials.get("openai_api_key_encrypted", False)
+        
+        if api_key and not is_encrypted:
+            print("Encrypting API key for secure storage...")
+            encrypted_key = self._encrypt_value(api_key)
+            self._credentials["openai_api_key"] = encrypted_key
+            self._credentials["openai_api_key_encrypted"] = True
+            self.save_credentials()
+            print("API key has been encrypted.")
     
     def _merge_with_defaults(self, loaded: dict, defaults: dict) -> dict:
         """Recursively merge loaded config with defaults to fill in missing keys."""
@@ -367,14 +428,27 @@ class ConfigManager:
     
     @property
     def openai_api_key(self) -> str:
-        return self._credentials.get("openai_api_key", "")
+        """Get the decrypted API key."""
+        stored_key = self._credentials.get("openai_api_key", "")
+        is_encrypted = self._credentials.get("openai_api_key_encrypted", False)
+        
+        if stored_key and is_encrypted:
+            return self._decrypt_value(stored_key)
+        return stored_key
     
     @openai_api_key.setter
     def openai_api_key(self, value: str):
-        self._credentials["openai_api_key"] = value
+        """Set the API key (will be stored encrypted)."""
+        if value:
+            self._credentials["openai_api_key"] = self._encrypt_value(value)
+            self._credentials["openai_api_key_encrypted"] = True
+        else:
+            self._credentials["openai_api_key"] = ""
+            self._credentials["openai_api_key_encrypted"] = False
     
     def has_api_key(self) -> bool:
         """Check if an API key is configured."""
+        # Check the stored value directly, not the decrypted one
         return bool(self._credentials.get("openai_api_key", "").strip())
 
 
