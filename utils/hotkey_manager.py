@@ -65,20 +65,23 @@ class HotkeyManager:
             keyboard.on_release(self.on_key_release)
             
             # Register hotkeys - these will set up detection but won't suppress
+            # IMPORTANT: Use self.parent.after(0, ...) to schedule callbacks on the main Tkinter thread
+            # The keyboard library fires callbacks from its own thread, which causes UI glitches
+            # (like black button flashes) if we don't marshal the call to the main thread
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_edit'], 
-                                                  lambda: self.parent.toggle_recording("edit"), 
+                                                  lambda: self.parent.after(0, lambda: self.parent.toggle_recording("edit")), 
                                                   suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['record_transcribe'], 
-                                                  lambda: self.parent.toggle_recording("transcribe"), 
+                                                  lambda: self.parent.after(0, lambda: self.parent.toggle_recording("transcribe")), 
                                                   suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cancel_recording'], 
-                                                  self.parent.cancel_recording, 
+                                                  lambda: self.parent.after(0, self.parent.cancel_recording), 
                                                   suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_back'], 
-                                                  self.parent.cycle_prompt_backward, 
+                                                  lambda: self.parent.after(0, self.parent.cycle_prompt_backward), 
                                                   suppress=False))
             self.hotkeys.append(keyboard.add_hotkey(self.shortcuts['cycle_prompt_forward'], 
-                                                  self.parent.cycle_prompt_forward, 
+                                                  lambda: self.parent.after(0, self.parent.cycle_prompt_forward), 
                                                   suppress=False))
             
             print(f"Registered {len(self.hotkeys)} hotkeys successfully")

@@ -52,6 +52,7 @@ class ModernTheme:
     RECORDING_GRADIENT_HOVER_START = "#ef4444"  # Red-500 (lighter)
     RECORDING_GRADIENT_HOVER_MID = "#dc2626"    # Red-600
     RECORDING_GRADIENT_HOVER_END = "#991b1b"    # Red-800
+    RECORDING_BORDER = "#7f1d1d"           # Dark red border (Red-900)
     
     # Text - high contrast for accessibility
     TEXT_PRIMARY = "#ffffff"
@@ -71,6 +72,7 @@ class ModernTheme:
     
     # Typography - ACCESSIBLE SIZES
     FONT = "Segoe UI"
+    FONT_SIZE_XXS = 9       # Only for very very minor elements
     FONT_SIZE_XS = 11       # Only for very minor elements
     FONT_SIZE_SM = 12       # Secondary labels
     FONT_SIZE_MD = 13       # Menu, labels, hints
@@ -324,6 +326,9 @@ class GradientButton(tk.Canvas):
         if 'font' in kwargs:
             self.font = kwargs.pop('font')
             redraw = True
+        if 'border_color' in kwargs:
+            self.border_color = kwargs.pop('border_color')
+            regenerate_gradients = True
         if 'solid_color' in kwargs:
             self.solid_color = kwargs.pop('solid_color')
             redraw = True
@@ -409,11 +414,11 @@ class UIManager:
         
         # Smaller muted text for model info
         style.configure("Small.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_XS))
+            font=(self.theme.FONT, self.theme.FONT_SIZE_XXS))
         
         # Custom style for status text  
         style.configure("Status.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_LG))
+            font=(self.theme.FONT, self.theme.FONT_SIZE_XS))
         
         # Nav button style
         style.configure("Nav.TButton",
@@ -520,30 +525,34 @@ class UIManager:
         nav_frame = ttk.Frame(header_row)
         nav_frame.pack(side=tk.RIGHT)
         
-        # Use labels styled as clickable icons (no button border) - larger for visibility
-        nav_style = {"font": (self.theme.FONT, 20), "cursor": "hand2"}
+        # Use labels styled as clickable icons (no button border)
+        nav_style = {"font": (self.theme.FONT, 24), "cursor": "hand2"}
         
         self._nav_button_disabled = {"first": True, "left": True, "right": True}
         
-        self.button_first_page = ttk.Label(nav_frame, text="«", **nav_style)
-        self.button_first_page.pack(side=tk.LEFT, padx=4)
+        # Create inner frame for vertical centering of all nav elements
+        nav_inner = ttk.Frame(nav_frame)
+        nav_inner.pack(side=tk.LEFT, fill=tk.Y)
+        
+        self.button_first_page = ttk.Label(nav_inner, text="«", **nav_style)
+        self.button_first_page.pack(side=tk.LEFT, padx=3)
         self.button_first_page.bind("<Button-1>", lambda e: None if self._nav_button_disabled["first"] else self.parent.go_to_first_page())
         
-        self.button_arrow_left = ttk.Label(nav_frame, text="‹", **nav_style)
-        self.button_arrow_left.pack(side=tk.LEFT, padx=4)
+        self.button_arrow_left = ttk.Label(nav_inner, text="‹", **nav_style)
+        self.button_arrow_left.pack(side=tk.LEFT, padx=3)
         self.button_arrow_left.bind("<Button-1>", lambda e: None if self._nav_button_disabled["left"] else self.parent.navigate_left())
         
-        self.button_arrow_right = ttk.Label(nav_frame, text="›", **nav_style)
-        self.button_arrow_right.pack(side=tk.LEFT, padx=4)
+        self.button_arrow_right = ttk.Label(nav_inner, text="›", **nav_style)
+        self.button_arrow_right.pack(side=tk.LEFT, padx=3)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
         
-        # Separator between navigation and copy
-        separator_label = ttk.Label(nav_frame, text="│", font=(self.theme.FONT, 12), foreground=self.theme.TEXT_MUTED)
-        separator_label.pack(side=tk.LEFT, padx=(8, 4))
+        # Separator and copy - pushed down with top padding to align with arrow baselines
+        separator_label = ttk.Label(nav_inner, text="|", font=(self.theme.FONT, 16), foreground=self.theme.TEXT_MUTED)
+        separator_label.pack(side=tk.LEFT, padx=(6, 4), pady=(5, 0))
         
-        # Copy button - same size as navigation buttons
-        self.button_copy = ttk.Label(nav_frame, text="⧉", **nav_style)
-        self.button_copy.pack(side=tk.LEFT, padx=4)
+        # Copy button - more top padding since smaller font (to ai: don't remove the space before "Copy")
+        self.button_copy = ttk.Label(nav_inner, text="  Copy", font=(self.theme.FONT, 10), cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
+        self.button_copy.pack(side=tk.LEFT, padx=(0, 0), pady=(8, 0))
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
         
         # Set initial disabled state (muted color)
@@ -584,7 +593,7 @@ class UIManager:
         self.transcription_text = tk.Text(
             text_frame,
             height=10,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=(self.theme.FONT, self.theme.FONT_SIZE_SM),
             wrap="word",
             relief="flat",
             borderwidth=0,
@@ -751,8 +760,9 @@ class UIManager:
         
         # Powered by label
         self.powered_by_label = ttk.Label(
-            self.banner_frame, text="Powered by Scorchsoft.com",
-            cursor="hand2", foreground=self.theme.SCORCHSOFT_RED
+            self.banner_frame, text="Scorchsoft.com | App & AI Developers",
+            cursor="hand2", foreground=self.theme.SCORCHSOFT_RED,
+            font=(self.theme.FONT, self.theme.FONT_SIZE_XXS, "underline")
         )
         self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
         
@@ -973,6 +983,7 @@ class UIManager:
                 hover_start=self.theme.RECORDING_GRADIENT_HOVER_START,
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
+                border_color=self.theme.RECORDING_BORDER,
                 text_color=self.theme.TEXT_PRIMARY  # White text on red
             )
             self.record_button_edit.configure(
@@ -985,6 +996,7 @@ class UIManager:
                 hover_start=self.theme.RECORDING_GRADIENT_HOVER_START,
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
+                border_color=self.theme.RECORDING_BORDER,
                 text_color=self.theme.TEXT_PRIMARY  # White text on red
             )
         else:
@@ -1013,6 +1025,7 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
+            border_color="#6d9dc5",  # Original cyan border
             text_color=self.theme.TEXT_PRIMARY
         )
         self.record_button_edit.configure(
@@ -1025,6 +1038,7 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
+            border_color="#6d9dc5",  # Original cyan border
             text_color=self.theme.TEXT_PRIMARY
         )
         
