@@ -26,6 +26,9 @@ class ConfigDialog:
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.pause()
         
+        # Handle window close (X button) to ensure hotkeys are resumed
+        self.dialog.protocol("WM_DELETE_WINDOW", self._close_dialog)
+        
         # Variables for settings
         self.recording_location_var = tk.StringVar()
         self.custom_location_var = tk.StringVar()

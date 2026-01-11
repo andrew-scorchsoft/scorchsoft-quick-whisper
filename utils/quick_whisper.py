@@ -476,6 +476,8 @@ class QuickWhisper(tk.Tk):
         # Help menu - use styled popup menu for modern look
         self.help_menu = StyledPopupMenu(self)
         
+        self.help_menu.add_command(label="About Quick Whisper", command=self.show_about)
+        self.help_menu.add_separator()
         self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
         self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
@@ -825,6 +827,209 @@ class QuickWhisper(tk.Tk):
         
         # Add a button to close the window
         ttk.Button(instruction_window, text="Close", command=instruction_window.destroy).pack(pady=(10, 0))
+
+    def show_about(self):
+        """Show the About Quick Whisper dialog with information about the app."""
+        from utils.ui_manager import set_dark_title_bar, ModernTheme
+        
+        theme = ModernTheme()
+        
+        dialog = tk.Toplevel(self)
+        dialog.title("About Quick Whisper")
+        
+        # Window sizing and centering
+        window_width = 580
+        window_height = 800
+        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
+        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
+        dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        dialog.resizable(False, False)
+        
+        # Apply dark title bar
+        set_dark_title_bar(dialog)
+        
+        # Make dialog modal
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Main container with dark background
+        main_frame = tk.Frame(dialog, bg=theme.BG_PRIMARY)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Content area with padding
+        content = tk.Frame(main_frame, bg=theme.BG_PRIMARY, padx=32, pady=24)
+        content.pack(fill=tk.BOTH, expand=True)
+        
+        # App icon/logo area with gradient accent line
+        accent_line = tk.Frame(content, height=3, bg=theme.GRADIENT_START)
+        accent_line.pack(fill=tk.X, pady=(0, 20))
+        
+        # Title
+        title_label = tk.Label(
+            content,
+            text="Quick Whisper",
+            font=(theme.FONT, 24, "bold"),
+            fg=theme.TEXT_PRIMARY,
+            bg=theme.BG_PRIMARY
+        )
+        title_label.pack(anchor="w", pady=(0, 4))
+        
+        # Subtitle/tagline
+        tagline_label = tk.Label(
+            content,
+            text="AI-Powered Speech-to-Copy-Edited-Text",
+            font=(theme.FONT, 12),
+            fg=theme.ACCENT_PRIMARY,
+            bg=theme.BG_PRIMARY
+        )
+        tagline_label.pack(anchor="w", pady=(0, 16))
+        
+        # Version
+        version_label = tk.Label(
+            content,
+            text=f"Version {self.version}",
+            font=(theme.FONT, 10),
+            fg=theme.TEXT_MUTED,
+            bg=theme.BG_PRIMARY
+        )
+        version_label.pack(anchor="w", pady=(0, 20))
+        
+        # Description text frame
+        desc_frame = tk.Frame(content, bg=theme.BG_SECONDARY, padx=16, pady=16)
+        desc_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        description = (
+            "Quick Whisper is a free and open-source speech-to-copy-edited-text "
+            "software tool that uses AI to convert spoken audio into a copy-edited "
+            "transcript, automatically pasting it into your active application.\n\n"
+            "Designed to enhance productivity, it significantly accelerates workflows, "
+            "allowing quicker responses to emails or messages—speaking is generally "
+            "two to three times faster than typing."
+        )
+        
+        desc_label = tk.Label(
+            desc_frame,
+            text=description,
+            font=(theme.FONT, 11),
+            fg=theme.TEXT_SECONDARY,
+            bg=theme.BG_SECONDARY,
+            wraplength=490,
+            justify=tk.LEFT
+        )
+        desc_label.pack(anchor="w")
+        
+        # Features section
+        features_label = tk.Label(
+            content,
+            text="Key Features",
+            font=(theme.FONT, 13, "bold"),
+            fg=theme.TEXT_PRIMARY,
+            bg=theme.BG_PRIMARY
+        )
+        features_label.pack(anchor="w", pady=(0, 10))
+        
+        features = [
+            ("🎤", "Automatic Speech-to-Text Conversion"),
+            ("✨", "Built-in AI Copy Editing"),
+            ("📋", "Auto-Copy and Auto-Paste Functionality"),
+            ("⌨️", "Hotkey-Activated Recording"),
+            ("🔧", "Customizable AI Models and Prompts")
+        ]
+        
+        for icon, feature in features:
+            feature_frame = tk.Frame(content, bg=theme.BG_PRIMARY)
+            feature_frame.pack(fill=tk.X, pady=2)
+            
+            tk.Label(
+                feature_frame,
+                text=icon,
+                font=(theme.FONT, 11),
+                fg=theme.TEXT_PRIMARY,
+                bg=theme.BG_PRIMARY
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            
+            tk.Label(
+                feature_frame,
+                text=feature,
+                font=(theme.FONT, 11),
+                fg=theme.TEXT_SECONDARY,
+                bg=theme.BG_PRIMARY,
+                anchor="w"
+            ).pack(side=tk.LEFT, fill=tk.X)
+        
+        # Spacer
+        tk.Frame(content, height=12, bg=theme.BG_PRIMARY).pack()
+        
+        # How to use section
+        usage_frame = tk.Frame(content, bg=theme.BG_TERTIARY, padx=16, pady=12)
+        usage_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        usage_text = (
+            "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J "
+            "for raw transcription. The app will automatically copy and paste "
+            "the result into your active application."
+        )
+        
+        tk.Label(
+            usage_frame,
+            text=usage_text,
+            font=(theme.FONT, 10),
+            fg=theme.TEXT_TERTIARY,
+            bg=theme.BG_TERTIARY,
+            wraplength=490,
+            justify=tk.LEFT
+        ).pack(anchor="w")
+        
+        # Bottom buttons frame
+        button_frame = tk.Frame(content, bg=theme.BG_PRIMARY)
+        button_frame.pack(fill=tk.X, pady=(10, 20))
+        
+        # Learn More button (styled link to blog)
+        def open_blog():
+            webbrowser.open("https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/")
+        
+        learn_more_btn = ctk.CTkButton(
+            button_frame,
+            text="Learn More on Our Website",
+            corner_radius=20,
+            height=40,
+            width=220,
+            fg_color=theme.GRADIENT_START,
+            hover_color=theme.GRADIENT_HOVER_START,
+            text_color=theme.BG_PRIMARY,
+            font=(theme.FONT, 12, "bold"),
+            command=open_blog
+        )
+        learn_more_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Close button
+        close_btn = ctk.CTkButton(
+            button_frame,
+            text="Close",
+            corner_radius=20,
+            height=40,
+            width=100,
+            fg_color=theme.BG_TERTIARY,
+            hover_color=theme.BG_HOVER,
+            text_color=theme.TEXT_PRIMARY,
+            font=(theme.FONT, 12),
+            command=dialog.destroy
+        )
+        close_btn.pack(side=tk.RIGHT)
+        
+        # Developer credit at bottom
+        credit_label = tk.Label(
+            content,
+            text="Developed by Scorchsoft.com | App & AI Developers",
+            font=(theme.FONT, 10),
+            fg=theme.ACCENT_PRIMARY,
+            bg=theme.BG_PRIMARY,
+            cursor="hand2"
+        )
+        credit_label.pack(anchor="center", pady=(0, 0))
+        credit_label.bind("<Button-1>", lambda e: webbrowser.open("https://www.scorchsoft.com/"))
+        credit_label.bind("<Enter>", lambda e: credit_label.config(fg=theme.GRADIENT_HOVER_START))
+        credit_label.bind("<Leave>", lambda e: credit_label.config(fg=theme.ACCENT_PRIMARY))
 
     def add_to_history(self, text):
         # Append new text to the end of the list

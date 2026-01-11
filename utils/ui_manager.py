@@ -111,6 +111,7 @@ class StyledPopupMenu:
         self.popup = None
         self.items = []  # List of menu items: (type, label, command, variable, accelerator)
         self._is_open = False
+        self._pending_close_id = None  # Track pending close timer
         
     def add_command(self, label, command=None, accelerator=None):
         """Add a command item to the menu."""
@@ -144,6 +145,14 @@ class StyledPopupMenu:
         
     def tk_popup(self, x, y):
         """Show the popup menu at the specified coordinates."""
+        # Cancel any pending close timer from previous popup
+        if self._pending_close_id is not None:
+            try:
+                self.parent.after_cancel(self._pending_close_id)
+            except:
+                pass
+            self._pending_close_id = None
+        
         if self._is_open:
             self._close()
             
@@ -232,7 +241,9 @@ class StyledPopupMenu:
         self.popup.deiconify()  # Show the popup
         
         # Bind click outside to close
-        self.popup.bind('<FocusOut>', lambda e: self.parent.after(100, self._close))
+        def schedule_close(e):
+            self._pending_close_id = self.parent.after(100, self._close)
+        self.popup.bind('<FocusOut>', schedule_close)
         self.popup.focus_set()
         
         # Also close on escape
@@ -354,6 +365,9 @@ class StyledPopupMenu:
     
     def _close(self):
         """Close the popup menu."""
+        # Clear the pending close timer reference
+        self._pending_close_id = None
+        
         if self.popup and self._is_open:
             self._is_open = False
             try:
