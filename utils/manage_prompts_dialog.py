@@ -25,6 +25,15 @@ class ManagePromptsDialog:
         # Pause hotkeys while this modal is active to avoid interfering with text editing
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.pause()
+        
+        # Handle window close (X button) to ensure hotkeys are resumed
+        self.dialog.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_close(self):
+        """Handle dialog close (X button) to ensure hotkeys are resumed."""
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.parent.hotkey_manager.resume()
+        self.dialog.destroy()
 
     def center_dialog(self):
         # Get the parent window position and dimensions
@@ -206,9 +215,7 @@ class ManagePromptsDialog:
         prompt_dialog.geometry("600x400")
         prompt_dialog.transient(self.dialog)
         prompt_dialog.grab_set()
-        # Pause hotkeys while editing
-        if hasattr(self.parent, 'hotkey_manager'):
-            self.parent.hotkey_manager.pause()
+        # Note: Hotkeys are already paused by the parent ManagePromptsDialog
         
         # Center the new prompt dialog
         dialog_width = 600
@@ -285,8 +292,7 @@ class ManagePromptsDialog:
             self.update_content()
 
             prompt_dialog.destroy()
-            if hasattr(self.parent, 'hotkey_manager'):
-                self.parent.hotkey_manager.resume()
+            # Note: Don't resume hotkeys here - parent dialog still needs them paused
 
         # Buttons
         button_frame = ttk.Frame(prompt_dialog)
@@ -294,7 +300,7 @@ class ManagePromptsDialog:
         ttk.Button(button_frame, text="Save", 
                   command=save_new_prompt).pack(side=tk.RIGHT, padx=5)
         ttk.Button(button_frame, text="Cancel", 
-                  command=lambda: (prompt_dialog.destroy(), hasattr(self.parent, 'hotkey_manager') and self.parent.hotkey_manager.resume())).pack(side=tk.RIGHT)
+                  command=prompt_dialog.destroy).pack(side=tk.RIGHT)
 
     def _show_text_context_menu(self, event, target=None):
         widget = target if target is not None else event.widget

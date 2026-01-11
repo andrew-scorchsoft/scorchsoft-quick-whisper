@@ -231,10 +231,16 @@ class QuickWhisper(tk.Tk):
 
     def openai_key_dialog(self):
         """Custom dialog for entering a new OpenAI API key with guidance link."""
+        from utils.ui_manager import set_dark_title_bar
+        
+        # Theme colors
+        THEME_ACCENT = "#22d3ee"
+        THEME_ACCENT_HOVER = "#67e8f9"
+        
         dialog = tk.Toplevel(self)
         dialog.title("Enter New OpenAI API Key")
-        dialog_width = 400
-        dialog_height = 200
+        dialog_width = 420
+        dialog_height = 220
         
         # Calculate center position relative to parent
         position_x = self.winfo_x() + (self.winfo_width() - dialog_width) // 2
@@ -242,21 +248,40 @@ class QuickWhisper(tk.Tk):
         
         dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
+        
+        # Apply dark title bar
+        set_dark_title_bar(dialog)
+        
+        # Main content frame with padding
+        content_frame = ttk.Frame(dialog, padding=(20, 15))
+        content_frame.pack(fill=tk.BOTH, expand=True)
 
         # Label for instructions
-        instruction_label = ttk.Label(dialog, text="Please enter your new OpenAI API Key below:")
-        instruction_label.pack(pady=(10, 5))
+        instruction_label = ttk.Label(
+            content_frame, 
+            text="Please enter your new OpenAI API Key below:",
+            font=("Segoe UI", 11)
+        )
+        instruction_label.pack(pady=(5, 12))
 
         # Entry field for the API key
-        api_key_entry = ttk.Entry(dialog, show='*', width=50)
-        api_key_entry.pack(pady=(5, 10))
+        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=("Segoe UI", 11))
+        api_key_entry.pack(pady=(0, 12), ipady=4)
         # Provide standard context menu and key bindings
         self._attach_entry_context_menu(api_key_entry)
 
-        # Link to guidance
-        link_label = tk.Label(dialog, text="How to obtain an OpenAI API key", fg="blue", cursor="hand2", font=("Arial", 9))
-        link_label.pack()
+        # Link to guidance - styled for dark mode visibility
+        link_label = tk.Label(
+            content_frame, 
+            text="How to obtain an OpenAI API key", 
+            fg=THEME_ACCENT, 
+            cursor="hand2", 
+            font=("Segoe UI", 10, "underline")
+        )
+        link_label.pack(pady=(0, 15))
         link_label.bind("<Button-1>", lambda e: webbrowser.open("https://scorchsoft.com/howto-get-openai-api-key"))
+        link_label.bind("<Enter>", lambda e: link_label.config(fg=THEME_ACCENT_HOVER))
+        link_label.bind("<Leave>", lambda e: link_label.config(fg=THEME_ACCENT))
 
         # Variable to store the API key input
         entered_key = None
@@ -270,11 +295,14 @@ class QuickWhisper(tk.Tk):
             else:
                 messagebox.showwarning("Input Required", "Please enter a valid API key.")
 
-        # Buttons for saving and cancelling
-        save_button = ttk.Button(dialog, text="Save", command=save_and_close)
-        save_button.pack(pady=(10, 5))
-        cancel_button = ttk.Button(dialog, text="Cancel", command=dialog.destroy)
-        cancel_button.pack(pady=(0, 10))
+        # Buttons frame for horizontal layout
+        buttons_frame = ttk.Frame(content_frame)
+        buttons_frame.pack(pady=(0, 5))
+        
+        save_button = ttk.Button(buttons_frame, text="Save", command=save_and_close, width=12)
+        save_button.pack(side=tk.LEFT, padx=(0, 8))
+        cancel_button = ttk.Button(buttons_frame, text="Cancel", command=dialog.destroy, width=12)
+        cancel_button.pack(side=tk.LEFT)
 
         # Set focus to the entry field and make dialog modal
         api_key_entry.focus()

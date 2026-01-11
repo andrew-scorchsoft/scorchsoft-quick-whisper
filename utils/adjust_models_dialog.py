@@ -3,14 +3,27 @@ from tkinter import ttk, messagebox
 import webbrowser
 from pathlib import Path
 import customtkinter as ctk
+import sv_ttk
 from utils.config_manager import get_config
+from utils.ui_manager import set_dark_title_bar
+
+# Theme colors for dark mode
+THEME_TEXT_SECONDARY = "#b0b0b0"  # Readable secondary text
+THEME_TEXT_MUTED = "#909090"      # Muted but still visible
+THEME_ACCENT = "#22d3ee"          # Cyan accent for links
+THEME_ACCENT_HOVER = "#67e8f9"    # Lighter cyan for hover
 
 class AdjustModelsDialog:
     def __init__(self, parent):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Adjust AI Models")
-        self.dialog.geometry("450x600")
+        self.dialog.geometry("450x620")
+        
+        # Apply Sun Valley dark theme and dark title bar
+        sv_ttk.set_theme("dark")
+        set_dark_title_bar(self.dialog)
+        
         self.center_dialog()
 
         # Define Whisper supported languages
@@ -105,7 +118,7 @@ class AdjustModelsDialog:
 
         # Calculate position for the dialog
         dialog_width = 450  # Width from geometry
-        dialog_height = 600  # Updated height
+        dialog_height = 620  # Updated height
         position_x = parent_x + (parent_width - dialog_width) // 2
         position_y = parent_y + (parent_height - dialog_height) // 2
 
@@ -157,7 +170,7 @@ class AdjustModelsDialog:
         transcription_section.pack(fill="x", pady=(5, 15))
 
         # Transcription Model Selection - renamed label
-        tk.Label(transcription_section, text="Transcription Model:").pack(anchor="w")
+        ttk.Label(transcription_section, text="Transcription Model:").pack(anchor="w")
         
         # Variables for model selection
         self.transcription_model_var = tk.StringVar()
@@ -206,10 +219,10 @@ class AdjustModelsDialog:
         model_type_text = ("Note: GPT models provide higher quality transcription with broad language support.\n"
                            "Whisper is the traditional speech recognition model.")
         ttk.Label(transcription_section, text=model_type_text, 
-                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(8, 0))
+                 font=("Segoe UI", 9), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(8, 0))
 
         # AI Model Entry - after the transcription section with clean separation
-        tk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
+        ttk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
         
         # Variables for LLM model selection
         self.llm_model_var = tk.StringVar()
@@ -257,7 +270,7 @@ class AdjustModelsDialog:
         # Model info
         llm_info_text = "e.g., gpt-5, gpt-4o, gpt-4o-mini, o1-mini, o1-preview"
         ttk.Label(models_frame, text=llm_info_text, 
-                 font=("TkDefaultFont", 9), foreground="#4B4B4B").pack(anchor="w", pady=(5, 0))
+                 font=("Segoe UI", 9), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(5, 0))
 
         # Save button - using CTkButton
         save_button = ctk.CTkButton(
@@ -272,11 +285,13 @@ class AdjustModelsDialog:
         )
         save_button.pack(pady=10)
 
-        # Link to OpenAI Pricing
+        # Link to OpenAI Pricing - styled for dark mode
         link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing", 
-                       fg="blue", cursor="hand2")
+                       fg=THEME_ACCENT, cursor="hand2", font=("Segoe UI", 10, "underline"))
         link.pack(pady=(0, 10))
         link.bind("<Button-1>", lambda e: webbrowser.open("https://openai.com/api/pricing/"))
+        link.bind("<Enter>", lambda e: link.config(fg=THEME_ACCENT_HOVER))
+        link.bind("<Leave>", lambda e: link.config(fg=THEME_ACCENT))
 
         # Instructional text
         instructional_text = ("How to use language settings:\n\n"
@@ -285,18 +300,15 @@ class AdjustModelsDialog:
                             "How to select transcription models:\n\n"
                             "• GPT-4o-transcribe: Highest quality transcription with broad language support\n"
                             "• Whisper-1: Traditional speech recognition model\n"
-                            "• Other: Custom model name (advanced usage)\n\n"
-                            "For copyediting models, ensure you input model names exactly as they appear "
-                            "in the OpenAI documentation. gpt-4o offers the best quality while gpt-4o-mini "
-                            "is more cost-effective (up to 20x cheaper) and still suitable for most copyediting tasks.")
+                            "• Other: Custom model name (advanced usage)")
         
         ttk.Label(
             main_frame, 
             text=instructional_text, 
             wraplength=430, 
             justify="left", 
-            font=("TkDefaultFont", 9), 
-            foreground="#4B4B4B"
+            font=("Segoe UI", 9), 
+            foreground=THEME_TEXT_MUTED
         ).pack(pady=(0, 10))
 
     def save_model_settings(self):
