@@ -30,7 +30,7 @@ from utils.config_dialog import ConfigDialog
 from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
 from utils.tts_manager import TTSManager
-from utils.ui_manager import UIManager
+from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
@@ -370,15 +370,15 @@ class QuickWhisper(tk.Tk):
         # Don't set the menu - we'll use custom menu bar
         # self.config(menu=self.menubar)
 
-        # File menu - store reference for custom menu bar
-        self.file_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        # File menu - use styled popup menu for modern look
+        self.file_menu = StyledPopupMenu(self)
         self.file_menu.add_command(label="Save Session History", command=self.save_session_history)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
         self.file_menu.add_command(label="Exit", command=self.on_closing)
 
-        # Settings menu - store reference
-        self.settings_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        # Settings menu - use styled popup menu for modern look
+        self.settings_menu = StyledPopupMenu(self)
         self.settings_menu.add_command(label="Change API Key", command=self.change_api_key)
         self.settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         self.settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
@@ -394,8 +394,8 @@ class QuickWhisper(tk.Tk):
         self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
         self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
 
-        # Actions Menu - store reference
-        self.actions_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        # Actions Menu - use styled popup menu for modern look
+        self.actions_menu = StyledPopupMenu(self)
         
         # Recording actions group
         self.actions_menu.add_command(
@@ -445,8 +445,8 @@ class QuickWhisper(tk.Tk):
             accelerator=self.shortcuts['cycle_prompt_forward']
         )
 
-        # Help menu - store reference
-        self.help_menu = Menu(self.menubar, tearoff=0, **menu_style)
+        # Help menu - use styled popup menu for modern look
+        self.help_menu = StyledPopupMenu(self)
         
         self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)

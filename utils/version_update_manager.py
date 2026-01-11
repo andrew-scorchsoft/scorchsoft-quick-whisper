@@ -26,6 +26,7 @@ class VersionUpdateManager:
         """Save the auto update setting to settings.json."""
         self.config.auto_update_check = self.auto_update_check.get()
         self.config.save_settings()
+        print(f"Auto update check setting saved: {self.auto_update_check.get()}")
 
     def check_for_updates(self, manual_check=False):
         """Check for updates from the version check URL."""

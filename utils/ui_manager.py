@@ -102,6 +102,267 @@ def set_dark_title_bar(window):
         print(f"Could not set dark title bar: {e}")
 
 
+class StyledPopupMenu:
+    """A modern styled popup menu using ttk widgets for Sun Valley theme compatibility."""
+    
+    def __init__(self, parent, theme=None):
+        self.parent = parent
+        self.theme = theme or ModernTheme()
+        self.popup = None
+        self.items = []  # List of menu items: (type, label, command, variable, accelerator)
+        self._is_open = False
+        
+    def add_command(self, label, command=None, accelerator=None):
+        """Add a command item to the menu."""
+        self.items.append(('command', label, command, None, accelerator))
+        
+    def add_checkbutton(self, label, variable=None, command=None):
+        """Add a checkbutton item to the menu."""
+        self.items.append(('checkbutton', label, command, variable, None))
+        
+    def add_separator(self):
+        """Add a separator line to the menu."""
+        self.items.append(('separator', None, None, None, None))
+    
+    def entryconfig(self, index_or_label, **kwargs):
+        """Configure a menu entry by index or label (for compatibility)."""
+        # Find the item by label if string is passed
+        target_index = None
+        if isinstance(index_or_label, str):
+            for i, item in enumerate(self.items):
+                if item[1] == index_or_label:
+                    target_index = i
+                    break
+        else:
+            target_index = index_or_label
+        
+        if target_index is not None and 0 <= target_index < len(self.items):
+            item_type, label, command, variable, accelerator = self.items[target_index]
+            # Update label if provided
+            if 'label' in kwargs:
+                self.items[target_index] = (item_type, kwargs['label'], command, variable, accelerator)
+        
+    def tk_popup(self, x, y):
+        """Show the popup menu at the specified coordinates."""
+        if self._is_open:
+            self._close()
+            
+        self._is_open = True
+        
+        # Create popup window
+        self.popup = tk.Toplevel(self.parent)
+        self.popup.withdraw()  # Hide initially to prevent flicker
+        self.popup.overrideredirect(True)  # Remove window decorations
+        self.popup.attributes('-topmost', True)
+        
+        # Set dark title bar if on Windows
+        set_dark_title_bar(self.popup)
+        
+        # Main frame with border
+        outer_frame = tk.Frame(
+            self.popup,
+            bg=self.theme.BORDER,
+            padx=1,
+            pady=1
+        )
+        outer_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Inner content frame
+        inner_frame = tk.Frame(
+            outer_frame,
+            bg=self.theme.BG_SECONDARY,
+            padx=4,
+            pady=6
+        )
+        inner_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create menu items
+        for item_type, label, command, variable, accelerator in self.items:
+            if item_type == 'separator':
+                sep = tk.Frame(inner_frame, height=1, bg=self.theme.BORDER)
+                sep.pack(fill=tk.X, pady=6, padx=8)
+            elif item_type == 'command':
+                self._create_command_item(inner_frame, label, command, accelerator)
+            elif item_type == 'checkbutton':
+                self._create_checkbutton_item(inner_frame, label, command, variable)
+        
+        # Update geometry and show
+        self.popup.update_idletasks()
+        
+        popup_width = self.popup.winfo_reqwidth()
+        popup_height = self.popup.winfo_reqheight()
+        
+        # Get the virtual screen bounds (spans all monitors)
+        # winfo_vrootx/y give the offset of the virtual root
+        # For multi-monitor, we need to be careful about bounds checking
+        try:
+            # On Windows, we can get multi-monitor info via ctypes
+            if platform.system() == "Windows":
+                # Get virtual screen dimensions (all monitors combined)
+                user32 = ctypes.windll.user32
+                # SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77
+                # SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79
+                virtual_left = user32.GetSystemMetrics(76)
+                virtual_top = user32.GetSystemMetrics(77)
+                virtual_width = user32.GetSystemMetrics(78)
+                virtual_height = user32.GetSystemMetrics(79)
+                
+                # Adjust position if menu would go off virtual screen edges
+                if x + popup_width > virtual_left + virtual_width:
+                    x = virtual_left + virtual_width - popup_width - 5
+                if y + popup_height > virtual_top + virtual_height:
+                    y = virtual_top + virtual_height - popup_height - 5
+                if x < virtual_left:
+                    x = virtual_left + 5
+                if y < virtual_top:
+                    y = virtual_top + 5
+            else:
+                # For non-Windows, use basic screen dimensions
+                screen_width = self.popup.winfo_screenwidth()
+                screen_height = self.popup.winfo_screenheight()
+                if x + popup_width > screen_width:
+                    x = screen_width - popup_width - 5
+                if y + popup_height > screen_height:
+                    y = screen_height - popup_height - 5
+        except Exception as e:
+            print(f"Error getting screen dimensions: {e}")
+            # Fallback: don't adjust position
+        
+        self.popup.geometry(f"+{x}+{y}")
+        self.popup.deiconify()  # Show the popup
+        
+        # Bind click outside to close
+        self.popup.bind('<FocusOut>', lambda e: self.parent.after(100, self._close))
+        self.popup.focus_set()
+        
+        # Also close on escape
+        self.popup.bind('<Escape>', lambda e: self._close())
+        
+    def _create_command_item(self, parent, label, command, accelerator=None):
+        """Create a command menu item."""
+        item_frame = tk.Frame(parent, bg=self.theme.BG_SECONDARY, cursor='hand2')
+        item_frame.pack(fill=tk.X, pady=1)
+        
+        # Label
+        lbl = tk.Label(
+            item_frame,
+            text=f"    {label}",
+            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            fg=self.theme.TEXT_PRIMARY,
+            bg=self.theme.BG_SECONDARY,
+            anchor='w',
+            padx=12,
+            pady=6
+        )
+        lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Accelerator (keyboard shortcut) if provided
+        if accelerator:
+            accel_lbl = tk.Label(
+                item_frame,
+                text=accelerator,
+                font=(self.theme.FONT, self.theme.FONT_SIZE_XS),
+                fg=self.theme.TEXT_MUTED,
+                bg=self.theme.BG_SECONDARY,
+                anchor='e',
+                padx=12
+            )
+            accel_lbl.pack(side=tk.RIGHT)
+        
+        def on_enter(e):
+            item_frame.configure(bg=self.theme.BG_HOVER)
+            lbl.configure(bg=self.theme.BG_HOVER)
+            if accelerator:
+                accel_lbl.configure(bg=self.theme.BG_HOVER)
+        
+        def on_leave(e):
+            item_frame.configure(bg=self.theme.BG_SECONDARY)
+            lbl.configure(bg=self.theme.BG_SECONDARY)
+            if accelerator:
+                accel_lbl.configure(bg=self.theme.BG_SECONDARY)
+        
+        def on_click(e):
+            self._close()
+            if command:
+                self.parent.after(10, command)
+        
+        for widget in [item_frame, lbl] + ([accel_lbl] if accelerator else []):
+            widget.bind('<Enter>', on_enter)
+            widget.bind('<Leave>', on_leave)
+            widget.bind('<Button-1>', on_click)
+    
+    def _create_checkbutton_item(self, parent, label, command, variable):
+        """Create a checkbutton menu item."""
+        item_frame = tk.Frame(parent, bg=self.theme.BG_SECONDARY, cursor='hand2')
+        item_frame.pack(fill=tk.X, pady=1)
+        
+        # Checkmark indicator
+        is_checked = variable.get() if variable else False
+        check_text = "✓" if is_checked else "   "
+        check_lbl = tk.Label(
+            item_frame,
+            text=check_text,
+            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            fg=self.theme.ACCENT_PRIMARY if is_checked else self.theme.TEXT_MUTED,
+            bg=self.theme.BG_SECONDARY,
+            width=3,
+            anchor='center'
+        )
+        check_lbl.pack(side=tk.LEFT, padx=(8, 0))
+        
+        # Label
+        lbl = tk.Label(
+            item_frame,
+            text=label,
+            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            fg=self.theme.TEXT_PRIMARY,
+            bg=self.theme.BG_SECONDARY,
+            anchor='w',
+            padx=4,
+            pady=6
+        )
+        lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
+        
+        def on_enter(e):
+            item_frame.configure(bg=self.theme.BG_HOVER)
+            check_lbl.configure(bg=self.theme.BG_HOVER)
+            lbl.configure(bg=self.theme.BG_HOVER)
+        
+        def on_leave(e):
+            item_frame.configure(bg=self.theme.BG_SECONDARY)
+            check_lbl.configure(bg=self.theme.BG_SECONDARY)
+            lbl.configure(bg=self.theme.BG_SECONDARY)
+        
+        def on_click(e):
+            # Toggle the variable
+            if variable:
+                new_val = not variable.get()
+                variable.set(new_val)
+                # Update checkmark
+                check_lbl.configure(
+                    text="✓" if new_val else "   ",
+                    fg=self.theme.ACCENT_PRIMARY if new_val else self.theme.TEXT_MUTED
+                )
+            self._close()
+            if command:
+                self.parent.after(10, command)
+        
+        for widget in [item_frame, check_lbl, lbl]:
+            widget.bind('<Enter>', on_enter)
+            widget.bind('<Leave>', on_leave)
+            widget.bind('<Button-1>', on_click)
+    
+    def _close(self):
+        """Close the popup menu."""
+        if self.popup and self._is_open:
+            self._is_open = False
+            try:
+                self.popup.destroy()
+            except:
+                pass
+            self.popup = None
+
+
 class GradientButton(tk.Canvas):
     """Custom button with gradient background (cyan → blue → purple like logo)."""
     
@@ -782,7 +1043,7 @@ class UIManager:
             menu.tk_popup(btn.winfo_rootx(), btn.winfo_rooty() + btn.winfo_height())
         
     def open_scorchsoft(self, event=None):
-        webbrowser.open('https://www.scorchsoft.com/contact-scorchsoft')
+        webbrowser.open('https://www.scorchsoft.com/')
         
     def toggle_banner(self):
         current_height = self.parent.winfo_height()
