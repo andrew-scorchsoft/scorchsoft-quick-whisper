@@ -59,7 +59,9 @@ from .spacing import (
 from .windows import (
     WindowSizeProvider,
     WINDOW_SIZES,
+    TEXT_AREA_HEIGHT,
     get_window_size,
+    get_text_area_height,
 )
 
 
@@ -104,5 +106,7 @@ __all__ = [
     # Window sizes
     'WindowSizeProvider',
     'WINDOW_SIZES',
+    'TEXT_AREA_HEIGHT',
     'get_window_size',
+    'get_text_area_height',
 ]

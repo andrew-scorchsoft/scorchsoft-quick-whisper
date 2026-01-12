@@ -13,14 +13,14 @@ import platform
 FONT_SIZES = {
     # Base sizes (non-HiDPI) - current values preserved
     'base': {
-        'xxs': 9,
+        'xxs': 10,
         'xs': 11,
         'sm': 12,
         'md': 13,
         'lg': 14,
         'xl': 15,
         # Semantic sizes for specific UI elements
-        'menu_button': 13,
+        'menu_button': 10,
         'nav_arrow': 24,
         'separator': 16,
         'copy_link': 10,
@@ -29,18 +29,18 @@ FONT_SIZES = {
     },
     # Windows HiDPI - explicit values
     'windows_hd': {
-        'xxs': 10,
-        'xs': 12,
-        'sm': 13,
-        'md': 14,
-        'lg': 15,
-        'xl': 16,
-        'menu_button': 14,
+        'xxs': 13,
+        'xs': 14,
+        'sm': 15,
+        'md': 16,
+        'lg': 17,
+        'xl': 18,
+        'menu_button': 13,
         'nav_arrow': 26,
         'separator': 18,
-        'copy_link': 11,
+        'copy_link': 14,
         'status_dot': 15,
-        'dialog_button': 28,
+        'dialog_button': 14,
     },
     # Linux HiDPI - explicit values (may differ from Windows)
     'linux_hd': {

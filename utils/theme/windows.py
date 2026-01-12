@@ -8,6 +8,14 @@ window sizing across Windows, macOS, and Linux.
 import platform
 
 
+# Transcription text area height (in lines/rows) per mode
+# This controls the minimum height of the text widget
+TEXT_AREA_HEIGHT = {
+    'base': 2,        # Non-HiDPI: 10 lines
+    'hidpi': 2,        # HiDPI: 8 lines (font is larger, so fewer lines needed)
+}
+
+
 # Window size definitions per platform and HiDPI mode
 # Format: (width, height)
 WINDOW_SIZES = {
@@ -15,7 +23,7 @@ WINDOW_SIZES = {
     'base': {
         'main': (640, 920),
         'api_key_dialog': (420, 220),
-        'about_dialog': (800, 700),
+        'about_dialog': (800, 800),
         'tos_dialog': (300, 150),
         'terms_of_use': (580, 800),
         'manage_prompts': (800, 650),
@@ -27,9 +35,9 @@ WINDOW_SIZES = {
     },
     # Windows HiDPI - explicit values
     'windows_hd': {
-        'main': (1000, 1150),
+        'main': (1000, 1200),
         'api_key_dialog': (480, 250),
-        'about_dialog': (1100, 1000),
+        'about_dialog': (1100, 1050),
         'tos_dialog': (340, 170),
         'terms_of_use': (720, 1080),
         'manage_prompts': (1500, 1050),
@@ -124,8 +132,20 @@ class WindowSizeProvider:
         size_map = WINDOW_SIZES.get(cls._map_key, WINDOW_SIZES['base'])
         return size_map.get(window_name.lower(), size_map.get('main', (640, 920)))
 
+    @classmethod
+    def get_text_area_height(cls) -> int:
+        """
+        Get the transcription text area height in lines.
 
-# Convenience function for module-level access
+        Returns:
+            Number of lines for the text area height
+        """
+        if cls._is_hidpi:
+            return TEXT_AREA_HEIGHT.get('hidpi', 8)
+        return TEXT_AREA_HEIGHT.get('base', 10)
+
+
+# Convenience functions for module-level access
 def get_window_size(window_name: str) -> tuple:
     """
     Get the window size for a given window name.
@@ -140,3 +160,13 @@ def get_window_size(window_name: str) -> tuple:
         Tuple of (width, height) for the current platform and HiDPI mode
     """
     return WindowSizeProvider.get_size(window_name)
+
+
+def get_text_area_height() -> int:
+    """
+    Get the transcription text area height in lines.
+
+    Returns:
+        Number of lines for the text area height
+    """
+    return WindowSizeProvider.get_text_area_height()

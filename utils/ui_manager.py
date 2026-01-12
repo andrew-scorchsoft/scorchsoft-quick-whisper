@@ -21,6 +21,7 @@ from utils.theme import (
     get_button_height,
     get_border_width,
     get_switch_size,
+    get_text_area_height,
 )
 
 
@@ -1080,7 +1081,7 @@ class UIManager:
         
         self.transcription_text = tk.Text(
             text_frame,
-            height=10,
+            height=get_text_area_height(),
             font=get_font('sm'),
             wrap="word",
             relief="flat",
@@ -1302,8 +1303,8 @@ class UIManager:
             if self.banner_label:
                 self.banner_label.pack_forget()
             self.hide_banner_link.pack_forget()
-            # Use theme spacing for consistent padding - lg above for separation from buttons, xl below for window edge
-            self.powered_by_label.pack(pady=(get_spacing('lg'), get_spacing('xl')))
+            # Use theme spacing for consistent padding - even spacing above and below
+            self.powered_by_label.pack(pady=get_spacing('xl'))
             try:
                 self.parent.help_menu.entryconfig("Hide Banner", label="Show Banner")
             except:
