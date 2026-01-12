@@ -626,7 +626,14 @@ class GradientButton(tk.Canvas):
         sw, sh = w * scale, h * scale
         sr = r * scale
         border = self.border_width * scale
-        
+
+        # Guard against zero or negative dimensions (window resized too small)
+        inner_w = sw - border * 2
+        inner_h = sh - border * 2
+        if inner_w < 1 or inner_h < 1 or sw < 1 or sh < 1:
+            # Return a minimal transparent image
+            return ImageTk.PhotoImage(Image.new('RGBA', (max(1, w), max(1, h)), (0, 0, 0, 0)))
+
         img = Image.new('RGBA', (sw, sh), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
@@ -636,35 +643,39 @@ class GradientButton(tk.Canvas):
             draw.rounded_rectangle([(0, 0), (sw-1, sh-1)], radius=sr, fill=(*border_rgb, 255))
         
         # Create gradient for inner area
-        inner_img = Image.new('RGBA', (sw - border*2, sh - border*2), (0, 0, 0, 0))
-        inner_w, inner_h = inner_img.size
+        inner_img = Image.new('RGBA', (inner_w, inner_h), (0, 0, 0, 0))
         inner_r = max(0, sr - border)
-        
+
         start_rgb = self._hex_to_rgb(color_start)
         mid_rgb = self._hex_to_rgb(color_mid)
         end_rgb = self._hex_to_rgb(color_end)
-        
-        # Draw 3-stop gradient
+
+        # Pre-calculate horizontal gradient colors (much faster than per-pixel)
+        h_colors = []
         for x in range(inner_w):
             ratio = x / (inner_w - 1) if inner_w > 1 else 0
-            
-            # 3-stop gradient: start → mid (0-0.5), mid → end (0.5-1)
             if ratio < 0.5:
                 local_ratio = ratio * 2
-                base_rgb = self._interpolate_color(start_rgb, mid_rgb, local_ratio)
+                h_colors.append(self._interpolate_color(start_rgb, mid_rgb, local_ratio))
             else:
                 local_ratio = (ratio - 0.5) * 2
-                base_rgb = self._interpolate_color(mid_rgb, end_rgb, local_ratio)
-            
-            for y in range(inner_h):
-                # Add subtle vertical highlight (brighter at top)
-                highlight = 1.0 + 0.12 * (1 - y / inner_h)  # 12% brighter at top
-                
+                h_colors.append(self._interpolate_color(mid_rgb, end_rgb, local_ratio))
+
+        # Pre-calculate vertical highlight multipliers
+        v_highlights = [1.0 + 0.12 * (1 - y / inner_h) for y in range(inner_h)]
+
+        # Build pixel data in one pass (much faster than putpixel)
+        pixels = []
+        for y in range(inner_h):
+            highlight = v_highlights[y]
+            for x in range(inner_w):
+                base_rgb = h_colors[x]
                 r_val = min(255, int(base_rgb[0] * highlight))
                 g_val = min(255, int(base_rgb[1] * highlight))
                 b_val = min(255, int(base_rgb[2] * highlight))
-                
-                inner_img.putpixel((x, y), (r_val, g_val, b_val, 255))
+                pixels.append((r_val, g_val, b_val, 255))
+
+        inner_img.putdata(pixels)
         
         # Create rounded mask for inner gradient
         inner_mask = Image.new('L', (inner_w, inner_h), 0)

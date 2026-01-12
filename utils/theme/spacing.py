@@ -60,24 +60,28 @@ BUTTON_HEIGHT = {
         'sm': 36,
         'md': 50,
         'lg': 60,
+        'dialog': 40,
     },
     # Windows HiDPI
     'windows_hd': {
         'sm': 42,
         'md': 90,
         'lg': 70,
+        'dialog': 56,
     },
     # Linux HiDPI
     'linux_hd': {
         'sm': 42,
         'md': 80,
         'lg': 70,
+        'dialog': 56,
     },
     # macOS HiDPI (OS handles most scaling)
     'darwin_hd': {
         'sm': 36,
         'md': 50,
         'lg': 60,
+        'dialog': 40,
     },
 }
 

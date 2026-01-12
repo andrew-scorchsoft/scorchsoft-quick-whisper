@@ -6,7 +6,7 @@ import customtkinter as ctk
 import sv_ttk
 from utils.config_manager import get_config
 from utils.ui_manager import set_dark_title_bar
-from utils.theme import get_font, get_window_size
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 
 # Theme colors for dark mode
 THEME_TEXT_SECONDARY = "#b0b0b0"  # Readable secondary text
@@ -136,8 +136,15 @@ class AdjustModelsDialog:
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Configure styles for consistent fonts
+        style = ttk.Style()
+        style.configure('Dialog.TLabel', font=get_font('sm'))
+        style.configure('Dialog.TLabelframe.Label', font=get_font('sm', 'bold'))
+        style.configure('Dialog.TCombobox', font=get_font('sm'))
+        style.configure('Dialog.TEntry', font=get_font('sm'))
+
         # Language Selection Frame
-        language_frame = ttk.LabelFrame(main_frame, text="Whisper Language Settings", padding="5")
+        language_frame = ttk.LabelFrame(main_frame, text="Whisper Language Settings", padding="5", style='Dialog.TLabelframe')
         language_frame.pack(fill="x", pady=(0, 10))
 
         # Language selection
@@ -154,13 +161,14 @@ class AdjustModelsDialog:
         language_values.insert(0, auto_option)
 
         # Create Combobox for language selection
-        language_label = ttk.Label(language_frame, text="Select Language:")
+        language_label = ttk.Label(language_frame, text="Select Language:", style='Dialog.TLabel')
         language_label.pack(anchor="w", pady=(5, 0))
-        
-        self.language_combo = ttk.Combobox(language_frame, 
+
+        self.language_combo = ttk.Combobox(language_frame,
                                          textvariable=self.language_var,
                                          values=[f"{name} ({code})" for code, name in language_values],
-                                         state="readonly")
+                                         state="readonly",
+                                         font=get_font('sm'))
         self.language_combo.pack(fill="x", pady=(0, 5))
 
         # Set current value
@@ -169,7 +177,7 @@ class AdjustModelsDialog:
         self.language_combo.set(f"{current_language_name} ({current_language})")
 
         # Model Settings Frame
-        models_frame = ttk.LabelFrame(main_frame, text="AI Model Settings", padding="5")
+        models_frame = ttk.LabelFrame(main_frame, text="AI Model Settings", padding="5", style='Dialog.TLabelframe')
         models_frame.pack(fill="x", pady=(0, 10))
 
         # Create a separate frame for all transcription model components
@@ -177,7 +185,7 @@ class AdjustModelsDialog:
         transcription_section.pack(fill="x", pady=(5, 15))
 
         # Transcription Model Selection - renamed label
-        ttk.Label(transcription_section, text="Transcription Model:").pack(anchor="w")
+        ttk.Label(transcription_section, text="Transcription Model:", style='Dialog.TLabel').pack(anchor="w")
         
         # Variables for model selection
         self.transcription_model_var = tk.StringVar()
@@ -197,17 +205,18 @@ class AdjustModelsDialog:
                 self.custom_frame.pack_forget()
         
         # Set up model dropdown
-        self.transcription_model_combo = ttk.Combobox(dropdown_frame, 
+        self.transcription_model_combo = ttk.Combobox(dropdown_frame,
                                                      textvariable=self.transcription_model_var,
                                                      values=list(self.transcription_models.keys()),
-                                                     state="readonly")
+                                                     state="readonly",
+                                                     font=get_font('sm'))
         self.transcription_model_combo.pack(fill="x")
         
         # Create a frame for custom model input to keep it organized
         self.custom_frame = ttk.Frame(transcription_section)
-        self.custom_model_label = ttk.Label(self.custom_frame, text="Enter custom transcriptionmodel name:")
+        self.custom_model_label = ttk.Label(self.custom_frame, text="Enter custom transcription model name:", style='Dialog.TLabel')
         self.custom_model_label.pack(anchor="w")
-        self.custom_model_entry = ttk.Entry(self.custom_frame, textvariable=self.custom_model_var)
+        self.custom_model_entry = ttk.Entry(self.custom_frame, textvariable=self.custom_model_var, font=get_font('sm'))
         self.custom_model_entry.pack(fill="x", pady=(2, 0))
         
         # Set initial values based on current model
@@ -229,7 +238,7 @@ class AdjustModelsDialog:
                  font=get_font('xxs'), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(8, 0))
 
         # AI Model Entry - after the transcription section with clean separation
-        ttk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
+        ttk.Label(models_frame, text="OpenAI Copyediting Model:", style='Dialog.TLabel').pack(anchor="w", pady=(5, 0))
         
         # Variables for LLM model selection
         self.llm_model_var = tk.StringVar()
@@ -249,17 +258,18 @@ class AdjustModelsDialog:
                 self.custom_llm_frame.pack_forget()
         
         # Set up model dropdown
-        self.llm_model_combo = ttk.Combobox(llm_dropdown_frame, 
+        self.llm_model_combo = ttk.Combobox(llm_dropdown_frame,
                                            textvariable=self.llm_model_var,
                                            values=list(self.llm_models),
-                                           state="readonly")
+                                           state="readonly",
+                                           font=get_font('sm'))
         self.llm_model_combo.pack(fill="x")
         
         # Create a frame for custom model input
         self.custom_llm_frame = ttk.Frame(models_frame)
-        self.custom_llm_label = ttk.Label(self.custom_llm_frame, text="Enter custom copyediting model name:")
+        self.custom_llm_label = ttk.Label(self.custom_llm_frame, text="Enter custom copyediting model name:", style='Dialog.TLabel')
         self.custom_llm_label.pack(anchor="w")
-        self.custom_llm_entry = ttk.Entry(self.custom_llm_frame, textvariable=self.custom_llm_var)
+        self.custom_llm_entry = ttk.Entry(self.custom_llm_frame, textvariable=self.custom_llm_var, font=get_font('sm'))
         self.custom_llm_entry.pack(fill="x", pady=(2, 0))
         
         # Set initial values based on current model
@@ -279,18 +289,22 @@ class AdjustModelsDialog:
         ttk.Label(models_frame, text=llm_info_text,
                  font=get_font('xxs'), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(5, 0))
 
-        # Save button - using CTkButton
+        # Save button - using CTkButton with theme spacing
+        # Use half the button height for corner_radius to create pill shape
+        button_height = get_button_height('dialog')
         save_button = ctk.CTkButton(
             main_frame,
             text="Save Changes",
-            corner_radius=20,
-            height=35,
+            corner_radius=button_height // 2,
+            height=button_height,
+            width=260,
             fg_color="#058705",
             hover_color="#046a38",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=self.save_model_settings
         )
-        save_button.pack(pady=10)
+        save_button.pack(pady=get_spacing('lg'))
 
         # Link to OpenAI Pricing - styled for dark mode
         link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing",

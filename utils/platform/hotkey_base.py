@@ -13,7 +13,7 @@ import threading
 import time
 
 from utils.config_manager import get_config
-from utils.theme import get_font, get_window_size
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from . import CURRENT_PLATFORM
 
 
@@ -310,33 +310,39 @@ class HotkeyManagerBase(ABC):
             )
 
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=20)
+        button_frame.pack(pady=get_spacing('xl'))
+
+        # Use half the button height for corner_radius to create pill shape
+        button_height = get_button_height('dialog')
+        corner_radius = button_height // 2
 
         refresh_button = ctk.CTkButton(
             button_frame,
             text="Refresh Shortcuts",
-            corner_radius=20,
-            height=35,
-            width=200,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=220,
             fg_color="#058705",
             hover_color="#046a38",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=self.force_hotkey_refresh
         )
-        refresh_button.pack(side=tk.LEFT, padx=5)
+        refresh_button.pack(side=tk.LEFT, padx=get_spacing('sm'))
 
         reset_button = ctk.CTkButton(
             button_frame,
             text="Reset to Defaults",
-            corner_radius=20,
-            height=35,
-            width=200,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=220,
             fg_color="#666666",
             hover_color="#444444",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=lambda: self.reset_shortcuts_to_default(shortcuts_window=shortcut_window)
         )
-        reset_button.pack(side=tk.LEFT, padx=5)
+        reset_button.pack(side=tk.LEFT, padx=get_spacing('sm'))
 
         # Platform-specific note
         if CURRENT_PLATFORM == 'macos':

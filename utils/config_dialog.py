@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 import platform
 from utils.config_manager import get_config
-from utils.theme import get_font, get_window_size
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -60,36 +60,45 @@ class ConfigDialog:
         
     def create_dialog(self):
         """Create the main dialog layout."""
+        # Configure styles for consistent fonts
+        style = ttk.Style()
+        style.configure('Dialog.TButton', font=get_font('sm'))
+        style.configure('Dialog.TLabel', font=get_font('sm'))
+        style.configure('Dialog.TLabelframe.Label', font=get_font('sm', 'bold'))
+        style.configure('Dialog.TRadiobutton', font=get_font('sm'))
+
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # Create top frame for navigation and content
         top_frame = ttk.Frame(main_frame)
         top_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # Create bottom frame for buttons
         self.create_bottom_buttons(main_frame)
-        
+
         # Create left navigation and right content areas in the top frame
         self.create_navigation_panel(top_frame)
         self.create_content_panel(top_frame)
-        
+
         # Initially show recording settings
         self.show_recording_settings()
         
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""
-        self.nav_frame = ttk.LabelFrame(parent, text="Settings Categories", padding="10")
+        self.nav_frame = ttk.LabelFrame(parent, text="Settings Categories", padding="10", style='Dialog.TLabelframe')
         self.nav_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-        
+
         # Navigation buttons
         self.nav_buttons = {}
-        
+
         self.nav_buttons["Recording"] = ttk.Button(
             self.nav_frame,
             text="Recording",
             command=lambda: self.switch_category("Recording"),
-            width=15
+            width=15,
+            style='Dialog.TButton',
+            cursor='hand2'
         )
         self.nav_buttons["Recording"].pack(fill=tk.X, pady=2)
         
@@ -113,34 +122,40 @@ class ConfigDialog:
     def create_bottom_buttons(self, parent):
         """Create the bottom button panel."""
         button_frame = ttk.Frame(parent)
-        button_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
-        
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(get_spacing('lg'), 0))
+
+        # Use half the button height for corner_radius to create pill shape
+        button_height = get_button_height('dialog')
+        corner_radius = button_height // 2
+
         # Cancel and Save buttons (Cancel on left, Save on right)
         cancel_button = ctk.CTkButton(
             button_frame,
             text="Cancel",
-            corner_radius=20,
-            height=35,
-            width=150,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=180,
             fg_color="#666666",
             hover_color="#444444",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=self._close_dialog
         )
-        cancel_button.pack(side=tk.LEFT, padx=(0, 5))
+        cancel_button.pack(side=tk.LEFT, padx=(0, get_spacing('sm')))
 
         save_button = ctk.CTkButton(
             button_frame,
             text="Save Changes",
-            corner_radius=20,
-            height=35,
-            width=150,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=200,
             fg_color="#058705",
             hover_color="#046a38",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=self.save_settings
         )
-        save_button.pack(side=tk.RIGHT, padx=(5, 0))
+        save_button.pack(side=tk.RIGHT, padx=(get_spacing('sm'), 0))
         
     def switch_category(self, category):
         """Switch to a different settings category."""
@@ -180,24 +195,26 @@ class ConfigDialog:
         location_frame = ttk.LabelFrame(
             self.content_frame,
             text="Recording Location",
-            padding="15"
+            padding="15",
+            style='Dialog.TLabelframe'
         )
         location_frame.pack(fill="x", pady=(0, 20))
 
         ttk.Label(
             location_frame,
             text="Choose where to save audio recording files:",
-            font=get_font('copy_link')
+            style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
-        
+
         # Radio buttons for location options
         ttk.Radiobutton(
             location_frame,
             text="Alongside application (recommended)",
             variable=self.recording_location_var,
-            value="alongside"
+            value="alongside",
+            style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        
+
         # Get the appropriate AppData path based on OS
         if platform.system() == "Windows":
             appdata_text = "In AppData folder"
@@ -205,38 +222,43 @@ class ConfigDialog:
             appdata_text = "In Application Support folder"
         else:  # Linux
             appdata_text = "In home config folder"
-            
+
         ttk.Radiobutton(
             location_frame,
             text=appdata_text,
             variable=self.recording_location_var,
-            value="appdata"
+            value="appdata",
+            style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        
+
         ttk.Radiobutton(
             location_frame,
             text="Custom folder:",
             variable=self.recording_location_var,
             value="custom",
-            command=self.on_custom_location_selected
+            command=self.on_custom_location_selected,
+            style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
         
         # Custom folder selection frame
         self.custom_folder_frame = ttk.Frame(location_frame)
         self.custom_folder_frame.pack(fill="x", pady=(5, 0), padx=(20, 0))
-        
+
         self.custom_path_entry = ttk.Entry(
             self.custom_folder_frame,
             textvariable=self.custom_location_var,
-            state="readonly" if self.recording_location_var.get() != "custom" else "normal"
+            state="readonly" if self.recording_location_var.get() != "custom" else "normal",
+            font=get_font('sm')
         )
         self.custom_path_entry.pack(side=tk.LEFT, fill="x", expand=True, padx=(0, 5))
-        
+
         self.browse_button = ttk.Button(
             self.custom_folder_frame,
             text="Browse...",
             command=self.browse_custom_folder,
-            state="disabled" if self.recording_location_var.get() != "custom" else "normal"
+            state="disabled" if self.recording_location_var.get() != "custom" else "normal",
+            style='Dialog.TButton',
+            cursor='hand2'
         )
         self.browse_button.pack(side=tk.RIGHT)
         
@@ -244,28 +266,31 @@ class ConfigDialog:
         handling_frame = ttk.LabelFrame(
             self.content_frame,
             text="File Handling",
-            padding="15"
+            padding="15",
+            style='Dialog.TLabelframe'
         )
         handling_frame.pack(fill="x", pady=(0, 20))
-        
+
         ttk.Label(
             handling_frame,
             text="Choose how to handle recording files:",
-            font=get_font('copy_link')
+            style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
-        
+
         ttk.Radiobutton(
             handling_frame,
             text="Overwrite the same file each time (saves disk space)",
             variable=self.file_handling_var,
-            value="overwrite"
+            value="overwrite",
+            style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        
+
         ttk.Radiobutton(
             handling_frame,
             text="Save each recording with date/time in filename",
             variable=self.file_handling_var,
-            value="timestamp"
+            value="timestamp",
+            style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
         
         # Warning for timestamp option

@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import json
 from pathlib import Path
 import customtkinter as ctk
-from utils.theme import get_font, get_window_size
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 
 class ManagePromptsDialog:
     def __init__(self, parent):
@@ -15,7 +15,9 @@ class ManagePromptsDialog:
         self.dialog_width, self.dialog_height = get_window_size('manage_prompts')
         self.dialog.geometry(f"{self.dialog_width}x{self.dialog_height}")
 
-        self.dialog.resizable(False, False)
+        # Allow resizing with minimum size constraints
+        self.dialog.resizable(True, True)
+        self.dialog.minsize(600, 400)
         self.dialog.transient(parent)
         self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         self.dialog.grab_set()
@@ -58,13 +60,25 @@ class ManagePromptsDialog:
         self.dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
 
     def create_dialog(self):
-        # Main container frame with padding
+        # Configure styles for consistent fonts
+        style = ttk.Style()
+        style.configure('Dialog.TButton', font=get_font('sm'))
+        style.configure('Dialog.TLabel', font=get_font('sm'))
+        style.configure('Dialog.TLabelframe.Label', font=get_font('sm', 'bold'))
+
+        # Main container frame with padding - using grid for proportional columns
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Configure grid columns with weights for proportional sizing
+        # Left panel: 35%, Right panel: 65%
+        main_frame.columnconfigure(0, weight=45, minsize=220)
+        main_frame.columnconfigure(1, weight=55)
+        main_frame.rowconfigure(0, weight=1)
+
         # Create left panel (prompt selection)
         self.create_left_panel(main_frame)
-        
+
         # Create right panel (prompt content)
         self.create_right_panel(main_frame)
 
@@ -72,15 +86,15 @@ class ManagePromptsDialog:
         self.create_bottom_frame()
 
     def create_left_panel(self, main_frame):
-        left_panel = ttk.Frame(main_frame, width=200)
-        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-        left_panel.pack_propagate(False)
+        # Left panel uses grid placement - will scale proportionally
+        left_panel = ttk.Frame(main_frame)
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, get_spacing('sm')))
 
-        select_frame = ttk.LabelFrame(left_panel, text="Prompt Selection", padding="5")
+        select_frame = ttk.LabelFrame(left_panel, text="Prompt Selection", padding="5", style='Dialog.TLabelframe')
         select_frame.pack(fill=tk.BOTH, expand=True)
 
         # Listbox for prompts with scrollbar
-        self.prompt_list = tk.Listbox(select_frame, height=8, selectmode=tk.BROWSE)
+        self.prompt_list = tk.Listbox(select_frame, height=8, selectmode=tk.BROWSE, font=get_font('sm'))
         prompt_scrollbar = ttk.Scrollbar(select_frame, orient=tk.VERTICAL, command=self.prompt_list.yview)
         self.prompt_list.config(yscrollcommand=prompt_scrollbar.set)
         
@@ -99,9 +113,11 @@ class ManagePromptsDialog:
         button_frame.pack(fill=tk.X, pady=5)
 
         # Action buttons
-        self.new_button = ttk.Button(button_frame, text="New Prompt", command=self.create_new_prompt)
-        self.delete_button = ttk.Button(button_frame, text="Delete", command=self.delete_current_prompt)
-        
+        self.new_button = ttk.Button(button_frame, text="New Prompt", command=self.create_new_prompt,
+                                     style='Dialog.TButton', cursor='hand2')
+        self.delete_button = ttk.Button(button_frame, text="Delete", command=self.delete_current_prompt,
+                                        style='Dialog.TButton', cursor='hand2')
+
         self.new_button.pack(side=tk.LEFT, padx=2)
         self.delete_button.pack(side=tk.LEFT, padx=2)
 
@@ -116,13 +132,14 @@ class ManagePromptsDialog:
             self.update_content()
 
     def create_right_panel(self, main_frame):
+        # Right panel uses grid placement - will scale proportionally
         self.right_panel = ttk.Frame(main_frame)
-        self.right_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.right_panel.grid(row=0, column=1, sticky="nsew")
 
-        content_frame = ttk.LabelFrame(self.right_panel, text="Prompt Content", padding="5")
+        content_frame = ttk.LabelFrame(self.right_panel, text="Prompt Content", padding="5", style='Dialog.TLabelframe')
         content_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.edit_status_label = ttk.Label(content_frame, foreground="red")
+        self.edit_status_label = ttk.Label(content_frame, foreground="red", font=get_font('sm'))
         self.edit_status_label.pack(anchor=tk.W, padx=5, pady=(5,0))
 
         # Create a frame to contain the text widget and scrollbar
@@ -135,7 +152,8 @@ class ManagePromptsDialog:
 
         # Create the text widget with word wrap and vertical scrollbar
         self.content_text = tk.Text(text_frame, wrap=tk.WORD,
-                                  yscrollcommand=v_scrollbar.set)
+                                  yscrollcommand=v_scrollbar.set,
+                                  font=get_font('sm'))
         self.content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Standard bindings and context menu
         try:
@@ -148,22 +166,26 @@ class ManagePromptsDialog:
         # Configure the scrollbar
         v_scrollbar.config(command=self.content_text.yview)
 
-        self.save_changes_button = ttk.Button(self.right_panel, text="Save Changes", 
-                                            command=self.save_content_changes, state='disabled')
+        self.save_changes_button = ttk.Button(self.right_panel, text="Save Changes",
+                                            command=self.save_content_changes, state='disabled',
+                                            style='Dialog.TButton', cursor='hand2')
         self.save_changes_button.pack(pady=(5, 0), anchor=tk.E)
 
     def create_bottom_frame(self):
         bottom_frame = ttk.Frame(self.dialog)
-        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10, padx=10)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=get_spacing('lg'), padx=get_spacing('lg'))
 
+        # Use half the button height for corner_radius to create pill shape
+        button_height = get_button_height('dialog')
         save_button = ctk.CTkButton(
             bottom_frame,
             text="Save Selection and Exit",
-            corner_radius=20,
-            height=35,
+            corner_radius=button_height // 2,
+            height=button_height,
             fg_color="#058705",
             hover_color="#046a38",
-            font=get_font('md', 'bold'),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=self.save_and_exit
         )
         save_button.pack(side=tk.BOTTOM, fill=tk.X)
@@ -197,7 +219,7 @@ class ManagePromptsDialog:
             self.delete_button.config(state='normal')
             self.edit_status_label.config(
                 text=f"{self.current_selected_prompt}",
-                foreground="blue"
+                foreground="#AAAAAA"
             )
 
     def save_content_changes(self):
@@ -236,12 +258,12 @@ class ManagePromptsDialog:
         # Name entry
         name_frame = ttk.Frame(prompt_dialog, padding="10")
         name_frame.pack(fill=tk.X)
-        ttk.Label(name_frame, text="Prompt Name:").pack(side=tk.LEFT)
-        name_entry = ttk.Entry(name_frame)
+        ttk.Label(name_frame, text="Prompt Name:", style='Dialog.TLabel').pack(side=tk.LEFT)
+        name_entry = ttk.Entry(name_frame, font=get_font('sm'))
         name_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # System prompt
-        prompt_frame = ttk.LabelFrame(prompt_dialog, text="System Prompt", padding="10")
+        prompt_frame = ttk.LabelFrame(prompt_dialog, text="System Prompt", padding="10", style='Dialog.TLabelframe')
         prompt_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         # Create a frame for the text widget and scrollbar
@@ -254,7 +276,8 @@ class ManagePromptsDialog:
 
         # Create the text widget with word wrap and vertical scrollbar
         new_prompt_text = tk.Text(text_frame, wrap=tk.WORD, height=15,
-                                yscrollcommand=v_scrollbar.set)
+                                yscrollcommand=v_scrollbar.set,
+                                font=get_font('sm'))
         new_prompt_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         try:
             new_prompt_text.bind("<Control-a>", lambda e: (new_prompt_text.tag_add("sel", "1.0", "end-1c"), "break"))
@@ -306,10 +329,12 @@ class ManagePromptsDialog:
         # Buttons
         button_frame = ttk.Frame(prompt_dialog)
         button_frame.pack(fill=tk.X, pady=10, padx=10)
-        ttk.Button(button_frame, text="Save", 
-                  command=save_new_prompt).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(button_frame, text="Cancel", 
-                  command=prompt_dialog.destroy).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="Save",
+                  command=save_new_prompt,
+                  style='Dialog.TButton', cursor='hand2').pack(side=tk.RIGHT, padx=5)
+        ttk.Button(button_frame, text="Cancel",
+                  command=prompt_dialog.destroy,
+                  style='Dialog.TButton', cursor='hand2').pack(side=tk.RIGHT)
 
     def _show_text_context_menu(self, event, target=None):
         widget = target if target is not None else event.widget

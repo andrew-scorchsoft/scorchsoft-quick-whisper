@@ -25,6 +25,7 @@ FONT_SIZES = {
         'separator': 16,
         'copy_link': 10,
         'status_dot': 14,
+        'dialog_button': 12,
     },
     # Windows HiDPI - explicit values
     'windows_hd': {
@@ -39,6 +40,7 @@ FONT_SIZES = {
         'separator': 18,
         'copy_link': 11,
         'status_dot': 15,
+        'dialog_button': 28,
     },
     # Linux HiDPI - explicit values (may differ from Windows)
     'linux_hd': {
@@ -53,6 +55,7 @@ FONT_SIZES = {
         'separator': 18,
         'copy_link': 11,
         'status_dot': 15,
+        'dialog_button': 28,
     },
     # macOS HiDPI - OS handles most scaling, may need minor tweaks
     'darwin_hd': {
@@ -67,6 +70,7 @@ FONT_SIZES = {
         'separator': 16,
         'copy_link': 10,
         'status_dot': 14,
+        'dialog_button': 12,
     },
 }
 

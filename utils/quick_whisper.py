@@ -37,12 +37,15 @@ from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
-from utils.theme import init_theme, get_window_size, get_font
+from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing
 
 
 class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
+
+        # Hide window during initialization to prevent partial rendering flash
+        self.withdraw()
 
         self.version = "2.0"
 
@@ -88,7 +91,7 @@ class QuickWhisper(tk.Tk):
         # Allow window resizing on all platforms
         self.resizable(True, True)
         # Set minimum size to prevent window becoming too small
-        self.minsize(500, 600)
+        self.minsize(500, 300)
         self.banner_visible = True
         # Initial model settings
         self.transcription_model = "gpt-4o-transcribe"
@@ -183,6 +186,10 @@ class QuickWhisper(tk.Tk):
 
         # Check for updates in a separate thread
         self.version_manager.start_check()
+
+        # Show window now that all widgets are created (prevents partial rendering flash)
+        self.update_idletasks()  # Process all pending layout calculations
+        self.deiconify()
 
         # Schedule UI update for shortcuts after everything is initialized
         def after_init():
@@ -493,11 +500,21 @@ class QuickWhisper(tk.Tk):
         # Buttons frame for horizontal layout
         buttons_frame = ttk.Frame(content_frame)
         buttons_frame.pack(pady=(0, 5))
-        
-        save_button = ttk.Button(buttons_frame, text="Save", command=save_and_close, width=12)
+
+        # Get button font from theme
+        font_button = get_font('sm')
+
+        save_button = ttk.Button(buttons_frame, text="Save", command=save_and_close, width=12, cursor="hand2")
         save_button.pack(side=tk.LEFT, padx=(0, 8))
-        cancel_button = ttk.Button(buttons_frame, text="Cancel", command=dialog.destroy, width=12)
+        save_button.configure(style='Dialog.TButton')
+
+        cancel_button = ttk.Button(buttons_frame, text="Cancel", command=dialog.destroy, width=12, cursor="hand2")
         cancel_button.pack(side=tk.LEFT)
+        cancel_button.configure(style='Dialog.TButton')
+
+        # Configure button style with theme font
+        style = ttk.Style()
+        style.configure('Dialog.TButton', font=font_button)
 
         # Set focus to the entry field and make dialog modal
         api_key_entry.focus()
@@ -1068,6 +1085,10 @@ class QuickWhisper(tk.Tk):
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
+
+        # Calculate wraplength for text labels based on window width and padding
+        # content padding: 32*2, desc_frame padding: 16*2
+        text_wraplength = window_width - 32*2 - 16*2 - 10  # extra margin for safety
         
         # Apply title bar based on theme
         if is_dark:
@@ -1094,27 +1115,27 @@ class QuickWhisper(tk.Tk):
         title_label = tk.Label(
             content,
             text="Quick Whisper",
-            font=(theme.FONT, 24, "bold"),
+            font=get_font('xl', 'bold'),
             fg=text_primary,
             bg=bg_primary
         )
         title_label.pack(anchor="w", pady=(0, 4))
-        
+
         # Subtitle/tagline
         tagline_label = tk.Label(
             content,
             text="AI-Powered Speech-to-Copy-Edited-Text",
-            font=(theme.FONT, 12),
+            font=get_font('md'),
             fg=theme.ACCENT_PRIMARY,
             bg=bg_primary
         )
         tagline_label.pack(anchor="w", pady=(0, 16))
-        
+
         # Version
         version_label = tk.Label(
             content,
             text=f"Version {self.version}",
-            font=(theme.FONT, 10),
+            font=get_font('xs'),
             fg=text_muted,
             bg=bg_primary
         )
@@ -1136,19 +1157,19 @@ class QuickWhisper(tk.Tk):
         desc_label = tk.Label(
             desc_frame,
             text=description,
-            font=(theme.FONT, 11),
+            font=get_font('sm'),
             fg=text_secondary,
             bg=bg_secondary,
-            wraplength=490,
+            wraplength=text_wraplength,
             justify=tk.LEFT
         )
         desc_label.pack(anchor="w")
-        
+
         # Features section
         features_label = tk.Label(
             content,
             text="Key Features",
-            font=(theme.FONT, 13, "bold"),
+            font=get_font('md', 'bold'),
             fg=text_primary,
             bg=bg_primary
         )
@@ -1165,19 +1186,19 @@ class QuickWhisper(tk.Tk):
         for icon, feature in features:
             feature_frame = tk.Frame(content, bg=bg_primary)
             feature_frame.pack(fill=tk.X, pady=2)
-            
+
             tk.Label(
                 feature_frame,
                 text=icon,
-                font=(theme.FONT, 11),
+                font=get_font('sm'),
                 fg=text_primary,
                 bg=bg_primary
             ).pack(side=tk.LEFT, padx=(0, 10))
-            
+
             tk.Label(
                 feature_frame,
                 text=feature,
-                font=(theme.FONT, 11),
+                font=get_font('sm'),
                 fg=text_secondary,
                 bg=bg_primary,
                 anchor="w"
@@ -1199,10 +1220,10 @@ class QuickWhisper(tk.Tk):
         tk.Label(
             usage_frame,
             text=usage_text,
-            font=(theme.FONT, 10),
+            font=get_font('xs'),
             fg=text_tertiary,
             bg=bg_tertiary,
-            wraplength=490,
+            wraplength=text_wraplength,
             justify=tk.LEFT
         ).pack(anchor="w")
         
@@ -1214,31 +1235,37 @@ class QuickWhisper(tk.Tk):
         def open_blog():
             webbrowser.open("https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/")
         
+        # Use half the button height for corner_radius to create pill shape
+        button_height = get_button_height('dialog')
+        corner_radius = button_height // 2
+
         learn_more_btn = ctk.CTkButton(
             button_frame,
             text="Learn More on Our Website",
-            corner_radius=20,
-            height=40,
-            width=220,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=320,
             fg_color=theme.GRADIENT_START,
             hover_color=theme.GRADIENT_HOVER_START,
             text_color="#ffffff" if not is_dark else theme.BG_PRIMARY,
-            font=(theme.FONT, 12, "bold"),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=open_blog
         )
-        learn_more_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
+        learn_more_btn.pack(side=tk.LEFT, padx=(0, get_spacing('lg')))
+
         # Close button
         close_btn = ctk.CTkButton(
             button_frame,
             text="Close",
-            corner_radius=20,
-            height=40,
-            width=100,
+            corner_radius=corner_radius,
+            height=button_height,
+            width=140,
             fg_color=bg_tertiary,
             hover_color=bg_hover,
             text_color=text_primary,
-            font=(theme.FONT, 12),
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button')),
+            cursor="hand2",
             command=dialog.destroy
         )
         close_btn.pack(side=tk.RIGHT)
@@ -1247,7 +1274,7 @@ class QuickWhisper(tk.Tk):
         credit_label = tk.Label(
             content,
             text="Developed by Scorchsoft.com | App & AI Developers",
-            font=(theme.FONT, 10),
+            font=get_font('xs'),
             fg=theme.ACCENT_PRIMARY,
             bg=bg_primary,
             cursor="hand2"
