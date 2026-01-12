@@ -51,7 +51,8 @@ class QuickWhisper(tk.Tk):
 
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
-        self.iconbitmap(self.resource_path("assets/icon.ico"))
+        if platform.system() == "Windows":
+            self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         # Set window size (sized to fit all content including full banner)
         window_width = 640
