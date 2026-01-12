@@ -17,11 +17,14 @@ from openai import OpenAI
 from utils.config_manager import get_config
 from pathlib import Path
 from audioplayer import AudioPlayer
-import keyboard  # For auto-paste functionality
+from pynput.keyboard import Controller as KeyboardController, Key  # For auto-paste functionality
 import platform
 import time
-import ctypes
-from ctypes import wintypes
+
+# Platform-specific imports
+if platform.system() == 'Windows':
+    import ctypes
+    from ctypes import wintypes
 
 from utils.tooltip import ToolTip
 from utils.adjust_models_dialog import AdjustModelsDialog
@@ -157,9 +160,17 @@ class QuickWhisper(tk.Tk):
         
         # Initialize system tray
         self.setup_system_tray()
-        
+
         # Check for updates in a separate thread
         self.version_manager.start_check()
+
+        # Schedule UI update for shortcuts after everything is initialized
+        def after_init():
+            if hasattr(self, 'hotkey_manager') and self.hotkey_manager:
+                self.hotkey_manager.update_shortcut_displays()
+
+        # Delay to ensure UI is fully ready
+        self.after(200, after_init)
 
     # Load configuration from JSON files
     def load_config(self):
@@ -202,16 +213,6 @@ class QuickWhisper(tk.Tk):
             'cycle_prompt_back': self.config_manager.get_shortcut('cycle_prompt_back'),
             'cycle_prompt_forward': self.config_manager.get_shortcut('cycle_prompt_forward')
         }
-        
-        # Schedule UI update and hotkey registration after main window is initialized
-        def after_init():
-            # Update UI with loaded shortcuts
-            self.hotkey_manager.update_shortcut_displays()
-            # Register the loaded shortcuts
-            self.hotkey_manager.force_hotkey_refresh()
-
-        # Delay slightly to ensure UI is ready
-        self.after(100, after_init)
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
@@ -672,11 +673,20 @@ class QuickWhisper(tk.Tk):
 
     def auto_paste_text(self, text):
         try:
+            # Use pynput keyboard controller for cross-platform paste
+            keyboard_controller = KeyboardController()
+
             # Use OS-specific keyboard shortcuts
             if self.is_mac:
-                keyboard.press_and_release('command+v')
+                keyboard_controller.press(Key.cmd)
+                keyboard_controller.press('v')
+                keyboard_controller.release('v')
+                keyboard_controller.release(Key.cmd)
             else:
-                keyboard.press_and_release('ctrl+v')
+                keyboard_controller.press(Key.ctrl)
+                keyboard_controller.press('v')
+                keyboard_controller.release('v')
+                keyboard_controller.release(Key.ctrl)
         except Exception as e:
             messagebox.showerror("Auto-Paste Error", f"Failed to auto-paste the transcription: {e}")
 

@@ -134,25 +134,34 @@ To create a standalone executable, first ensure you have your virtual environmen
 pip install --no-cache-dir pyinstaller
 ```
 
-**Windows (no console window):**
-```bash
-python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import keyboard._winkeyboard quick_whisper.py
-```
-
-**Windows (with console for debugging):**
-```bash
-python -m PyInstaller --onefile --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import keyboard._winkeyboard quick_whisper.py
-```
-
-**Windows (using spec file - recommended):**
+**Using spec file (recommended for all platforms):**
 ```bash
 python -m PyInstaller quick_whisper.spec
 ```
 
-**Mac:**
+The spec file automatically detects your platform and includes the appropriate hidden imports.
+
+**Platform-specific manual builds:**
+
+*Windows (no console window):*
 ```bash
-pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder quick_whisper.py
+python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import pynput.keyboard._win32 quick_whisper.py
 ```
+
+*macOS:*
+```bash
+pyinstaller --onefile --windowed --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.nsss --hidden-import pynput.keyboard._darwin quick_whisper.py
+```
+
+*Linux:*
+```bash
+pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._xorg --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.espeak --hidden-import pynput.keyboard._xorg quick_whisper.py
+```
+
+**Linux prerequisites:**
+- Install espeak for TTS: `sudo apt install espeak`
+- Install tkinter: `sudo apt install python3-tk`
+- For best hotkey support, run under X11 (Wayland has limited global hotkey support)
 
 ## License
 

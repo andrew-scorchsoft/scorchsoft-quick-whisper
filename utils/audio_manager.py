@@ -41,6 +41,13 @@ class AudioManager:
     def start_recording(self):
         """Start recording audio from the selected device."""
         selected_name = self.parent.selected_device.get()
+
+        # Check if we have valid audio devices
+        if selected_name == "No audio devices found" or not selected_name:
+            messagebox.showerror("No Audio Device",
+                "No audio input device available. Please connect a microphone and restart the application.")
+            return False
+
         print(f"Getting Device Index for: '{selected_name}'")
         try:
             self.device_index = self.get_device_index_by_name(selected_name)

@@ -12,28 +12,61 @@ from utils.tooltip import ToolTip
 from utils.config_manager import get_config
 
 
+def get_system_font():
+    """Get the appropriate system font for the current platform."""
+    system = platform.system()
+    if system == 'Windows':
+        return "Segoe UI"
+    elif system == 'Darwin':  # macOS
+        return "SF Pro Text"
+    else:  # Linux
+        # Try common Linux fonts in order of preference
+        import tkinter.font as tkfont
+        try:
+            # Need a temporary root window to query fonts
+            temp_root = tk._default_root
+            if temp_root is None:
+                # Fonts can't be queried yet, use a safe default
+                return "TkDefaultFont"
+            available_fonts = tkfont.families()
+            linux_fonts = [
+                "Ubuntu",
+                "Noto Sans",
+                "DejaVu Sans",
+                "Liberation Sans",
+                "FreeSans",
+                "Sans",
+            ]
+            for font in linux_fonts:
+                if font in available_fonts:
+                    return font
+        except Exception:
+            pass
+        return "TkDefaultFont"  # Ultimate fallback
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCORCHSOFT BRAND THEME
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ModernTheme:
     """Scorchsoft-branded dark theme with accessible typography."""
-    
+
     # Background colors
     BG_PRIMARY = "#0d0d0d"
     BG_SECONDARY = "#161616"
     BG_TERTIARY = "#1c1c1c"
     BG_HOVER = "#262626"
     BG_MENU = "#111111"
-    
+
     # Scorchsoft Red - reserved for recording/stop states
     SCORCHSOFT_RED = "#dc2626"
     SCORCHSOFT_RED_HOVER = "#ef4444"
-    
+
     # Action buttons - gradient inspired by logo (cyan to purple)
     ACCENT_PRIMARY = "#22d3ee"
     ACCENT_HOVER = "#67e8f9"
-    
+
     # Gradient colors (matching logo: cyan → purple with glow)
     GRADIENT_START = "#06b6d4"   # Cyan-500 (richer cyan)
     GRADIENT_MID = "#3b82f6"     # Blue-500 (middle transition)
@@ -41,10 +74,10 @@ class ModernTheme:
     GRADIENT_HOVER_START = "#22d3ee"  # Lighter cyan
     GRADIENT_HOVER_MID = "#60a5fa"    # Lighter blue
     GRADIENT_HOVER_END = "#a78bfa"    # Lighter purple
-    
+
     # Recording status - lighter/brighter red for visibility
     RECORDING_TEXT = "#f87171"
-    
+
     # Recording button gradient (red tones)
     RECORDING_GRADIENT_START = "#dc2626"   # Red-600
     RECORDING_GRADIENT_MID = "#b91c1c"     # Red-700
@@ -53,36 +86,42 @@ class ModernTheme:
     RECORDING_GRADIENT_HOVER_MID = "#dc2626"    # Red-600
     RECORDING_GRADIENT_HOVER_END = "#991b1b"    # Red-800
     RECORDING_BORDER = "#7f1d1d"           # Dark red border (Red-900)
-    
+
     # Text - high contrast for accessibility
     TEXT_PRIMARY = "#ffffff"
     TEXT_SECONDARY = "#e0e0e0"    # Very readable
     TEXT_TERTIARY = "#b0b0b0"     # Still readable
     TEXT_MUTED = "#707070"
-    
+
     # Status
     STATUS_IDLE = "#909090"
     STATUS_PROCESSING = "#f59e0b"
     STATUS_RECORDING = "#ef4444"
     STATUS_SUCCESS = "#22c55e"
-    
+
     # Borders
     BORDER = "#3a3a3a"          # More visible
     BORDER_STRONG = "#505050"   # Pronounced for inputs
-    
-    # Typography - ACCESSIBLE SIZES
-    FONT = "Segoe UI"
+
+    # Typography - ACCESSIBLE SIZES (cross-platform font)
+    FONT = None  # Set dynamically after Tk init
     FONT_SIZE_XXS = 9       # Only for very very minor elements
     FONT_SIZE_XS = 11       # Only for very minor elements
     FONT_SIZE_SM = 12       # Secondary labels
     FONT_SIZE_MD = 13       # Menu, labels, hints
     FONT_SIZE_LG = 14       # Body text, inputs
     FONT_SIZE_XL = 15       # Primary inputs
-    
+
     # Sizing
     RADIUS = 8
     RADIUS_SM = 6
     RADIUS_PILL = 25        # Pill-shaped buttons (half of 50px height for perfect semicircle)
+
+    @classmethod
+    def init_font(cls):
+        """Initialize the font after Tk is available."""
+        if cls.FONT is None:
+            cls.FONT = get_system_font()
 
 
 def set_dark_title_bar(window):
@@ -688,6 +727,8 @@ class UIManager:
     def __init__(self, parent):
         self.parent = parent
         self.banner_visible = True
+        # Initialize font before using theme (needs Tk to be available)
+        ModernTheme.init_font()
         self.theme = ModernTheme()
         
         # UI references
@@ -794,36 +835,40 @@ class UIManager:
         
         device_label = ttk.Label(content, text="Input Device", style="Section.TLabel")
         device_label.pack(anchor="w", pady=(0, 10))
-        
+
         devices = self.parent.audio_manager.get_input_devices()
+        self._has_audio_devices = bool(devices)
+
         if not devices:
-            tk.messagebox.showerror("No Input Devices", "No input audio devices found.")
-            self.parent.destroy()
-            return
-        
-        config = get_config()
-        saved_device = config.selected_input_device
-        if saved_device and saved_device in devices:
-            self.parent.selected_device.set(saved_device)
+            # No audio devices found - show warning but continue with UI
+            # This allows the app to run for UI testing on systems without audio
+            devices = {"No audio devices found": -1}
+            self.parent.selected_device.set("No audio devices found")
+            print("Warning: No input audio devices found. Recording will not work.")
         else:
-            self.parent.selected_device.set(list(devices.keys())[0])
-        
-        def on_device_change(*args):
-            config.selected_input_device = self.parent.selected_device.get()
-            config.save_settings()
-        
-        self.parent.selected_device.trace_add("write", on_device_change)
-        
+            config = get_config()
+            saved_device = config.selected_input_device
+            if saved_device and saved_device in devices:
+                self.parent.selected_device.set(saved_device)
+            else:
+                self.parent.selected_device.set(list(devices.keys())[0])
+
+            def on_device_change(*args):
+                config.selected_input_device = self.parent.selected_device.get()
+                config.save_settings()
+
+            self.parent.selected_device.trace_add("write", on_device_change)
+
         # Device dropdown - ttk.Combobox with Sun Valley styling
         self.device_combo = ttk.Combobox(
             content,
             textvariable=self.parent.selected_device,
             values=list(devices.keys()),
-            state="readonly",
+            state="readonly" if self._has_audio_devices else "disabled",
             font=(self.theme.FONT, self.theme.FONT_SIZE_MD)  # Slightly smaller
         )
         self.device_combo.pack(fill=tk.X, pady=(0, 24), ipady=6)
-        
+
         # Set dropdown list font to match
         self.parent.option_add('*TCombobox*Listbox.font', (self.theme.FONT, self.theme.FONT_SIZE_MD))
         
@@ -1104,10 +1149,23 @@ class UIManager:
         webbrowser.open('https://www.scorchsoft.com/')
         
     def toggle_banner(self):
+        # Check if window still exists before accessing winfo
+        try:
+            if not self.parent.winfo_exists():
+                return
+        except:
+            return
+
+        current_width = self.parent.winfo_width()
         current_height = self.parent.winfo_height()
+
+        # If window hasn't been properly rendered yet, just toggle visibility without geometry change
+        # This happens when toggle_banner is called during initialization
+        window_not_ready = current_width < 100 or current_height < 100
+
         banner_delta = self.banner_height if hasattr(self, 'banner_height') and self.banner_height > 0 else 260
         link_height = 35  # Space needed for footer link (same for both states)
-        
+
         if self.banner_visible:
             # Hiding banner - reduce height but keep space for "Powered by"
             new_height = current_height - (banner_delta - link_height)
@@ -1131,9 +1189,12 @@ class UIManager:
             except:
                 pass
 
-        self.parent.geometry(f"{self.parent.winfo_width()}x{new_height}")
+        # Only adjust geometry if window is properly sized and new dimensions are valid
+        if not window_not_ready and new_height > 100 and current_width > 100:
+            self.parent.geometry(f"{current_width}x{new_height}")
+
         self.banner_visible = not self.banner_visible
-        
+
         # Save the banner visibility setting to config
         self.parent.config_manager.hide_banner = not self.banner_visible
         self.parent.config_manager.save_settings()

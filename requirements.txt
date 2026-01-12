@@ -1,12 +1,12 @@
 audioplayer
 cryptography
 customtkinter
-keyboard
 openai
 packaging
 Pillow
 pyaudio
 pyperclip
+pynput
 pystray
 pyttsx3
 requests
