@@ -236,3 +236,75 @@ def get_font_size(size_name: str) -> int:
 def get_font_family() -> str:
     """Get the current font family name."""
     return FontProvider.get_family()
+
+
+def get_emoji_font() -> str:
+    """
+    Get a font family that supports emoji rendering on the current platform.
+
+    Returns:
+        Font family name that supports emojis, or None if not available
+    """
+    system = platform.system()
+    if system == 'Windows':
+        return "Segoe UI Emoji"
+    elif system == 'Darwin':  # macOS
+        return "Apple Color Emoji"
+    else:  # Linux
+        import tkinter.font as tkfont
+        import tkinter as tk
+        try:
+            temp_root = tk._default_root
+            if temp_root is None:
+                return None
+            available_fonts = tkfont.families()
+            # Try common emoji fonts on Linux
+            emoji_fonts = [
+                "Noto Color Emoji",
+                "Noto Emoji",
+                "Symbola",
+                "Twemoji",
+                "EmojiOne",
+            ]
+            for font in emoji_fonts:
+                if font in available_fonts:
+                    return font
+        except Exception:
+            pass
+        return None
+
+
+# Platform-aware feature icons (fallback text for systems without emoji support)
+def get_feature_icons() -> list:
+    """
+    Get feature icons that work on the current platform.
+
+    Returns:
+        List of tuples (icon, description) for the About dialog features
+    """
+    system = platform.system()
+
+    # Check if we have emoji support on Linux
+    emoji_available = True
+    if system == 'Linux':
+        emoji_font = get_emoji_font()
+        emoji_available = emoji_font is not None
+
+    if emoji_available and system != 'Linux':
+        # Windows and macOS - use emojis
+        return [
+            ("🎤", "Automatic Speech-to-Text Conversion"),
+            ("✨", "Built-in AI Copy Editing"),
+            ("📋", "Auto-Copy and Auto-Paste Functionality"),
+            ("⌨️", "Hotkey-Activated Recording"),
+            ("🔧", "Customizable AI Models and Prompts")
+        ]
+    else:
+        # Linux or no emoji support - use Unicode symbols that render reliably
+        return [
+            ("●", "Automatic Speech-to-Text Conversion"),
+            ("●", "Built-in AI Copy Editing"),
+            ("●", "Auto-Copy and Auto-Paste Functionality"),
+            ("●", "Hotkey-Activated Recording"),
+            ("●", "Customizable AI Models and Prompts")
+        ]

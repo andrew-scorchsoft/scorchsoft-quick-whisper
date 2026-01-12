@@ -43,7 +43,7 @@ WINDOW_SIZES = {
     'linux_hd': {
         'main': (1000, 1150),
         'api_key_dialog': (480, 250),
-        'about_dialog': (920, 1250),
+        'about_dialog': (1100, 1000),
         'tos_dialog': (340, 170),
         'terms_of_use': (720, 1080),
         'manage_prompts': (1500, 1050),

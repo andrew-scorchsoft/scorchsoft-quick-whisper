@@ -37,7 +37,7 @@ from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
-from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing
+from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 
 
 class QuickWhisper(tk.Tk):
@@ -1080,15 +1080,19 @@ class QuickWhisper(tk.Tk):
         dialog.title("About Quick Whisper")
 
         # Get window dimensions from theme
-        window_width, window_height = get_window_size('terms_of_use')
+        window_width, window_height = get_window_size('about_dialog')
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
-        dialog.resizable(False, False)
+        dialog.resizable(True, True)
+        dialog.minsize(500, 400)
 
-        # Calculate wraplength for text labels based on window width and padding
+        # Calculate initial wraplength for text labels based on window width and padding
         # content padding: 32*2, desc_frame padding: 16*2
         text_wraplength = window_width - 32*2 - 16*2 - 10  # extra margin for safety
+
+        # Store labels that need dynamic wraplength updates
+        wrapping_labels = []
         
         # Apply title bar based on theme
         if is_dark:
@@ -1163,7 +1167,8 @@ class QuickWhisper(tk.Tk):
             wraplength=text_wraplength,
             justify=tk.LEFT
         )
-        desc_label.pack(anchor="w")
+        desc_label.pack(anchor="w", fill=tk.X)
+        wrapping_labels.append(desc_label)
 
         # Features section
         features_label = tk.Label(
@@ -1175,13 +1180,7 @@ class QuickWhisper(tk.Tk):
         )
         features_label.pack(anchor="w", pady=(0, 10))
         
-        features = [
-            ("🎤", "Automatic Speech-to-Text Conversion"),
-            ("✨", "Built-in AI Copy Editing"),
-            ("📋", "Auto-Copy and Auto-Paste Functionality"),
-            ("⌨️", "Hotkey-Activated Recording"),
-            ("🔧", "Customizable AI Models and Prompts")
-        ]
+        features = get_feature_icons()
         
         for icon, feature in features:
             feature_frame = tk.Frame(content, bg=bg_primary)
@@ -1217,7 +1216,7 @@ class QuickWhisper(tk.Tk):
             "the result into your active application."
         )
         
-        tk.Label(
+        usage_label = tk.Label(
             usage_frame,
             text=usage_text,
             font=get_font('xs'),
@@ -1225,8 +1224,21 @@ class QuickWhisper(tk.Tk):
             bg=bg_tertiary,
             wraplength=text_wraplength,
             justify=tk.LEFT
-        ).pack(anchor="w")
-        
+        )
+        usage_label.pack(anchor="w", fill=tk.X)
+        wrapping_labels.append(usage_label)
+
+        # Dynamic text wrapping on resize
+        def on_dialog_resize(event):
+            # Only respond to dialog width changes
+            if event.widget == dialog:
+                new_wraplength = event.width - 32*2 - 16*2 - 10
+                if new_wraplength > 100:  # Sanity check
+                    for label in wrapping_labels:
+                        label.configure(wraplength=new_wraplength)
+
+        dialog.bind('<Configure>', on_dialog_resize)
+
         # Bottom buttons frame
         button_frame = tk.Frame(content, bg=bg_primary)
         button_frame.pack(fill=tk.X, pady=(10, 20))

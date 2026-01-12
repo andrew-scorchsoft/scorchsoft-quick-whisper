@@ -41,6 +41,7 @@ from .fonts import (
     get_font,
     get_font_size,
     get_font_family,
+    get_feature_icons,
 )
 from .spacing import (
     SpacingProvider,
@@ -85,6 +86,7 @@ __all__ = [
     'get_font',
     'get_font_size',
     'get_font_family',
+    'get_feature_icons',
     # Spacing
     'SpacingProvider',
     'SPACING',
