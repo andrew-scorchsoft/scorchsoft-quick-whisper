@@ -37,7 +37,7 @@ WINDOW_SIZES = {
     'windows_hd': {
         'main': (1000, 1200),
         'api_key_dialog': (480, 250),
-        'about_dialog': (1100, 1050),
+        'about_dialog': (1100, 950),
         'tos_dialog': (340, 170),
         'terms_of_use': (720, 1080),
         'manage_prompts': (1500, 1050),
