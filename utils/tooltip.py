@@ -1,12 +1,13 @@
 import tkinter as tk
+from utils.theme import get_font
 
 
 class ToolTip():
     """Minimal tooltip matching the dark theme."""
-    
+
     BG_COLOR = "#1a1a1a"
     TEXT_COLOR = "#ffffff"
-    
+
     def __init__(self, widget, text):
         self.widget = widget
         self.text = text
@@ -18,7 +19,7 @@ class ToolTip():
     def show_tooltip(self, event=None):
         if self.tooltip_window or not self.text:
             return
-        
+
         x = self.widget.winfo_rootx() + 10
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
 
@@ -29,11 +30,11 @@ class ToolTip():
         self.tooltip_window.configure(bg=self.BG_COLOR)
 
         label = tk.Label(
-            self.tooltip_window, 
-            text=self.text, 
+            self.tooltip_window,
+            text=self.text,
             background=self.BG_COLOR,
             foreground=self.TEXT_COLOR,
-            font=("Segoe UI", 9),
+            font=get_font('xxs'),
             padx=8, pady=4
         )
         label.pack()

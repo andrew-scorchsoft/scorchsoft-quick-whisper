@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import json
 from pathlib import Path
 import customtkinter as ctk
+from utils.theme import get_font, get_window_size
 
 class ManagePromptsDialog:
     def __init__(self, parent):
@@ -10,12 +11,8 @@ class ManagePromptsDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Prompt Management")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 800, 650
-        if hasattr(parent, 'get_scaled_size'):
-            self.dialog_width, self.dialog_height = parent.get_scaled_size(base_width, base_height)
-        else:
-            self.dialog_width, self.dialog_height = base_width, base_height
+        # Get window dimensions from theme
+        self.dialog_width, self.dialog_height = get_window_size('manage_prompts')
         self.dialog.geometry(f"{self.dialog_width}x{self.dialog_height}")
 
         self.dialog.resizable(False, False)
@@ -166,7 +163,7 @@ class ManagePromptsDialog:
             height=35,
             fg_color="#058705",
             hover_color="#046a38",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=self.save_and_exit
         )
         save_button.pack(side=tk.BOTTOM, fill=tk.X)
@@ -222,12 +219,8 @@ class ManagePromptsDialog:
         prompt_dialog = tk.Toplevel(self.dialog)
         prompt_dialog.title("Create New Prompt")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 600, 400
-        if hasattr(self.parent, 'get_scaled_size'):
-            dialog_width, dialog_height = self.parent.get_scaled_size(base_width, base_height)
-        else:
-            dialog_width, dialog_height = base_width, base_height
+        # Get window dimensions from theme
+        dialog_width, dialog_height = get_window_size('edit_prompt_dialog')
         prompt_dialog.geometry(f"{dialog_width}x{dialog_height}")
 
         prompt_dialog.transient(self.dialog)

@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 import platform
 from utils.config_manager import get_config
+from utils.theme import get_font, get_window_size
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -12,12 +13,8 @@ class ConfigDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Configuration Settings")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 700, 500
-        if hasattr(parent, 'get_scaled_size'):
-            window_width, window_height = parent.get_scaled_size(base_width, base_height)
-        else:
-            window_width, window_height = base_width, base_height
+        # Get window dimensions from theme
+        window_width, window_height = get_window_size('config_dialog')
         self.dialog.geometry(f"{window_width}x{window_height}")
 
         # Center the window
@@ -127,11 +124,11 @@ class ConfigDialog:
             width=150,
             fg_color="#666666",
             hover_color="#444444",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=self._close_dialog
         )
         cancel_button.pack(side=tk.LEFT, padx=(0, 5))
-        
+
         save_button = ctk.CTkButton(
             button_frame,
             text="Save Changes",
@@ -140,7 +137,7 @@ class ConfigDialog:
             width=150,
             fg_color="#058705",
             hover_color="#046a38",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=self.save_settings
         )
         save_button.pack(side=tk.RIGHT, padx=(5, 0))
@@ -175,10 +172,10 @@ class ConfigDialog:
         title_label = ttk.Label(
             self.content_frame,
             text="Recording Settings",
-            font=("Arial", 14, "bold")
+            font=get_font('lg', 'bold')
         )
         title_label.pack(anchor="w", pady=(0, 20))
-        
+
         # Recording Location Section
         location_frame = ttk.LabelFrame(
             self.content_frame,
@@ -186,11 +183,11 @@ class ConfigDialog:
             padding="15"
         )
         location_frame.pack(fill="x", pady=(0, 20))
-        
+
         ttk.Label(
             location_frame,
             text="Choose where to save audio recording files:",
-            font=("Arial", 10)
+            font=get_font('copy_link')
         ).pack(anchor="w", pady=(0, 10))
         
         # Radio buttons for location options
@@ -254,7 +251,7 @@ class ConfigDialog:
         ttk.Label(
             handling_frame,
             text="Choose how to handle recording files:",
-            font=("Arial", 10)
+            font=get_font('copy_link')
         ).pack(anchor="w", pady=(0, 10))
         
         ttk.Radiobutton(
@@ -278,7 +275,7 @@ class ConfigDialog:
         ttk.Label(
             warning_frame,
             text="⚠️ Warning: This can consume significant disk space over time",
-            font=("Arial", 9),
+            font=get_font('xxs'),
             foreground="#CC6600"
         ).pack(anchor="w")
         

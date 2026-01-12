@@ -37,6 +37,7 @@ from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
+from utils.theme import init_theme, get_window_size, get_font
 
 
 class QuickWhisper(tk.Tk):
@@ -50,6 +51,10 @@ class QuickWhisper(tk.Tk):
         # Apply HiDPI scaling for better display on high-resolution monitors
         self._apply_hidpi_scaling()
 
+        # Initialize theme system with HiDPI awareness
+        is_hidpi = getattr(self, 'hidpi_scale_factor', 1.0) > 1.0
+        init_theme(is_hidpi=is_hidpi)
+
         self.title(f"Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) - v{self.version}")
 
         # Initialize prompts
@@ -61,10 +66,8 @@ class QuickWhisper(tk.Tk):
             self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         # Set window size (sized to fit all content including full banner)
-        # Scale dimensions for HiDPI displays
-        base_width = 640
-        base_height = 920
-        window_width, window_height = self.get_scaled_size(base_width, base_height)
+        # Use platform-specific window sizes from theme
+        window_width, window_height = get_window_size('main')
 
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
@@ -341,24 +344,6 @@ class QuickWhisper(tk.Tk):
         # macOS generally handles Retina displays automatically
         # No special handling needed
 
-    def get_scaled_size(self, width, height):
-        """Get dimensions scaled by the HiDPI factor.
-
-        Use this method in dialogs to scale their window sizes.
-        Returns tuple of (scaled_width, scaled_height).
-        """
-        scale = getattr(self, 'hidpi_scale_factor', 1.0)
-        return (int(width * scale), int(height * scale))
-
-    def get_scaled_font_size(self, base_size):
-        """Get font size scaled by the HiDPI factor.
-
-        Use this method when creating fonts to ensure they scale with HiDPI.
-        Returns int font size.
-        """
-        scale = getattr(self, 'hidpi_scale_factor', 1.0)
-        return int(base_size * scale)
-
     # Load configuration from JSON files
     def load_config(self):
         """Load configuration from settings.json and credentials.json files."""
@@ -430,7 +415,7 @@ class QuickWhisper(tk.Tk):
 
     def openai_key_dialog(self):
         """Custom dialog for entering a new OpenAI API key with guidance link."""
-        from utils.ui_manager import set_dark_title_bar, get_system_font
+        from utils.ui_manager import set_dark_title_bar
         import sv_ttk
 
         # Theme colors
@@ -440,9 +425,8 @@ class QuickWhisper(tk.Tk):
         dialog = tk.Toplevel(self)
         dialog.title("Enter New OpenAI API Key")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 420, 220
-        dialog_width, dialog_height = self.get_scaled_size(base_width, base_height)
+        # Get window dimensions from theme
+        dialog_width, dialog_height = get_window_size('api_key_dialog')
 
         # Calculate center position relative to parent
         position_x = self.winfo_x() + (self.winfo_width() - dialog_width) // 2
@@ -456,10 +440,9 @@ class QuickWhisper(tk.Tk):
         if self.dark_mode.get():
             set_dark_title_bar(dialog)
 
-        # Get scaled font sizes
-        font_name = get_system_font()
-        font_size = self.get_scaled_font_size(11)
-        font_size_link = self.get_scaled_font_size(10)
+        # Get fonts from theme
+        font_xs = get_font('xs')
+        font_link = get_font('copy_link', 'underline')
 
         # Main content frame with padding
         content_frame = ttk.Frame(dialog, padding=(20, 15))
@@ -469,12 +452,12 @@ class QuickWhisper(tk.Tk):
         instruction_label = ttk.Label(
             content_frame,
             text="Please enter your new OpenAI API Key below:",
-            font=(font_name, font_size)
+            font=font_xs
         )
         instruction_label.pack(pady=(5, 12))
 
         # Entry field for the API key
-        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=(font_name, font_size))
+        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=font_xs)
         api_key_entry.pack(pady=(0, 12), ipady=4)
         # Provide standard context menu and key bindings
         self._attach_entry_context_menu(api_key_entry)
@@ -488,7 +471,7 @@ class QuickWhisper(tk.Tk):
             fg=THEME_ACCENT,
             bg=bg_color,
             cursor="hand2",
-            font=(font_name, font_size_link, "underline")
+            font=font_link
         )
         link_label.pack(pady=(0, 15))
         link_label.bind("<Button-1>", lambda e: webbrowser.open("https://scorchsoft.com/howto-get-openai-api-key"))
@@ -988,9 +971,8 @@ class QuickWhisper(tk.Tk):
         instruction_window = tk.Toplevel(self)
         instruction_window.title("Terms of Use")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 800, 700
-        window_width, window_height = self.get_scaled_size(base_width, base_height)
+        # Get window dimensions from theme
+        window_width, window_height = get_window_size('about_dialog')
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -1035,9 +1017,8 @@ class QuickWhisper(tk.Tk):
         instruction_window = tk.Toplevel(self)
         instruction_window.title("App Version")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 300, 150
-        window_width, window_height = self.get_scaled_size(base_width, base_height)
+        # Get window dimensions from theme
+        window_width, window_height = get_window_size('tos_dialog')
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -1081,9 +1062,8 @@ class QuickWhisper(tk.Tk):
         dialog = tk.Toplevel(self)
         dialog.title("About Quick Whisper")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 580, 800
-        window_width, window_height = self.get_scaled_size(base_width, base_height)
+        # Get window dimensions from theme
+        window_width, window_height = get_window_size('terms_of_use')
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")

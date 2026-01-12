@@ -5,11 +5,22 @@ from PIL import Image, ImageTk, ImageDraw
 import webbrowser
 import platform
 import ctypes
+import time
 import sv_ttk
 import pyperclip
 
 from utils.tooltip import ToolTip
 from utils.config_manager import get_config
+from utils.theme import (
+    ThemeColors,
+    get_font,
+    get_font_size,
+    get_font_family,
+    get_spacing,
+    get_radius,
+    get_button_height,
+    get_border_width,
+)
 
 
 def get_system_font():
@@ -50,61 +61,68 @@ def get_system_font():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ModernTheme:
-    """Scorchsoft-branded dark theme with accessible typography."""
+    """Scorchsoft-branded dark theme with accessible typography.
 
-    # Background colors
-    BG_PRIMARY = "#0d0d0d"
-    BG_SECONDARY = "#161616"
-    BG_TERTIARY = "#1c1c1c"
-    BG_HOVER = "#262626"
-    BG_MENU = "#111111"
+    This class provides backward compatibility by delegating to ThemeColors
+    and the new theme system. New code should use the theme module directly:
+
+        from utils.theme import ThemeColors, get_font, get_spacing, get_radius
+    """
+
+    # Background colors - delegate to ThemeColors
+    BG_PRIMARY = ThemeColors.BG_PRIMARY
+    BG_SECONDARY = ThemeColors.BG_SECONDARY
+    BG_TERTIARY = ThemeColors.BG_TERTIARY
+    BG_HOVER = ThemeColors.BG_HOVER
+    BG_MENU = ThemeColors.BG_MENU
 
     # Scorchsoft Red - reserved for recording/stop states
-    SCORCHSOFT_RED = "#dc2626"
-    SCORCHSOFT_RED_HOVER = "#ef4444"
+    SCORCHSOFT_RED = ThemeColors.SCORCHSOFT_RED
+    SCORCHSOFT_RED_HOVER = ThemeColors.SCORCHSOFT_RED_HOVER
 
     # Action buttons - gradient inspired by logo (cyan to purple)
-    ACCENT_PRIMARY = "#22d3ee"
-    ACCENT_HOVER = "#67e8f9"
+    ACCENT_PRIMARY = ThemeColors.ACCENT_PRIMARY
+    ACCENT_HOVER = ThemeColors.ACCENT_HOVER
 
-    # Gradient colors (matching logo: cyan → purple with glow)
-    GRADIENT_START = "#06b6d4"   # Cyan-500 (richer cyan)
-    GRADIENT_MID = "#3b82f6"     # Blue-500 (middle transition)
-    GRADIENT_END = "#8b5cf6"     # Violet-500 (purple)
-    GRADIENT_HOVER_START = "#22d3ee"  # Lighter cyan
-    GRADIENT_HOVER_MID = "#60a5fa"    # Lighter blue
-    GRADIENT_HOVER_END = "#a78bfa"    # Lighter purple
+    # Gradient colors (matching logo: cyan -> purple with glow)
+    GRADIENT_START = ThemeColors.GRADIENT_START
+    GRADIENT_MID = ThemeColors.GRADIENT_MID
+    GRADIENT_END = ThemeColors.GRADIENT_END
+    GRADIENT_HOVER_START = ThemeColors.GRADIENT_HOVER_START
+    GRADIENT_HOVER_MID = ThemeColors.GRADIENT_HOVER_MID
+    GRADIENT_HOVER_END = ThemeColors.GRADIENT_HOVER_END
 
     # Recording status - lighter/brighter red for visibility
-    RECORDING_TEXT = "#f87171"
+    RECORDING_TEXT = ThemeColors.RECORDING_TEXT
 
     # Recording button gradient (red tones)
-    RECORDING_GRADIENT_START = "#dc2626"   # Red-600
-    RECORDING_GRADIENT_MID = "#b91c1c"     # Red-700
-    RECORDING_GRADIENT_END = "#7f1d1d"     # Red-900
-    RECORDING_GRADIENT_HOVER_START = "#ef4444"  # Red-500 (lighter)
-    RECORDING_GRADIENT_HOVER_MID = "#dc2626"    # Red-600
-    RECORDING_GRADIENT_HOVER_END = "#991b1b"    # Red-800
-    RECORDING_BORDER = "#7f1d1d"           # Dark red border (Red-900)
+    RECORDING_GRADIENT_START = ThemeColors.RECORDING_GRADIENT_START
+    RECORDING_GRADIENT_MID = ThemeColors.RECORDING_GRADIENT_MID
+    RECORDING_GRADIENT_END = ThemeColors.RECORDING_GRADIENT_END
+    RECORDING_GRADIENT_HOVER_START = ThemeColors.RECORDING_GRADIENT_HOVER_START
+    RECORDING_GRADIENT_HOVER_MID = ThemeColors.RECORDING_GRADIENT_HOVER_MID
+    RECORDING_GRADIENT_HOVER_END = ThemeColors.RECORDING_GRADIENT_HOVER_END
+    RECORDING_BORDER = ThemeColors.RECORDING_BORDER
 
     # Text - high contrast for accessibility
-    TEXT_PRIMARY = "#ffffff"
-    TEXT_SECONDARY = "#e0e0e0"    # Very readable
-    TEXT_TERTIARY = "#b0b0b0"     # Still readable
-    TEXT_MUTED = "#707070"
+    TEXT_PRIMARY = ThemeColors.TEXT_PRIMARY
+    TEXT_SECONDARY = ThemeColors.TEXT_SECONDARY
+    TEXT_TERTIARY = ThemeColors.TEXT_TERTIARY
+    TEXT_MUTED = ThemeColors.TEXT_MUTED
 
     # Status
-    STATUS_IDLE = "#909090"
-    STATUS_PROCESSING = "#f59e0b"
-    STATUS_RECORDING = "#ef4444"
-    STATUS_SUCCESS = "#22c55e"
+    STATUS_IDLE = ThemeColors.STATUS_IDLE
+    STATUS_PROCESSING = ThemeColors.STATUS_PROCESSING
+    STATUS_RECORDING = ThemeColors.STATUS_RECORDING
+    STATUS_SUCCESS = ThemeColors.STATUS_SUCCESS
 
     # Borders
-    BORDER = "#3a3a3a"          # More visible
-    BORDER_STRONG = "#505050"   # Pronounced for inputs
+    BORDER = ThemeColors.BORDER
+    BORDER_STRONG = ThemeColors.BORDER_STRONG
 
     # Typography - ACCESSIBLE SIZES (cross-platform font)
-    FONT = None  # Set dynamically after Tk init
+    # These are base sizes; the theme system handles HiDPI scaling
+    FONT = None  # Set dynamically after Tk init via init_font()
     FONT_SIZE_XXS = 9       # Only for very very minor elements
     FONT_SIZE_XS = 11       # Only for very minor elements
     FONT_SIZE_SM = 12       # Secondary labels
@@ -112,16 +130,16 @@ class ModernTheme:
     FONT_SIZE_LG = 14       # Body text, inputs
     FONT_SIZE_XL = 15       # Primary inputs
 
-    # Sizing
+    # Sizing - use get_radius() from theme for HiDPI-aware values
     RADIUS = 8
     RADIUS_SM = 6
-    RADIUS_PILL = 25        # Pill-shaped buttons (half of 50px height for perfect semicircle)
+    RADIUS_PILL = 25        # Pill-shaped buttons
 
     @classmethod
     def init_font(cls):
         """Initialize the font after Tk is available."""
         if cls.FONT is None:
-            cls.FONT = get_system_font()
+            cls.FONT = get_font_family()
 
 
 def set_dark_title_bar(window):
@@ -143,14 +161,17 @@ def set_dark_title_bar(window):
 
 class StyledPopupMenu:
     """A modern styled popup menu using ttk widgets for Sun Valley theme compatibility."""
-    
-    def __init__(self, parent, theme=None):
+
+    def __init__(self, parent, theme=None, menu_name=None):
         self.parent = parent
         self.theme = theme or ModernTheme()
         self.popup = None
         self.items = []  # List of menu items: (type, label, command, variable, accelerator)
         self._is_open = False
         self._pending_close_id = None  # Track pending close timer
+        self._menu_name = menu_name  # Identify this menu for toggle behavior
+        self._close_time = 0  # Track when menu was last closed for toggle detection
+        self._parent_click_binding = None  # Track binding for cleanup
         
     def add_command(self, label, command=None, accelerator=None):
         """Add a command item to the menu."""
@@ -184,6 +205,8 @@ class StyledPopupMenu:
         
     def tk_popup(self, x, y):
         """Show the popup menu at the specified coordinates."""
+        print(f"[POPUP DEBUG] tk_popup called, menu={self._menu_name}, is_open={self._is_open}, time_since_close={time.time() - self._close_time:.3f}")
+
         # Cancel any pending close timer from previous popup
         if self._pending_close_id is not None:
             try:
@@ -191,10 +214,19 @@ class StyledPopupMenu:
             except:
                 pass
             self._pending_close_id = None
-        
+
+        # Toggle behavior: if menu was just closed (within 300ms), don't reopen
+        # This handles the case where user clicks the same menu button to close it
+        if time.time() - self._close_time < 0.3:
+            print("[POPUP DEBUG] Skipping open - too soon after close (toggle)")
+            return
+
         if self._is_open:
+            print("[POPUP DEBUG] Already open, closing")
             self._close()
-            
+            return  # Just close, don't reopen
+
+        print("[POPUP DEBUG] Opening popup")
         self._is_open = True
         
         # Create popup window
@@ -303,15 +335,51 @@ class StyledPopupMenu:
         
         self.popup.geometry(f"+{x}+{y}")
         self.popup.deiconify()  # Show the popup
-        
-        # Bind click outside to close
-        def schedule_close(e):
-            self._pending_close_id = self.parent.after(100, self._close)
-        self.popup.bind('<FocusOut>', schedule_close)
-        self.popup.focus_set()
-        
-        # Also close on escape
+
+        # Store popup geometry for click-outside detection
+        self._popup_x = x
+        self._popup_y = y
+        self._popup_width = popup_width
+        self._popup_height = popup_height
+
+        # Close on escape
         self.popup.bind('<Escape>', lambda e: self._close())
+
+        # On Linux, FocusOut is unreliable for overrideredirect windows
+        # Use grab to capture all clicks and check if they're outside
+        if platform.system() == "Linux":
+            # With grab_set(), clicks outside the popup are still sent to the popup
+            # but with screen coordinates we can detect if they're outside bounds
+            def on_any_click(e):
+                print(f"[POPUP DEBUG] on_any_click called, is_open={self._is_open}, popup={self.popup}")
+                if self.popup and self._is_open:
+                    # Get click coordinates relative to screen
+                    click_x = e.x_root
+                    click_y = e.y_root
+                    # Check if click is outside popup bounds
+                    inside = (self._popup_x <= click_x <= self._popup_x + self._popup_width and
+                              self._popup_y <= click_y <= self._popup_y + self._popup_height)
+                    print(f"[POPUP DEBUG] click=({click_x},{click_y}), popup=({self._popup_x},{self._popup_y},{self._popup_width},{self._popup_height}), inside={inside}")
+                    if not inside:
+                        print("[POPUP DEBUG] Closing popup (click outside)")
+                        self._close()
+                        return "break"  # Consume the event
+
+            # Use local grab to capture clicks
+            try:
+                self.popup.grab_set()
+                print("[POPUP DEBUG] grab_set() succeeded")
+            except Exception as e:
+                print(f"[POPUP DEBUG] grab_set() failed: {e}")
+
+            # Bind click handler to popup - this catches all clicks due to grab
+            self.popup.bind('<Button-1>', on_any_click)
+        else:
+            # Windows/macOS: FocusOut works reliably
+            def schedule_close(e):
+                self._pending_close_id = self.parent.after(100, self._close)
+            self.popup.bind('<FocusOut>', schedule_close)
+            self.popup.focus_set()
         
     def _create_command_item(self, parent, label, command, accelerator=None):
         """Create a command menu item."""
@@ -327,7 +395,7 @@ class StyledPopupMenu:
         lbl = tk.Label(
             item_frame,
             text=f"    {label}",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=get_font('md'),
             fg=text,
             bg=bg,
             anchor='w',
@@ -335,13 +403,13 @@ class StyledPopupMenu:
             pady=6
         )
         lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+
         # Accelerator (keyboard shortcut) if provided
         if accelerator:
             accel_lbl = tk.Label(
                 item_frame,
                 text=accelerator,
-                font=(self.theme.FONT, self.theme.FONT_SIZE_XS),
+                font=get_font('xs'),
                 fg=text_muted,
                 bg=bg,
                 anchor='e',
@@ -387,19 +455,19 @@ class StyledPopupMenu:
         check_lbl = tk.Label(
             item_frame,
             text=check_text,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=get_font('md'),
             fg=self.theme.ACCENT_PRIMARY if is_checked else text_muted,
             bg=bg,
             width=3,
             anchor='center'
         )
         check_lbl.pack(side=tk.LEFT, padx=(8, 0))
-        
+
         # Label
         lbl = tk.Label(
             item_frame,
             text=label,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=get_font('md'),
             fg=text,
             bg=bg,
             anchor='w',
@@ -439,38 +507,63 @@ class StyledPopupMenu:
     
     def _close(self):
         """Close the popup menu."""
+        print(f"[POPUP DEBUG] _close called, is_open={self._is_open}, popup={self.popup}")
         # Clear the pending close timer reference
         self._pending_close_id = None
-        
+
         if self.popup and self._is_open:
             self._is_open = False
+            # Record close time for toggle detection
+            self._close_time = time.time()
+            print(f"[POPUP DEBUG] Set _close_time to {self._close_time}")
+
+            # Release grab on Linux before destroying
+            if platform.system() == "Linux":
+                try:
+                    self.popup.grab_release()
+                    print("[POPUP DEBUG] grab_release() succeeded")
+                except Exception as e:
+                    print(f"[POPUP DEBUG] grab_release() failed: {e}")
+
             try:
                 self.popup.destroy()
-            except:
-                pass
+                print("[POPUP DEBUG] popup.destroy() succeeded")
+            except Exception as e:
+                print(f"[POPUP DEBUG] popup.destroy() failed: {e}")
             self.popup = None
+
+            # On Linux, explicitly restore focus to main window after grab release
+            # Without this, text inputs won't receive focus on click
+            if platform.system() == "Linux":
+                try:
+                    root = self.parent.winfo_toplevel()
+                    root.focus_force()
+                    print("[POPUP DEBUG] focus_force() on root succeeded")
+                except Exception as e:
+                    print(f"[POPUP DEBUG] focus_force() failed: {e}")
 
 
 class GradientButton(tk.Canvas):
-    """Custom button with gradient background (cyan → blue → purple like logo)."""
-    
-    def __init__(self, parent, text="", command=None, width=200, height=50, 
-                 corner_radius=25, font=("Segoe UI", 13, "bold"),
+    """Custom button with gradient background (cyan -> blue -> purple like logo)."""
+
+    def __init__(self, parent, text="", command=None, width=200, height=50,
+                 corner_radius=25, font=None,
                  gradient_start="#06b6d4", gradient_mid="#3b82f6", gradient_end="#8b5cf6",
                  hover_start="#22d3ee", hover_mid="#60a5fa", hover_end="#a78bfa",
                  solid_color=None, solid_hover=None,
                  border_color="#6d9dc5", border_width=1,
                  text_color="#0d0d0d", bg_color="#0d0d0d", **kwargs):
-        
-        super().__init__(parent, width=width, height=height, 
+
+        super().__init__(parent, width=width, height=height,
                         bg=bg_color, highlightthickness=0, cursor="hand2", **kwargs)
-        
+
         self.text = text
         self.command = command
         self.width = width
         self.height = height
         self.corner_radius = corner_radius
-        self.font = font
+        # Use provided font or default to theme font
+        self.font = font if font is not None else get_font('md', 'bold')
         self.text_color = text_color
         self.bg_color = bg_color
         self.border_color = border_color
@@ -755,38 +848,40 @@ class UIManager:
         """Configure ttk styles for Sun Valley theme customization."""
         style = ttk.Style()
 
-        # Get scaled font size if HiDPI is enabled
-        def scaled_font(base_size):
-            if hasattr(self.parent, 'get_scaled_font_size'):
-                return self.parent.get_scaled_font_size(base_size)
-            return base_size
-
         # Custom style for section labels
         style.configure("Section.TLabel",
-            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_MD), "bold"))
+            font=get_font('md', 'bold'))
 
         # Custom style for muted text
         style.configure("Muted.TLabel",
-            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_SM)))
+            font=get_font('sm'))
 
         # Smaller muted text for model info
         style.configure("Small.TLabel",
-            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_XXS)))
+            font=get_font('xxs'))
 
         # Custom style for status text
         style.configure("Status.TLabel",
-            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_XS)))
+            font=get_font('xs'))
 
         # Nav button style
         style.configure("Nav.TButton",
-            font=(self.theme.FONT, scaled_font(14)),
+            font=get_font('lg'),
             padding=(4, 4))
 
-        # Menu bar button style - scaled for HiDPI
+        # Menu bar button style
         style.configure("Menu.TButton",
-            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_MD)),
+            font=get_font('menu_button'),
             padding=(8, 4))
-        
+
+        # Switch toggle style (for Options checkbuttons)
+        style.configure("Switch.TCheckbutton",
+            font=get_font('sm'))
+
+        # LabelFrame style (for Options frame title)
+        style.configure("TLabelframe.Label",
+            font=get_font('sm'))
+
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
         
@@ -877,12 +972,12 @@ class UIManager:
             textvariable=self.parent.selected_device,
             values=list(devices.keys()),
             state="readonly" if self._has_audio_devices else "disabled",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD)  # Slightly smaller
+            font=get_font('md')
         )
         self.device_combo.pack(fill=tk.X, pady=(0, 24), ipady=6)
 
         # Set dropdown list font to match
-        self.parent.option_add('*TCombobox*Listbox.font', (self.theme.FONT, self.theme.FONT_SIZE_MD))
+        self.parent.option_add('*TCombobox*Listbox.font', get_font('md'))
         
         # ─────────────────────────────────────────────────────────────────────
         # TRANSCRIPTION
@@ -895,37 +990,39 @@ class UIManager:
         transcription_label.pack(side=tk.LEFT)
         
         # Navigation buttons - minimal icon-only style
+        # Use ttk widgets throughout to inherit correct theme background
         nav_frame = ttk.Frame(header_row)
         nav_frame.pack(side=tk.RIGHT)
-        
-        # Use labels styled as clickable icons (no button border)
-        nav_style = {"font": (self.theme.FONT, 24), "cursor": "hand2"}
-        
+
         self._nav_button_disabled = {"first": True, "left": True, "right": True}
-        
-        # Create inner frame for vertical centering of all nav elements
-        nav_inner = ttk.Frame(nav_frame)
-        nav_inner.pack(side=tk.LEFT, fill=tk.Y)
-        
-        self.button_first_page = ttk.Label(nav_inner, text="«", **nav_style)
-        self.button_first_page.pack(side=tk.LEFT, padx=3)
+
+        nav_btn_pad = get_spacing('xs')
+
+        # Configure styles for nav buttons
+        style = ttk.Style()
+        style.configure("Nav.TLabel", font=get_font('nav_arrow'), foreground=self.theme.TEXT_PRIMARY)
+        style.configure("Separator.TLabel", font=get_font('separator'), foreground=self.theme.TEXT_MUTED)
+        style.configure("Copy.TLabel", font=get_font('copy_link'), foreground=self.theme.TEXT_SECONDARY)
+
+        self.button_first_page = ttk.Label(nav_frame, text="«", style="Nav.TLabel", cursor="hand2")
+        self.button_first_page.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_first_page.bind("<Button-1>", lambda e: None if self._nav_button_disabled["first"] else self.parent.go_to_first_page())
-        
-        self.button_arrow_left = ttk.Label(nav_inner, text="‹", **nav_style)
-        self.button_arrow_left.pack(side=tk.LEFT, padx=3)
+
+        self.button_arrow_left = ttk.Label(nav_frame, text="‹", style="Nav.TLabel", cursor="hand2")
+        self.button_arrow_left.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_left.bind("<Button-1>", lambda e: None if self._nav_button_disabled["left"] else self.parent.navigate_left())
-        
-        self.button_arrow_right = ttk.Label(nav_inner, text="›", **nav_style)
-        self.button_arrow_right.pack(side=tk.LEFT, padx=3)
+
+        self.button_arrow_right = ttk.Label(nav_frame, text="›", style="Nav.TLabel", cursor="hand2")
+        self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
-        
-        # Separator and copy - pushed down with top padding to align with arrow baselines
-        separator_label = ttk.Label(nav_inner, text="|", font=(self.theme.FONT, 16), foreground=self.theme.TEXT_MUTED)
-        separator_label.pack(side=tk.LEFT, padx=(6, 4), pady=(5, 0))
-        
+
+        # Separator and copy - with padding to align baselines with arrows
+        separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
+        separator_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
+
         # Copy button - more top padding since smaller font (to ai: don't remove the space before "Copy")
-        self.button_copy = ttk.Label(nav_inner, text="  Copy", font=(self.theme.FONT, 10), cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
-        self.button_copy.pack(side=tk.LEFT, padx=(0, 0), pady=(8, 0))
+        self.button_copy = ttk.Label(nav_frame, text="  Copy", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
+        self.button_copy.pack(side=tk.LEFT, pady=(8, 0))
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
         
         # Set initial disabled state (muted color)
@@ -966,7 +1063,7 @@ class UIManager:
         self.transcription_text = tk.Text(
             text_frame,
             height=10,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_SM),
+            font=get_font('sm'),
             wrap="word",
             relief="flat",
             borderwidth=0,
@@ -999,7 +1096,7 @@ class UIManager:
         status_left = ttk.Frame(status_row)
         status_left.pack(side=tk.LEFT)
         
-        self.status_dot = ttk.Label(status_left, text="●", font=(self.theme.FONT, 14))
+        self.status_dot = ttk.Label(status_left, text="●", font=get_font('status_dot'))
         self.status_dot.pack(side=tk.LEFT, padx=(0, 6))
         
         self.status_label = ttk.Label(status_left, text="Idle", style="Status.TLabel")
@@ -1058,9 +1155,10 @@ class UIManager:
             buttons_frame,
             text="Record + Transcript",
             width=btn_width,
-            height=50,
-            corner_radius=self.theme.RADIUS_PILL,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD, "bold"),
+            height=get_button_height('md'),
+            corner_radius=get_radius('pill'),
+            border_width=get_border_width('md'),
+            font=get_font('md', 'bold'),
             gradient_start=self.theme.GRADIENT_START,
             gradient_mid=self.theme.GRADIENT_MID,
             gradient_end=self.theme.GRADIENT_END,
@@ -1072,14 +1170,15 @@ class UIManager:
             command=lambda: self.parent.toggle_recording("transcribe")
         )
         self.record_button_transcribe.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
-        
+
         self.record_button_edit = GradientButton(
             buttons_frame,
             text="Record + AI Edit",
             width=btn_width,
-            height=50,
-            corner_radius=self.theme.RADIUS_PILL,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD, "bold"),
+            height=get_button_height('md'),
+            corner_radius=get_radius('pill'),
+            border_width=get_border_width('md'),
+            font=get_font('md', 'bold'),
             gradient_start=self.theme.GRADIENT_START,
             gradient_mid=self.theme.GRADIENT_MID,
             gradient_end=self.theme.GRADIENT_END,
@@ -1138,7 +1237,7 @@ class UIManager:
         self.powered_by_label = ttk.Label(
             self.banner_frame, text="Scorchsoft.com | App & AI Developers",
             cursor="hand2", foreground=self.theme.SCORCHSOFT_RED,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_XXS, "underline")
+            font=get_font('xxs', 'underline')
         )
         self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
         
@@ -1325,7 +1424,7 @@ class UIManager:
         label = tk.Label(
             frame,
             text=message,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=get_font('md'),
             fg=self.theme.TEXT_PRIMARY,
             bg=self.theme.BG_TERTIARY
         )
@@ -1362,9 +1461,9 @@ class UIManager:
         menu = tk.Menu(
             self.parent, tearoff=0,
             bg=self.theme.BG_MENU, fg=self.theme.TEXT_PRIMARY,
-            activebackground=self.theme.BG_HOVER, 
+            activebackground=self.theme.BG_HOVER,
             activeforeground=self.theme.TEXT_PRIMARY,
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD),
+            font=get_font('md'),
             bd=0, relief="flat"
         )
         menu.add_command(label="Cut", command=lambda: self.transcription_text.event_generate('<<Cut>>'))

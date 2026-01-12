@@ -6,6 +6,7 @@ import customtkinter as ctk
 import sv_ttk
 from utils.config_manager import get_config
 from utils.ui_manager import set_dark_title_bar
+from utils.theme import get_font, get_window_size
 
 # Theme colors for dark mode
 THEME_TEXT_SECONDARY = "#b0b0b0"  # Readable secondary text
@@ -19,12 +20,8 @@ class AdjustModelsDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Adjust AI Models")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 450, 620
-        if hasattr(parent, 'get_scaled_size'):
-            self.dialog_width, self.dialog_height = parent.get_scaled_size(base_width, base_height)
-        else:
-            self.dialog_width, self.dialog_height = base_width, base_height
+        # Get window dimensions from theme
+        self.dialog_width, self.dialog_height = get_window_size('adjust_models')
         self.dialog.geometry(f"{self.dialog_width}x{self.dialog_height}")
         
         # Apply Sun Valley theme based on current setting
@@ -228,8 +225,8 @@ class AdjustModelsDialog:
         # Model type info
         model_type_text = ("Note: GPT models provide higher quality transcription with broad language support.\n"
                            "Whisper is the traditional speech recognition model.")
-        ttk.Label(transcription_section, text=model_type_text, 
-                 font=("Segoe UI", 9), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(8, 0))
+        ttk.Label(transcription_section, text=model_type_text,
+                 font=get_font('xxs'), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(8, 0))
 
         # AI Model Entry - after the transcription section with clean separation
         ttk.Label(models_frame, text="OpenAI Copyediting Model:").pack(anchor="w", pady=(5, 0))
@@ -279,8 +276,8 @@ class AdjustModelsDialog:
         
         # Model info
         llm_info_text = "e.g., gpt-5, gpt-4o, gpt-4o-mini, o1-mini, o1-preview"
-        ttk.Label(models_frame, text=llm_info_text, 
-                 font=("Segoe UI", 9), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(5, 0))
+        ttk.Label(models_frame, text=llm_info_text,
+                 font=get_font('xxs'), foreground=THEME_TEXT_MUTED).pack(anchor="w", pady=(5, 0))
 
         # Save button - using CTkButton
         save_button = ctk.CTkButton(
@@ -290,14 +287,14 @@ class AdjustModelsDialog:
             height=35,
             fg_color="#058705",
             hover_color="#046a38",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=self.save_model_settings
         )
         save_button.pack(pady=10)
 
         # Link to OpenAI Pricing - styled for dark mode
-        link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing", 
-                       fg=THEME_ACCENT, cursor="hand2", font=("Segoe UI", 10, "underline"))
+        link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing",
+                       fg=THEME_ACCENT, cursor="hand2", font=get_font('copy_link', 'underline'))
         link.pack(pady=(0, 10))
         link.bind("<Button-1>", lambda e: webbrowser.open("https://openai.com/api/pricing/"))
         link.bind("<Enter>", lambda e: link.config(fg=THEME_ACCENT_HOVER))
@@ -311,7 +308,7 @@ class AdjustModelsDialog:
                             "• GPT-4o-transcribe: Highest quality transcription with broad language support\n"
                             "• Whisper-1: Traditional speech recognition model\n"
                             "• Other: Custom model name (advanced usage)")
-        
+
         # Scale wraplength for HiDPI
         wrap_width = self.dialog_width - 20  # Account for padding
         ttk.Label(
@@ -319,7 +316,7 @@ class AdjustModelsDialog:
             text=instructional_text,
             wraplength=wrap_width,
             justify="left",
-            font=("Segoe UI", 9),
+            font=get_font('xxs'),
             foreground=THEME_TEXT_MUTED
         ).pack(pady=(0, 10))
 

@@ -13,6 +13,7 @@ import threading
 import time
 
 from utils.config_manager import get_config
+from utils.theme import get_font, get_window_size
 from . import CURRENT_PLATFORM
 
 
@@ -272,12 +273,8 @@ class HotkeyManagerBase(ABC):
         shortcut_window = tk.Toplevel(self.parent)
         shortcut_window.title("Keyboard Shortcuts")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 500, 400
-        if hasattr(self.parent, 'get_scaled_size'):
-            window_width, window_height = self.parent.get_scaled_size(base_width, base_height)
-        else:
-            window_width, window_height = base_width, base_height
+        # Get window dimensions from theme
+        window_width, window_height = get_window_size('hotkey_dialog')
         position_x = self.parent.winfo_x() + (self.parent.winfo_width() - window_width) // 2
         position_y = self.parent.winfo_y() + (self.parent.winfo_height() - window_height) // 2
         shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -288,7 +285,7 @@ class HotkeyManagerBase(ABC):
         title_label = ttk.Label(
             main_frame,
             text="Keyboard Shortcuts",
-            font=("Arial", 12, "bold")
+            font=get_font('sm', 'bold')
         )
         title_label.pack(pady=(0, 10))
 
@@ -323,7 +320,7 @@ class HotkeyManagerBase(ABC):
             width=200,
             fg_color="#058705",
             hover_color="#046a38",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=self.force_hotkey_refresh
         )
         refresh_button.pack(side=tk.LEFT, padx=5)
@@ -336,7 +333,7 @@ class HotkeyManagerBase(ABC):
             width=200,
             fg_color="#666666",
             hover_color="#444444",
-            font=("Arial", 13, "bold"),
+            font=get_font('md', 'bold'),
             command=lambda: self.reset_shortcuts_to_default(shortcuts_window=shortcut_window)
         )
         reset_button.pack(side=tk.LEFT, padx=5)
@@ -357,7 +354,7 @@ class HotkeyManagerBase(ABC):
             main_frame,
             text=note_text,
             justify=tk.CENTER,
-            font=("Arial", 9),
+            font=get_font('xxs'),
             foreground="#666666"
         ).pack(pady=10)
 

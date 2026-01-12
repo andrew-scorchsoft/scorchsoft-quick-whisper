@@ -6,6 +6,7 @@ import webbrowser
 from pathlib import Path
 from packaging import version
 from utils.config_manager import get_config
+from utils.theme import get_window_size
 
 class VersionUpdateManager:
     def __init__(self, parent):
@@ -58,12 +59,8 @@ class VersionUpdateManager:
         notification = tk.Toplevel(self.parent)
         notification.title("Update Available")
 
-        # Get scaled dimensions for HiDPI displays
-        base_width, base_height = 400, 200
-        if hasattr(self.parent, 'get_scaled_size'):
-            notification_width, notification_height = self.parent.get_scaled_size(base_width, base_height)
-        else:
-            notification_width, notification_height = base_width, base_height
+        # Get window dimensions from theme
+        notification_width, notification_height = get_window_size('version_notification')
         position_x = self.parent.winfo_x() + (self.parent.winfo_width() - notification_width) // 2
         position_y = self.parent.winfo_y() + (self.parent.winfo_height() - notification_height) // 2
         notification.geometry(f"{notification_width}x{notification_height}+{position_x}+{position_y}")
