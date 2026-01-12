@@ -754,27 +754,38 @@ class UIManager:
     def _setup_styles(self):
         """Configure ttk styles for Sun Valley theme customization."""
         style = ttk.Style()
-        
+
+        # Get scaled font size if HiDPI is enabled
+        def scaled_font(base_size):
+            if hasattr(self.parent, 'get_scaled_font_size'):
+                return self.parent.get_scaled_font_size(base_size)
+            return base_size
+
         # Custom style for section labels
         style.configure("Section.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_MD, "bold"))
-        
+            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_MD), "bold"))
+
         # Custom style for muted text
         style.configure("Muted.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_SM))
-        
+            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_SM)))
+
         # Smaller muted text for model info
         style.configure("Small.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_XXS))
-        
-        # Custom style for status text  
+            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_XXS)))
+
+        # Custom style for status text
         style.configure("Status.TLabel",
-            font=(self.theme.FONT, self.theme.FONT_SIZE_XS))
-        
+            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_XS)))
+
         # Nav button style
         style.configure("Nav.TButton",
-            font=(self.theme.FONT, 14),
+            font=(self.theme.FONT, scaled_font(14)),
             padding=(4, 4))
+
+        # Menu bar button style - scaled for HiDPI
+        style.configure("Menu.TButton",
+            font=(self.theme.FONT, scaled_font(self.theme.FONT_SIZE_MD)),
+            padding=(8, 4))
         
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
@@ -803,20 +814,21 @@ class UIManager:
         
         menubar = ttk.Frame(self.main_frame)
         menubar.pack(fill=tk.X, side=tk.TOP, pady=(0, 0))
-        
-        file_btn = ttk.Button(menubar, text="File", width=8,
+
+        # Use Menu.TButton style for scaled fonts
+        file_btn = ttk.Button(menubar, text="File", width=8, style="Menu.TButton",
                               command=lambda: self._show_menu("file"))
         file_btn.pack(side=tk.LEFT, padx=(8, 2), pady=6)
-        
-        settings_btn = ttk.Button(menubar, text="Settings", width=10,
+
+        settings_btn = ttk.Button(menubar, text="Settings", width=10, style="Menu.TButton",
                                   command=lambda: self._show_menu("settings"))
         settings_btn.pack(side=tk.LEFT, padx=2, pady=6)
-        
-        actions_btn = ttk.Button(menubar, text="Actions", width=9,
+
+        actions_btn = ttk.Button(menubar, text="Actions", width=9, style="Menu.TButton",
                                  command=lambda: self._show_menu("actions"))
         actions_btn.pack(side=tk.LEFT, padx=2, pady=6)
-        
-        help_btn = ttk.Button(menubar, text="Help", width=8,
+
+        help_btn = ttk.Button(menubar, text="Help", width=8, style="Menu.TButton",
                               command=lambda: self._show_menu("help"))
         help_btn.pack(side=tk.LEFT, padx=2, pady=6)
         

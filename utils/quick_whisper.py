@@ -82,7 +82,10 @@ class QuickWhisper(tk.Tk):
 
         # Set window geometry
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
-        self.resizable(False, False)
+        # Allow window resizing on all platforms
+        self.resizable(True, True)
+        # Set minimum size to prevent window becoming too small
+        self.minsize(500, 600)
         self.banner_visible = True
         # Initial model settings
         self.transcription_model = "gpt-4o-transcribe"
@@ -347,6 +350,15 @@ class QuickWhisper(tk.Tk):
         scale = getattr(self, 'hidpi_scale_factor', 1.0)
         return (int(width * scale), int(height * scale))
 
+    def get_scaled_font_size(self, base_size):
+        """Get font size scaled by the HiDPI factor.
+
+        Use this method when creating fonts to ensure they scale with HiDPI.
+        Returns int font size.
+        """
+        scale = getattr(self, 'hidpi_scale_factor', 1.0)
+        return int(base_size * scale)
+
     # Load configuration from JSON files
     def load_config(self):
         """Load configuration from settings.json and credentials.json files."""
@@ -418,7 +430,8 @@ class QuickWhisper(tk.Tk):
 
     def openai_key_dialog(self):
         """Custom dialog for entering a new OpenAI API key with guidance link."""
-        from utils.ui_manager import set_dark_title_bar
+        from utils.ui_manager import set_dark_title_bar, get_system_font
+        import sv_ttk
 
         # Theme colors
         THEME_ACCENT = "#22d3ee"
@@ -437,35 +450,45 @@ class QuickWhisper(tk.Tk):
 
         dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
-        
-        # Apply dark title bar
-        set_dark_title_bar(dialog)
-        
+
+        # Apply Sun Valley theme and dark title bar
+        sv_ttk.set_theme("dark" if self.dark_mode.get() else "light")
+        if self.dark_mode.get():
+            set_dark_title_bar(dialog)
+
+        # Get scaled font sizes
+        font_name = get_system_font()
+        font_size = self.get_scaled_font_size(11)
+        font_size_link = self.get_scaled_font_size(10)
+
         # Main content frame with padding
         content_frame = ttk.Frame(dialog, padding=(20, 15))
         content_frame.pack(fill=tk.BOTH, expand=True)
 
         # Label for instructions
         instruction_label = ttk.Label(
-            content_frame, 
+            content_frame,
             text="Please enter your new OpenAI API Key below:",
-            font=("Segoe UI", 11)
+            font=(font_name, font_size)
         )
         instruction_label.pack(pady=(5, 12))
 
         # Entry field for the API key
-        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=("Segoe UI", 11))
+        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=(font_name, font_size))
         api_key_entry.pack(pady=(0, 12), ipady=4)
         # Provide standard context menu and key bindings
         self._attach_entry_context_menu(api_key_entry)
 
         # Link to guidance - styled for dark mode visibility
+        # Get background color to match theme
+        bg_color = "#1c1c1c" if self.dark_mode.get() else "#fafafa"
         link_label = tk.Label(
-            content_frame, 
-            text="How to obtain an OpenAI API key", 
-            fg=THEME_ACCENT, 
-            cursor="hand2", 
-            font=("Segoe UI", 10, "underline")
+            content_frame,
+            text="How to obtain an OpenAI API key",
+            fg=THEME_ACCENT,
+            bg=bg_color,
+            cursor="hand2",
+            font=(font_name, font_size_link, "underline")
         )
         link_label.pack(pady=(0, 15))
         link_label.bind("<Button-1>", lambda e: webbrowser.open("https://scorchsoft.com/howto-get-openai-api-key"))
