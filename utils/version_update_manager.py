@@ -57,17 +57,21 @@ class VersionUpdateManager:
         # Create a notification window
         notification = tk.Toplevel(self.parent)
         notification.title("Update Available")
-        
-        # Set size and position
-        notification_width = 400
-        notification_height = 200
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 400, 200
+        if hasattr(self.parent, 'get_scaled_size'):
+            notification_width, notification_height = self.parent.get_scaled_size(base_width, base_height)
+        else:
+            notification_width, notification_height = base_width, base_height
         position_x = self.parent.winfo_x() + (self.parent.winfo_width() - notification_width) // 2
         position_y = self.parent.winfo_y() + (self.parent.winfo_height() - notification_height) // 2
         notification.geometry(f"{notification_width}x{notification_height}+{position_x}+{position_y}")
         notification.resizable(False, False)
-        
-        # Add notification content
-        tk.Label(notification, text=f"{message}", wraplength=380, justify="center", pady=10).pack()
+
+        # Add notification content (scale wraplength with dialog width)
+        wrap_width = notification_width - 20
+        tk.Label(notification, text=f"{message}", wraplength=wrap_width, justify="center", pady=10).pack()
         tk.Label(notification, text=f"Current version: {self.parent.version}", pady=5).pack()
         tk.Label(notification, text=f"Latest version: {latest_version}", pady=5).pack()
         

@@ -18,7 +18,14 @@ class AdjustModelsDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Adjust AI Models")
-        self.dialog.geometry("450x620")
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 450, 620
+        if hasattr(parent, 'get_scaled_size'):
+            self.dialog_width, self.dialog_height = parent.get_scaled_size(base_width, base_height)
+        else:
+            self.dialog_width, self.dialog_height = base_width, base_height
+        self.dialog.geometry(f"{self.dialog_width}x{self.dialog_height}")
         
         # Apply Sun Valley theme based on current setting
         config = get_config()
@@ -119,9 +126,9 @@ class AdjustModelsDialog:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
 
-        # Calculate position for the dialog
-        dialog_width = 450  # Width from geometry
-        dialog_height = 620  # Updated height
+        # Use stored scaled dimensions
+        dialog_width = self.dialog_width
+        dialog_height = self.dialog_height
         position_x = parent_x + (parent_width - dialog_width) // 2
         position_y = parent_y + (parent_height - dialog_height) // 2
 
@@ -305,12 +312,14 @@ class AdjustModelsDialog:
                             "• Whisper-1: Traditional speech recognition model\n"
                             "• Other: Custom model name (advanced usage)")
         
+        # Scale wraplength for HiDPI
+        wrap_width = self.dialog_width - 20  # Account for padding
         ttk.Label(
-            main_frame, 
-            text=instructional_text, 
-            wraplength=430, 
-            justify="left", 
-            font=("Segoe UI", 9), 
+            main_frame,
+            text=instructional_text,
+            wraplength=wrap_width,
+            justify="left",
+            font=("Segoe UI", 9),
             foreground=THEME_TEXT_MUTED
         ).pack(pady=(0, 10))
 

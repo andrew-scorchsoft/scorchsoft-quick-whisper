@@ -43,9 +43,12 @@ class QuickWhisper(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.version = "1.11"
-        
+        self.version = "2.0"
+
         self.is_mac = platform.system() == 'Darwin'
+
+        # Apply HiDPI scaling for better display on high-resolution monitors
+        self._apply_hidpi_scaling()
 
         self.title(f"Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) - v{self.version}")
 
@@ -58,17 +61,25 @@ class QuickWhisper(tk.Tk):
             self.iconbitmap(self.resource_path("assets/icon.ico"))
 
         # Set window size (sized to fit all content including full banner)
-        window_width = 640
-        window_height = 920
-        
+        # Scale dimensions for HiDPI displays
+        base_width = 640
+        base_height = 920
+        window_width, window_height = self.get_scaled_size(base_width, base_height)
+
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        
+
+        # Ensure window fits on screen (with some margin)
+        if window_height > screen_height - 100:
+            window_height = screen_height - 100
+        if window_width > screen_width - 100:
+            window_width = screen_width - 100
+
         # Calculate center position
         center_x = int((screen_width - window_width) / 2)
         center_y = int((screen_height - window_height) / 2)
-        
+
         # Set window geometry
         self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.resizable(False, False)
@@ -83,9 +94,12 @@ class QuickWhisper(tk.Tk):
 
         # Initialize auto hotkey refresh setting (default to True)
         self.auto_hotkey_refresh = tk.BooleanVar(value=True)
-        
+
         # Initialize dark mode setting (default to True)
         self.dark_mode = tk.BooleanVar(value=True)
+
+        # Initialize HiDPI setting (False = auto-detect, True = force enabled)
+        self.hidpi_enabled = tk.BooleanVar(value=False)
 
         self.load_config()
         self.api_key = self.get_api_key()
@@ -172,6 +186,134 @@ class QuickWhisper(tk.Tk):
         # Delay to ensure UI is fully ready
         self.after(200, after_init)
 
+    def _apply_hidpi_scaling(self):
+        """Apply HiDPI scaling for better display on high-resolution monitors.
+
+        This method handles DPI awareness differently per platform:
+        - Windows: Sets DPI awareness for sharper rendering
+        - Linux: Calculates and applies Tk scaling based on screen DPI/resolution
+        - macOS: Usually handled automatically by the OS
+
+        Respects the hidpi_mode setting from config:
+        - "auto": Auto-detect based on screen resolution/DPI
+        - "enabled": Force HiDPI scaling on
+        - "disabled": Skip HiDPI scaling
+
+        Sets self.hidpi_scale_factor which dialogs can use to scale their dimensions.
+        """
+        system = platform.system()
+
+        # Initialize scale factor to 1.0 (no scaling)
+        self.hidpi_scale_factor = 1.0
+
+        # Load HiDPI setting from config (before load_config is called)
+        try:
+            config = get_config()
+            hidpi_mode = config.hidpi_mode
+        except Exception:
+            hidpi_mode = "auto"
+
+        print(f"HiDPI mode setting: {hidpi_mode}")
+
+        # Skip scaling if disabled
+        if hidpi_mode == "disabled":
+            print("HiDPI scaling disabled by user setting")
+            return
+
+        if system == 'Windows':
+            # Windows DPI awareness - improves sharpness
+            # Note: For best results, this should be called before Tk window creation
+            # but calling it here still helps with some scaling issues
+            try:
+                # Try to set per-monitor DPI awareness (Windows 10 1607+)
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            except (AttributeError, OSError):
+                try:
+                    # Fallback for older Windows versions
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except (AttributeError, OSError):
+                    pass
+
+        elif system == 'Linux':
+            # Linux: Multiple strategies for HiDPI detection
+            # WSL and some X11 setups don't report DPI correctly
+            try:
+                scale_factor = None
+                screen_width = self.winfo_screenwidth()
+                screen_height = self.winfo_screenheight()
+                screen_dpi = self.winfo_fpixels('1i')
+                current_scaling = float(self.tk.call('tk', 'scaling'))
+
+                print(f"Screen info: {screen_width}x{screen_height}, reported DPI: {screen_dpi:.0f}, current Tk scaling: {current_scaling:.2f}")
+
+                # If user forced HiDPI mode, use aggressive scaling
+                if hidpi_mode == "enabled":
+                    # User wants HiDPI - determine appropriate scale based on resolution
+                    if screen_width >= 3840 or screen_height >= 2160:
+                        scale_factor = 2.0
+                    elif screen_width >= 2560 or screen_height >= 1440:
+                        scale_factor = 1.75
+                    else:
+                        scale_factor = 1.5  # Default forced scaling
+                    print(f"HiDPI forced enabled, using {scale_factor}x scaling")
+                else:
+                    # Auto-detect mode
+                    # Strategy 1: Check environment variables (set by desktop environments)
+                    env_scale = os.environ.get('GDK_SCALE') or os.environ.get('QT_SCALE_FACTOR')
+                    if env_scale:
+                        try:
+                            scale_factor = float(env_scale)
+                            print(f"Using environment scale factor: {scale_factor}")
+                        except ValueError:
+                            pass
+
+                    # Strategy 2: Detect high-resolution displays by pixel count
+                    # Common HiDPI resolutions: 2560x1440 (QHD), 3840x2160 (4K), 2880x1800 (Retina)
+                    if scale_factor is None:
+                        if screen_width >= 3840 or screen_height >= 2160:
+                            # 4K display - use 2x scaling
+                            scale_factor = 2.0
+                            print(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
+                        elif screen_width >= 2560 or screen_height >= 1440:
+                            # QHD/2K display - use 1.5x scaling
+                            scale_factor = 1.5
+                            print(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
+                        elif screen_width >= 1920 and screen_dpi > 96:
+                            # Full HD with high DPI - modest scaling
+                            scale_factor = 1.25
+                            print(f"Detected Full HD with high DPI, using 1.25x scaling")
+
+                    # Strategy 3: Fall back to DPI-based calculation
+                    if scale_factor is None and screen_dpi > 96 * 1.1:
+                        scale_factor = screen_dpi / 96.0
+                        scale_factor = min(scale_factor, 2.5)  # Cap at 2.5x
+                        print(f"Using DPI-based scaling: {scale_factor:.2f}x")
+
+                # Apply scaling if we determined one
+                if scale_factor and scale_factor > 1.0:
+                    self.tk.call('tk', 'scaling', scale_factor)
+                    self.hidpi_scale_factor = scale_factor
+                    print(f"HiDPI scaling applied: {scale_factor:.2f}x")
+                elif current_scaling < 1.0:
+                    # Ensure minimum scaling of 1.0
+                    self.tk.call('tk', 'scaling', 1.0)
+                    print(f"Applied minimum Tk scaling: 1.0 (was {current_scaling:.2f})")
+
+            except Exception as e:
+                print(f"Could not apply HiDPI scaling on Linux: {e}")
+
+        # macOS generally handles Retina displays automatically
+        # No special handling needed
+
+    def get_scaled_size(self, width, height):
+        """Get dimensions scaled by the HiDPI factor.
+
+        Use this method in dialogs to scale their window sizes.
+        Returns tuple of (scaled_width, scaled_height).
+        """
+        scale = getattr(self, 'hidpi_scale_factor', 1.0)
+        return (int(width * scale), int(height * scale))
+
     # Load configuration from JSON files
     def load_config(self):
         """Load configuration from settings.json and credentials.json files."""
@@ -185,6 +327,10 @@ class QuickWhisper(tk.Tk):
         
         # Load dark mode setting (default to True if not present)
         self.dark_mode.set(self.config_manager.dark_mode)
+
+        # Load HiDPI setting (enabled = force HiDPI, auto = auto-detect)
+        hidpi_mode = self.config_manager.hidpi_mode
+        self.hidpi_enabled.set(hidpi_mode == "enabled")
 
         # Load model settings
         self.transcription_model = self.config_manager.transcription_model
@@ -240,20 +386,22 @@ class QuickWhisper(tk.Tk):
     def openai_key_dialog(self):
         """Custom dialog for entering a new OpenAI API key with guidance link."""
         from utils.ui_manager import set_dark_title_bar
-        
+
         # Theme colors
         THEME_ACCENT = "#22d3ee"
         THEME_ACCENT_HOVER = "#67e8f9"
-        
+
         dialog = tk.Toplevel(self)
         dialog.title("Enter New OpenAI API Key")
-        dialog_width = 420
-        dialog_height = 220
-        
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 420, 220
+        dialog_width, dialog_height = self.get_scaled_size(base_width, base_height)
+
         # Calculate center position relative to parent
         position_x = self.winfo_x() + (self.winfo_width() - dialog_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - dialog_height) // 2
-        
+
         dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
         dialog.resizable(False, False)
         
@@ -315,6 +463,7 @@ class QuickWhisper(tk.Tk):
         # Set focus to the entry field and make dialog modal
         api_key_entry.focus()
         dialog.transient(self)
+        dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         dialog.grab_set()
         self.wait_window(dialog)
 
@@ -426,9 +575,12 @@ class QuickWhisper(tk.Tk):
         self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
                                     variable=self.auto_hotkey_refresh, 
                                     command=self.save_auto_hotkey_refresh)
-        self.settings_menu.add_checkbutton(label="Dark Mode", 
-                                    variable=self.dark_mode, 
+        self.settings_menu.add_checkbutton(label="Dark Mode",
+                                    variable=self.dark_mode,
                                     command=self.toggle_dark_mode)
+        self.settings_menu.add_checkbutton(label="Force HiDPI Scaling (Restart Required)",
+                                    variable=self.hidpi_enabled,
+                                    command=self.toggle_hidpi_mode)
         self.settings_menu.add_separator()
         self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
         self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
@@ -764,12 +916,7 @@ class QuickWhisper(tk.Tk):
         self.tts_manager.cleanup()
         
         # Clean up hotkeys
-        for hotkey in self.hotkey_manager.hotkeys:
-            try:
-                keyboard.remove_hotkey(hotkey)
-            except:
-                pass
-        self.hotkey_manager.hotkeys.clear()
+        self.hotkey_manager.unregister_hotkeys()
         
         # Clean up audio
         self.audio_manager.cleanup()
@@ -784,10 +931,10 @@ class QuickWhisper(tk.Tk):
         # Create a new window to display the terms of use
         instruction_window = tk.Toplevel(self)
         instruction_window.title("Terms of Use")
-        
-        # Set size and center the window
-        window_width = 800
-        window_height = 700
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 800, 700
+        window_width, window_height = self.get_scaled_size(base_width, base_height)
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -831,11 +978,10 @@ class QuickWhisper(tk.Tk):
     def show_version(self):
         instruction_window = tk.Toplevel(self)
         instruction_window.title("App Version")
-        instruction_window.geometry("300x150")
-        
-        # Center the window
-        window_width = 300
-        window_height = 150
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 300, 150
+        window_width, window_height = self.get_scaled_size(base_width, base_height)
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -878,10 +1024,10 @@ class QuickWhisper(tk.Tk):
         
         dialog = tk.Toplevel(self)
         dialog.title("About Quick Whisper")
-        
-        # Window sizing and centering
-        window_width = 580
-        window_height = 800
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 580, 800
+        window_width, window_height = self.get_scaled_size(base_width, base_height)
         position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
@@ -893,8 +1039,9 @@ class QuickWhisper(tk.Tk):
         
         # Make dialog modal
         dialog.transient(self)
+        dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         dialog.grab_set()
-        
+
         # Main container with theme-aware background
         main_frame = tk.Frame(dialog, bg=bg_primary)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -1302,6 +1449,15 @@ class QuickWhisper(tk.Tk):
         self.config_manager.save_settings()
         self.ui_manager.apply_theme(is_dark)
         print(f"Dark mode setting saved: {is_dark}")
+
+    def toggle_hidpi_mode(self):
+        """Toggle HiDPI scaling mode and save the setting."""
+        is_enabled = self.hidpi_enabled.get()
+        # Set mode: "enabled" forces HiDPI on, "auto" uses auto-detection
+        self.config_manager.hidpi_mode = "enabled" if is_enabled else "auto"
+        self.config_manager.save_settings()
+        print(f"HiDPI mode setting saved: {self.config_manager.hidpi_mode}")
+        # Note: Changes take effect on restart (shown in menu label)
 
     def setup_system_tray(self):
         """Initialize and show the system tray icon"""

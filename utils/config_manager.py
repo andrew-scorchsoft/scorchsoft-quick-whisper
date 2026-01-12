@@ -35,7 +35,8 @@ class ConfigManager:
             "hide_banner": True,
             "selected_prompt": "Default",
             "selected_input_device": "",
-            "dark_mode": True
+            "dark_mode": True,
+            "hidpi_mode": "auto"  # "auto", "enabled", or "disabled"
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -375,11 +376,22 @@ class ConfigManager:
     @property
     def dark_mode(self) -> bool:
         return self._settings["ui"].get("dark_mode", True)
-    
+
     @dark_mode.setter
     def dark_mode(self, value: bool):
         self._settings["ui"]["dark_mode"] = value
-    
+
+    @property
+    def hidpi_mode(self) -> str:
+        """Get HiDPI mode: 'auto', 'enabled', or 'disabled'."""
+        return self._settings["ui"].get("hidpi_mode", "auto")
+
+    @hidpi_mode.setter
+    def hidpi_mode(self, value: str):
+        """Set HiDPI mode: 'auto', 'enabled', or 'disabled'."""
+        if value in ("auto", "enabled", "disabled"):
+            self._settings["ui"]["hidpi_mode"] = value
+
     # Shortcuts
     @property
     def shortcuts(self) -> dict:

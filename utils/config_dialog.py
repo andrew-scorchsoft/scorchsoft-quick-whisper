@@ -11,16 +11,22 @@ class ConfigDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Configuration Settings")
-        self.dialog.geometry("700x500")
-        
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 700, 500
+        if hasattr(parent, 'get_scaled_size'):
+            window_width, window_height = parent.get_scaled_size(base_width, base_height)
+        else:
+            window_width, window_height = base_width, base_height
+        self.dialog.geometry(f"{window_width}x{window_height}")
+
         # Center the window
-        window_width = 700
-        window_height = 500
         position_x = parent.winfo_x() + (parent.winfo_width() - window_width) // 2
         position_y = parent.winfo_y() + (parent.winfo_height() - window_height) // 2
         self.dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         
         self.dialog.transient(parent)
+        self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         self.dialog.grab_set()
         # Pause hotkeys while config is active
         if hasattr(self.parent, 'hotkey_manager'):

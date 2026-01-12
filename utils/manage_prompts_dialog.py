@@ -9,11 +9,20 @@ class ManagePromptsDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Prompt Management")
-        self.dialog.geometry("800x650")
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 800, 650
+        if hasattr(parent, 'get_scaled_size'):
+            self.dialog_width, self.dialog_height = parent.get_scaled_size(base_width, base_height)
+        else:
+            self.dialog_width, self.dialog_height = base_width, base_height
+        self.dialog.geometry(f"{self.dialog_width}x{self.dialog_height}")
+
         self.dialog.resizable(False, False)
         self.dialog.transient(parent)
+        self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         self.dialog.grab_set()
-        
+
         # Center the dialog on the screen
         self.center_dialog()
         
@@ -42,9 +51,9 @@ class ManagePromptsDialog:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
 
-        # Calculate position for the dialog
-        dialog_width = 800  # Width from geometry
-        dialog_height = 650  # Height from geometry
+        # Use stored scaled dimensions
+        dialog_width = self.dialog_width
+        dialog_height = self.dialog_height
         position_x = parent_x + (parent_width - dialog_width) // 2
         position_y = parent_y + (parent_height - dialog_height) // 2
 
@@ -212,14 +221,21 @@ class ManagePromptsDialog:
         """Open dialog for creating a new prompt."""
         prompt_dialog = tk.Toplevel(self.dialog)
         prompt_dialog.title("Create New Prompt")
-        prompt_dialog.geometry("600x400")
+
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 600, 400
+        if hasattr(self.parent, 'get_scaled_size'):
+            dialog_width, dialog_height = self.parent.get_scaled_size(base_width, base_height)
+        else:
+            dialog_width, dialog_height = base_width, base_height
+        prompt_dialog.geometry(f"{dialog_width}x{dialog_height}")
+
         prompt_dialog.transient(self.dialog)
+        prompt_dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         prompt_dialog.grab_set()
         # Note: Hotkeys are already paused by the parent ManagePromptsDialog
-        
+
         # Center the new prompt dialog
-        dialog_width = 600
-        dialog_height = 400
         position_x = self.dialog.winfo_x() + (self.dialog.winfo_width() - dialog_width) // 2
         position_y = self.dialog.winfo_y() + (self.dialog.winfo_height() - dialog_height) // 2
         prompt_dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")

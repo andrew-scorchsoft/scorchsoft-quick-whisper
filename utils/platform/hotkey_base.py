@@ -271,10 +271,13 @@ class HotkeyManagerBase(ABC):
         """Open the keyboard shortcuts dialog for viewing and editing."""
         shortcut_window = tk.Toplevel(self.parent)
         shortcut_window.title("Keyboard Shortcuts")
-        shortcut_window.geometry("500x400")
 
-        window_width = 500
-        window_height = 400
+        # Get scaled dimensions for HiDPI displays
+        base_width, base_height = 500, 400
+        if hasattr(self.parent, 'get_scaled_size'):
+            window_width, window_height = self.parent.get_scaled_size(base_width, base_height)
+        else:
+            window_width, window_height = base_width, base_height
         position_x = self.parent.winfo_x() + (self.parent.winfo_width() - window_width) // 2
         position_y = self.parent.winfo_y() + (self.parent.winfo_height() - window_height) // 2
         shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
