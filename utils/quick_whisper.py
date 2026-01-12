@@ -7,7 +7,6 @@ import os
 import sys
 import openai
 import pyperclip
-import webbrowser
 import json
 import pyttsx3
 from tkinter import filedialog
@@ -38,6 +37,7 @@ from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
+from utils.platform import open_url
 
 
 class QuickWhisper(tk.Tk):
@@ -481,7 +481,7 @@ class QuickWhisper(tk.Tk):
             font=font_link
         )
         link_label.pack(pady=(0, 15))
-        link_label.bind("<Button-1>", lambda e: webbrowser.open("https://scorchsoft.com/howto-get-openai-api-key"))
+        link_label.bind("<Button-1>", lambda e: open_url("https://scorchsoft.com/howto-get-openai-api-key"))
         link_label.bind("<Enter>", lambda e: link_label.config(fg=THEME_ACCENT_HOVER))
         link_label.bind("<Leave>", lambda e: link_label.config(fg=THEME_ACCENT))
 
@@ -623,20 +623,17 @@ class QuickWhisper(tk.Tk):
         self.settings_menu.add_command(label="Change API Key", command=self.change_api_key)
         self.settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         self.settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
-        self.settings_menu.add_command(label="Config", command=self.open_config)
+        self.settings_menu.add_command(label="Configuration", command=self.open_config)
         self.settings_menu.add_separator()
-        self.settings_menu.add_checkbutton(label="Automatically Check for Updates", 
-                                    variable=self.version_manager.auto_update_check, 
+        self.settings_menu.add_checkbutton(label="Automatically Check for Updates",
+                                    variable=self.version_manager.auto_update_check,
                                     command=self.version_manager.save_auto_update_setting)
-        self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)", 
-                                    variable=self.auto_hotkey_refresh, 
+        self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)",
+                                    variable=self.auto_hotkey_refresh,
                                     command=self.save_auto_hotkey_refresh)
         self.settings_menu.add_checkbutton(label="Dark Mode",
                                     variable=self.dark_mode,
                                     command=self.toggle_dark_mode)
-        self.settings_menu.add_checkbutton(label="Force HiDPI Scaling (Restart Required)",
-                                    variable=self.hidpi_enabled,
-                                    command=self.toggle_hidpi_mode)
         self.settings_menu.add_separator()
         self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
         self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
@@ -1245,7 +1242,7 @@ class QuickWhisper(tk.Tk):
         
         # Learn More button (styled link to blog)
         def open_blog():
-            webbrowser.open("https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/")
+            open_url("https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/")
         
         # Use half the button height for corner_radius to create pill shape
         button_height = get_button_height('dialog')
@@ -1282,19 +1279,21 @@ class QuickWhisper(tk.Tk):
         )
         close_btn.pack(side=tk.RIGHT)
         
-        # Developer credit at bottom
+        # Developer credit at bottom - light blue in dark mode, purple in light mode
+        link_color = theme.ACCENT_PRIMARY if is_dark else theme.GRADIENT_END
+        link_hover = theme.GRADIENT_HOVER_START if is_dark else theme.GRADIENT_HOVER_END
         credit_label = tk.Label(
             content,
             text="Developed by Scorchsoft.com | App & AI Developers",
-            font=get_font('xs'),
-            fg=theme.ACCENT_PRIMARY,
+            font=get_font('xs', 'underline'),
+            fg=link_color,
             bg=bg_primary,
             cursor="hand2"
         )
         credit_label.pack(anchor="center", pady=(0, 0))
-        credit_label.bind("<Button-1>", lambda e: webbrowser.open("https://www.scorchsoft.com/"))
-        credit_label.bind("<Enter>", lambda e: credit_label.config(fg=theme.GRADIENT_HOVER_START))
-        credit_label.bind("<Leave>", lambda e: credit_label.config(fg=theme.ACCENT_PRIMARY))
+        credit_label.bind("<Button-1>", lambda e: open_url("https://www.scorchsoft.com/"))
+        credit_label.bind("<Enter>", lambda e: credit_label.config(fg=link_hover))
+        credit_label.bind("<Leave>", lambda e: credit_label.config(fg=link_color))
 
     def add_to_history(self, text):
         # Append new text to the end of the list
@@ -1525,14 +1524,19 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.apply_theme(is_dark)
         print(f"Dark mode setting saved: {is_dark}")
 
-    def toggle_hidpi_mode(self):
-        """Toggle HiDPI scaling mode and save the setting."""
-        is_enabled = self.hidpi_enabled.get()
-        # Set mode: "enabled" forces HiDPI on, "auto" uses auto-detection
-        self.config_manager.hidpi_mode = "enabled" if is_enabled else "auto"
-        self.config_manager.save_settings()
-        print(f"HiDPI mode setting saved: {self.config_manager.hidpi_mode}")
-        # Note: Changes take effect on restart (shown in menu label)
+    def restart_application(self):
+        """Restart the application to apply settings that require a restart."""
+        import subprocess
+
+        # Clean up resources
+        self.on_closing()
+
+        # Get the command to restart
+        python = sys.executable
+        script = sys.argv[0]
+
+        # Restart the application
+        subprocess.Popen([python, script])
 
     def setup_system_tray(self):
         """Initialize and show the system tray icon"""

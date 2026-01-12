@@ -71,7 +71,6 @@ class ManagePromptsDialog:
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Configure grid columns with weights for proportional sizing
-        # Left panel: 35%, Right panel: 65%
         main_frame.columnconfigure(0, weight=45, minsize=220)
         main_frame.columnconfigure(1, weight=55)
         main_frame.rowconfigure(0, weight=1)

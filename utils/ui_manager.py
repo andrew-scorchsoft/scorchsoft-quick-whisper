@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 import customtkinter as ctk
 from PIL import Image, ImageTk, ImageDraw
-import webbrowser
 import platform
 import ctypes
 import time
@@ -11,6 +10,7 @@ import pyperclip
 
 from utils.tooltip import ToolTip
 from utils.config_manager import get_config
+from utils.platform import open_url
 from utils.theme import (
     ThemeColors,
     get_font,
@@ -894,6 +894,18 @@ class UIManager:
         style.configure("TLabelframe.Label",
             font=get_font('sm'))
 
+        # Navigation arrow buttons (Latest, Newer, Older)
+        style.configure("Nav.TLabel",
+            font=get_font('nav_arrow'))
+
+        # Separator between nav arrows and copy
+        style.configure("Separator.TLabel",
+            font=get_font('separator'))
+
+        # Copy link button
+        style.configure("Copy.TLabel",
+            font=get_font('copy_link'))
+
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
         
@@ -1009,12 +1021,6 @@ class UIManager:
         self._nav_button_disabled = {"first": True, "left": True, "right": True}
 
         nav_btn_pad = get_spacing('xs')
-
-        # Configure styles for nav buttons
-        style = ttk.Style()
-        style.configure("Nav.TLabel", font=get_font('nav_arrow'), foreground=self.theme.TEXT_PRIMARY)
-        style.configure("Separator.TLabel", font=get_font('separator'), foreground=self.theme.TEXT_MUTED)
-        style.configure("Copy.TLabel", font=get_font('copy_link'), foreground=self.theme.TEXT_SECONDARY)
 
         self.button_first_page = ttk.Label(nav_frame, text="«", style="Nav.TLabel", cursor="hand2")
         self.button_first_page.pack(side=tk.LEFT, padx=nav_btn_pad)
@@ -1245,10 +1251,11 @@ class UIManager:
         self.hide_banner_link.pack(pady=(4, 12))
         self.hide_banner_link.bind("<Button-1>", lambda e: self.parent.toggle_banner())
         
-        # Powered by label - uses ACCENT_PRIMARY (light blue) to match About dialog link
+        # Powered by label - light blue in dark mode, purple in light mode
+        link_color = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
         self.powered_by_label = ttk.Label(
             self.banner_frame, text="Scorchsoft.com | App & AI Developers",
-            cursor="hand2", foreground=self.theme.ACCENT_PRIMARY,
+            cursor="hand2", foreground=link_color,
             font=get_font('xxs', 'underline')
         )
         self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
@@ -1269,7 +1276,7 @@ class UIManager:
             menu.tk_popup(btn.winfo_rootx(), btn.winfo_rooty() + btn.winfo_height())
         
     def open_scorchsoft(self, event=None):
-        webbrowser.open('https://www.scorchsoft.com/')
+        open_url('https://www.scorchsoft.com/')
         
     def toggle_banner(self):
         # Check if window still exists before accessing winfo
@@ -1575,7 +1582,11 @@ class UIManager:
         """
         theme_name = "dark" if is_dark else "light"
         sv_ttk.set_theme(theme_name)
-        
+
+        # Reapply custom ttk styles after theme change
+        # (sv_ttk.set_theme resets style configurations)
+        self._setup_styles()
+
         # Update title bar styling on Windows
         if is_dark:
             set_dark_title_bar(self.parent)
@@ -1616,7 +1627,12 @@ class UIManager:
         # Update navigation button colors for the new theme
         if hasattr(self, 'button_first_page') and self.button_first_page:
             self._update_nav_button_appearance()
-        
+
+        # Update powered by link color (light blue in dark mode, purple in light mode)
+        if hasattr(self, 'powered_by_label') and self.powered_by_label:
+            link_color = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
+            self.powered_by_label.configure(foreground=link_color)
+
         print(f"Theme applied: {theme_name}")
     
     def _set_light_title_bar(self, window):

@@ -36,7 +36,11 @@ class ConfigDialog:
         self.recording_location_var = tk.StringVar()
         self.custom_location_var = tk.StringVar()
         self.file_handling_var = tk.StringVar()
-        
+        self.hidpi_mode_var = tk.StringVar()
+
+        # Track original HiDPI setting for restart prompt
+        self.original_hidpi_mode = None
+
         # Load current settings
         self.load_current_settings()
         
@@ -48,24 +52,51 @@ class ConfigDialog:
     def load_current_settings(self):
         """Load current configuration settings from settings.json."""
         self.config = get_config()
-            
+
         # Recording location (default: alongside)
         self.recording_location_var.set(self.config.recording_location)
-        
+
         # Custom location path
         self.custom_location_var.set(self.config.custom_recording_path)
-        
+
         # File handling (default: overwrite)
         self.file_handling_var.set(self.config.file_handling)
+
+        # HiDPI mode (default: auto)
+        self.hidpi_mode_var.set(self.config.hidpi_mode)
+        self.original_hidpi_mode = self.config.hidpi_mode
         
     def create_dialog(self):
         """Create the main dialog layout."""
+        # Check current theme for appropriate colors
+        is_dark = self.config.dark_mode
+
         # Configure styles for consistent fonts
         style = ttk.Style()
         style.configure('Dialog.TButton', font=get_font('sm'))
         style.configure('Dialog.TLabel', font=get_font('sm'))
         style.configure('Dialog.TLabelframe.Label', font=get_font('sm', 'bold'))
         style.configure('Dialog.TRadiobutton', font=get_font('sm'))
+
+        # Navigation button styles - unselected (normal)
+        style.configure('Nav.TButton', font=get_font('sm'))
+
+        # Navigation button styles - selected (bold with accent background)
+        style.configure('NavSelected.TButton', font=get_font('sm', 'bold'))
+
+        # Map colors for selected state based on theme
+        if is_dark:
+            # Dark mode: lighter background for selected
+            style.map('NavSelected.TButton',
+                background=[('!disabled', '#3d3d3d'), ('active', '#4a4a4a')],
+                foreground=[('!disabled', '#ffffff')]
+            )
+        else:
+            # Light mode: slightly darker/accent background for selected
+            style.map('NavSelected.TButton',
+                background=[('!disabled', '#e0e0e0'), ('active', '#d0d0d0')],
+                foreground=[('!disabled', '#000000')]
+            )
 
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -97,20 +128,21 @@ class ConfigDialog:
             text="Recording",
             command=lambda: self.switch_category("Recording"),
             width=15,
-            style='Dialog.TButton',
+            style='Nav.TButton',
             cursor='hand2'
         )
         self.nav_buttons["Recording"].pack(fill=tk.X, pady=2)
-        
-        # Future categories can be added here
-        # self.nav_buttons["Other"] = ttk.Button(
-        #     self.nav_frame,
-        #     text="Other Settings",
-        #     command=lambda: self.switch_category("Other"),
-        #     width=15
-        # )
-        # self.nav_buttons["Other"].pack(fill=tk.X, pady=2)
-        
+
+        self.nav_buttons["Display"] = ttk.Button(
+            self.nav_frame,
+            text="Display",
+            command=lambda: self.switch_category("Display"),
+            width=15,
+            style='Nav.TButton',
+            cursor='hand2'
+        )
+        self.nav_buttons["Display"].pack(fill=tk.X, pady=2)
+
         # Highlight current selection
         self.update_navigation_highlight()
         
@@ -161,25 +193,26 @@ class ConfigDialog:
         """Switch to a different settings category."""
         self.current_category = category
         self.update_navigation_highlight()
-        
+
         # Clear current content
         for widget in self.content_frame.winfo_children():
             widget.destroy()
-            
+
         # Show appropriate settings
         if category == "Recording":
             self.show_recording_settings()
-        # Add other categories here as needed
+        elif category == "Display":
+            self.show_display_settings()
             
     def update_navigation_highlight(self):
         """Update the visual highlight for the current navigation selection."""
         for category, button in self.nav_buttons.items():
             if category == self.current_category:
-                # Highlight the current selection by making it look pressed
-                button.state(['pressed'])
+                # Selected: bold text with accent background
+                button.configure(style='NavSelected.TButton')
             else:
-                # Normal state for other buttons
-                button.state(['!pressed'])
+                # Unselected: normal style
+                button.configure(style='Nav.TButton')
                 
     def show_recording_settings(self):
         """Show the recording settings panel."""
@@ -310,11 +343,96 @@ class ConfigDialog:
     def on_location_change(self, *args):
         """Handle changes to the recording location selection."""
         is_custom = self.recording_location_var.get() == "custom"
-        
+
         # Enable/disable custom path controls
         self.custom_path_entry.configure(state="normal" if is_custom else "readonly")
         self.browse_button.configure(state="normal" if is_custom else "disabled")
-        
+
+    def show_display_settings(self):
+        """Show the display settings panel."""
+        # Main title
+        title_label = ttk.Label(
+            self.content_frame,
+            text="Display Settings",
+            font=get_font('lg', 'bold')
+        )
+        title_label.pack(anchor="w", pady=(0, 20))
+
+        # HiDPI Scaling Section
+        hidpi_frame = ttk.LabelFrame(
+            self.content_frame,
+            text="HiDPI Scaling",
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        hidpi_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            hidpi_frame,
+            text="Choose how HiDPI (high resolution) scaling is applied:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Radio buttons for HiDPI options
+        ttk.Radiobutton(
+            hidpi_frame,
+            text="Auto-detect (recommended)",
+            variable=self.hidpi_mode_var,
+            value="auto",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        auto_description = ttk.Label(
+            hidpi_frame,
+            text="Automatically detect and apply appropriate scaling based on your display",
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        auto_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        ttk.Radiobutton(
+            hidpi_frame,
+            text="Force enabled",
+            variable=self.hidpi_mode_var,
+            value="enabled",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        enabled_description = ttk.Label(
+            hidpi_frame,
+            text="Always apply HiDPI scaling (use if auto-detection doesn't work correctly)",
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        enabled_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        ttk.Radiobutton(
+            hidpi_frame,
+            text="Disabled",
+            variable=self.hidpi_mode_var,
+            value="disabled",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        disabled_description = ttk.Label(
+            hidpi_frame,
+            text="Never apply HiDPI scaling (use standard scaling)",
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        disabled_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        # Note about restart requirement
+        note_frame = ttk.Frame(hidpi_frame)
+        note_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Label(
+            note_frame,
+            text="Note: Changes to HiDPI scaling require a restart to take effect.",
+            font=get_font('xs'),
+            foreground="#CC6600"
+        ).pack(anchor="w")
+
     def on_custom_location_selected(self):
         """Handle when custom location radio button is selected."""
         # If no custom path is set and custom is selected, open browse dialog
@@ -339,7 +457,7 @@ class ConfigDialog:
             if not custom_path:
                 messagebox.showerror("Error", "Please select a custom folder path.")
                 return
-                
+
             if not os.path.exists(custom_path):
                 create_folder = messagebox.askyesno(
                     "Folder Does Not Exist",
@@ -353,23 +471,48 @@ class ConfigDialog:
                         return
                 else:
                     return
-        
+
+        # Check if HiDPI setting changed (requires restart)
+        hidpi_changed = self.hidpi_mode_var.get() != self.original_hidpi_mode
+
         # Update configuration values
         try:
             self.config.recording_location = self.recording_location_var.get()
             self.config.custom_recording_path = self.custom_location_var.get()
             self.config.file_handling = self.file_handling_var.get()
-            
+            self.config.hidpi_mode = self.hidpi_mode_var.get()
+
             # Save to file
             self.config.save_settings()
-                        
-            messagebox.showinfo("Success", "Configuration settings saved and applied successfully!")
-            
+
             # Update parent's recording directory
             self.parent.update_recording_directory()
-            
+
+            # If HiDPI changed, prompt for restart
+            if hidpi_changed:
+                restart_now = messagebox.askyesno(
+                    "Restart Required",
+                    "The HiDPI scaling setting has been changed. "
+                    "This requires a restart to take effect.\n\n"
+                    "Would you like to restart the application now?",
+                    icon='question'
+                )
+                if restart_now:
+                    self._close_dialog()
+                    self.parent.restart_application()
+                    return
+                else:
+                    messagebox.showinfo(
+                        "Settings Saved",
+                        "Configuration settings saved successfully!\n\n"
+                        "The HiDPI scaling change will take effect after you restart the application."
+                    )
+                    self._close_dialog()
+                    return
+
+            messagebox.showinfo("Success", "Configuration settings saved and applied successfully!")
             self._close_dialog()
-            
+
         except Exception as e:
             messagebox.showerror("Error", f"Could not save settings: {e}") 
 

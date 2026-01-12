@@ -3,14 +3,18 @@
 You can find more information about Quick Whisper here:
 [Scorchsoft Quick Whisper - Free Speech-to-Copy-Edited-Text AI App for Desktop](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
 
-QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through GPT-4 for a polished, copy-edited output.
+QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through OpenAI ChatGPT for a polished, copy-edited output.
+
+## Cross-Platform Support
+
+While QuickWhisper was originally developed for Windows, **the codebase has been updated to support Linux and macOS** as well. There is no simple installer available for these platforms yet, but the Python code should run on Linux and macOS if you follow the platform-specific setup instructions below. This is useful for users who want a speech-to-copy-edited-text tool on Linux or Mac and are comfortable running from source or building their own executable.
 
 ## Features
 
 - **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Ctrl+Alt+J` for edit, `Ctrl+Alt+Shift+J` for transcription).
 - **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired.
-- **Optional GPT-4 Editing**: Enhance your transcriptions using GPT-4 for a polished, copy-edited text output.
-- **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle GPT-4 editing.
+- **Optional OpenAI ChatGPT Editing**: Enhance your transcriptions using OpenAI ChatGPT for a polished, copy-edited text output.
+- **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle OpenAI ChatGPT editing.
 
 ## Screenshot
 
@@ -92,7 +96,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
 
-4. Enable "Auto Copy-edit with GPT-4" for advanced text processing, allowing GPT-4 to edit the transcription for improved readability and structure.
+4. Enable "Auto Copy-edit with OpenAI ChatGPT" for advanced text processing, allowing OpenAI ChatGPT to edit the transcription for improved readability and structure.
 
 ## Configuration
 

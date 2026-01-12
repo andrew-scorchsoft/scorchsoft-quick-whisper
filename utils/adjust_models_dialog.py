@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import webbrowser
 from pathlib import Path
 import customtkinter as ctk
 import sv_ttk
 from utils.config_manager import get_config
 from utils.ui_manager import set_dark_title_bar
+from utils.platform import open_url
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 
 # Theme colors for dark mode
@@ -310,7 +310,7 @@ class AdjustModelsDialog:
         link = tk.Label(main_frame, text="View Available OpenAI Models and Pricing",
                        fg=THEME_ACCENT, cursor="hand2", font=get_font('copy_link', 'underline'))
         link.pack(pady=(0, 10))
-        link.bind("<Button-1>", lambda e: webbrowser.open("https://openai.com/api/pricing/"))
+        link.bind("<Button-1>", lambda e: open_url("https://openai.com/api/pricing/"))
         link.bind("<Enter>", lambda e: link.config(fg=THEME_ACCENT_HOVER))
         link.bind("<Leave>", lambda e: link.config(fg=THEME_ACCENT))
 

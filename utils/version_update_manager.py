@@ -2,11 +2,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import requests
-import webbrowser
 from pathlib import Path
 from packaging import version
 from utils.config_manager import get_config
 from utils.theme import get_window_size
+from utils.platform import open_url
 
 class VersionUpdateManager:
     def __init__(self, parent):
@@ -86,6 +86,6 @@ class VersionUpdateManager:
 
     def open_download_page(self, url, notification_window=None):
         """Open the download page in a web browser."""
-        webbrowser.open(url)
+        open_url(url)
         if notification_window:
             notification_window.destroy() 
