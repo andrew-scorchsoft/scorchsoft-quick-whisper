@@ -236,7 +236,7 @@ class QuickWhisper(tk.Tk):
         if system == 'Windows':
             # Windows HiDPI handling:
             # - "disabled": Return early (handled above) - Windows default scaling preserved
-            # - "auto": Don't interfere - let Windows handle scaling via bitmap scaling
+            # - "auto": Auto-detect based on screen resolution and DPI
             # - "enabled": User explicitly wants HiDPI - set DPI awareness and apply Tk scaling
             try:
                 screen_width = self.winfo_screenwidth()
@@ -245,27 +245,29 @@ class QuickWhisper(tk.Tk):
 
                 print(f"Windows screen info: {screen_width}x{screen_height}, current Tk scaling: {current_scaling:.2f}")
 
+                # For both "auto" and "enabled" modes, set DPI awareness for sharp rendering
+                try:
+                    ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI aware
+                    print("Set per-monitor DPI awareness")
+                except (AttributeError, OSError):
+                    try:
+                        ctypes.windll.user32.SetProcessDPIAware()
+                        print("Set system DPI awareness (fallback)")
+                    except (AttributeError, OSError):
+                        print("Could not set DPI awareness")
+
+                # Get actual system DPI
+                try:
+                    dpi = ctypes.windll.user32.GetDpiForSystem()
+                except (AttributeError, OSError):
+                    hdc = ctypes.windll.user32.GetDC(0)
+                    dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
+                    ctypes.windll.user32.ReleaseDC(0, hdc)
+
+                print(f"Windows detected DPI: {dpi}")
+
                 if hidpi_mode == "enabled":
-                    # User explicitly enabled HiDPI - set DPI awareness for sharp rendering
-                    try:
-                        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI aware
-                        print("Set per-monitor DPI awareness")
-                    except (AttributeError, OSError):
-                        try:
-                            ctypes.windll.user32.SetProcessDPIAware()
-                            print("Set system DPI awareness (fallback)")
-                        except (AttributeError, OSError):
-                            print("Could not set DPI awareness")
-
-                    # Get actual DPI
-                    try:
-                        dpi = ctypes.windll.user32.GetDpiForSystem()
-                    except (AttributeError, OSError):
-                        hdc = ctypes.windll.user32.GetDC(0)
-                        dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
-                        ctypes.windll.user32.ReleaseDC(0, hdc)
-
-                    # Calculate and apply scale factor
+                    # User explicitly enabled HiDPI - always apply scaling
                     scale_factor = dpi / 96.0
                     scale_factor = max(1.0, min(scale_factor, 2.5))  # Clamp between 1.0 and 2.5
 
@@ -273,9 +275,37 @@ class QuickWhisper(tk.Tk):
                     self.hidpi_scale_factor = scale_factor
                     print(f"Windows HiDPI enabled: DPI={dpi}, applied {scale_factor:.2f}x scaling")
                 else:
-                    # Auto mode: Don't change anything, let Windows handle scaling naturally
-                    # This preserves Windows' default bitmap scaling behavior
-                    print("Windows auto mode: Using default Windows scaling")
+                    # Auto mode: Detect if HiDPI is needed based on resolution and DPI
+                    scale_factor = None
+                    
+                    # Strategy 1: Detect high-resolution displays by pixel count
+                    if screen_width >= 3840 or screen_height >= 2160:
+                        # 4K display - use 2x scaling
+                        scale_factor = 2.0
+                        print(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
+                    elif screen_width >= 2560 or screen_height >= 1440:
+                        # QHD/2K display - use 1.5x scaling
+                        scale_factor = 1.5
+                        print(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
+                    elif screen_width >= 1920 and dpi > 96:
+                        # Full HD with high DPI (Windows scaling applied) - use DPI-based scaling
+                        scale_factor = dpi / 96.0
+                        scale_factor = max(1.25, min(scale_factor, 2.5))  # At least 1.25x, cap at 2.5x
+                        print(f"Detected Full HD with high DPI ({dpi}), using {scale_factor:.2f}x scaling")
+                    
+                    # Strategy 2: Fall back to DPI-based detection for any high DPI display
+                    if scale_factor is None and dpi > 96 * 1.1:  # 10% threshold above 96
+                        scale_factor = dpi / 96.0
+                        scale_factor = min(scale_factor, 2.5)  # Cap at 2.5x
+                        print(f"Using DPI-based scaling: {scale_factor:.2f}x")
+                    
+                    # Apply scaling if we determined one
+                    if scale_factor and scale_factor > 1.0:
+                        self.tk.call('tk', 'scaling', scale_factor)
+                        self.hidpi_scale_factor = scale_factor
+                        print(f"Windows auto mode: HiDPI scaling applied: {scale_factor:.2f}x")
+                    else:
+                        print("Windows auto mode: No HiDPI scaling needed")
 
             except Exception as e:
                 print(f"Could not apply HiDPI scaling on Windows: {e}")
