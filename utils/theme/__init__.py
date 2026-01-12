@@ -49,10 +49,12 @@ from .spacing import (
     RADIUS,
     BUTTON_HEIGHT,
     BORDER_WIDTH,
+    SWITCH_SIZE,
     get_spacing,
     get_radius,
     get_button_height,
     get_border_width,
+    get_switch_size,
 )
 from .windows import (
     WindowSizeProvider,
@@ -93,10 +95,12 @@ __all__ = [
     'RADIUS',
     'BUTTON_HEIGHT',
     'BORDER_WIDTH',
+    'SWITCH_SIZE',
     'get_spacing',
     'get_radius',
     'get_button_height',
     'get_border_width',
+    'get_switch_size',
     # Window sizes
     'WindowSizeProvider',
     'WINDOW_SIZES',

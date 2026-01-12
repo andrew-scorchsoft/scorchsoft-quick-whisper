@@ -115,6 +115,28 @@ BORDER_WIDTH = {
 }
 
 
+# Switch toggle dimensions for CTkSwitch
+# HiDPI modes need larger switches for better visibility and touch targets
+SWITCH_SIZE = {
+    'base': {
+        'switch_width': 36,
+        'switch_height': 18,
+    },
+    'windows_hd': {
+        'switch_width': 46,
+        'switch_height': 24,
+    },
+    'linux_hd': {
+        'switch_width': 46,
+        'switch_height': 24,
+    },
+    'darwin_hd': {
+        'switch_width': 36,  # macOS handles scaling
+        'switch_height': 18,
+    },
+}
+
+
 # Border radius values per platform and HiDPI mode
 RADIUS = {
     # Base radius (non-HiDPI)
@@ -245,6 +267,17 @@ class SpacingProvider:
         width_map = BORDER_WIDTH.get(cls._map_key, BORDER_WIDTH['base'])
         return width_map.get(size_name.lower(), width_map['md'])
 
+    @classmethod
+    def get_switch_size(cls) -> tuple:
+        """
+        Get the switch dimensions for the current platform and HiDPI mode.
+
+        Returns:
+            A tuple of (switch_width, switch_height) in pixels
+        """
+        size_map = SWITCH_SIZE.get(cls._map_key, SWITCH_SIZE['base'])
+        return (size_map.get('switch_width', 36), size_map.get('switch_height', 18))
+
 
 # Convenience functions for module-level access
 def get_spacing(size_name: str) -> int:
@@ -297,3 +330,13 @@ def get_border_width(size_name: str) -> int:
         The pixel border width for the current platform and HiDPI mode
     """
     return SpacingProvider.get_border_width(size_name)
+
+
+def get_switch_size() -> tuple:
+    """
+    Get the switch dimensions for the current platform and HiDPI mode.
+
+    Returns:
+        A tuple of (switch_width, switch_height) in pixels
+    """
+    return SpacingProvider.get_switch_size()

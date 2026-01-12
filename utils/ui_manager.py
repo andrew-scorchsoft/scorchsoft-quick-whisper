@@ -20,6 +20,7 @@ from utils.theme import (
     get_radius,
     get_button_height,
     get_border_width,
+    get_switch_size,
 )
 
 
@@ -1124,14 +1125,14 @@ class UIManager:
         # ─────────────────────────────────────────────────────────────────────
         # OPTIONS - Toggle switches (Sun Valley style)
         # ─────────────────────────────────────────────────────────────────────
-        
-        options_frame = ttk.LabelFrame(content, text="Options", padding=(16, 10))
+
+        options_frame = ttk.LabelFrame(content, text="", padding=(16, 10))
         options_frame.pack(fill=tk.X, pady=(0, 12))
-        
+
         # Center container for toggles
         switches_container = ttk.Frame(options_frame)
         switches_container.pack(expand=True)
-        
+
         # Sun Valley provides "Switch.TCheckbutton" style for toggle switches
         auto_copy_switch = ttk.Checkbutton(
             switches_container,
@@ -1140,7 +1141,7 @@ class UIManager:
             style="Switch.TCheckbutton"
         )
         auto_copy_switch.pack(side=tk.LEFT, padx=(0, 32))
-        
+
         auto_paste_switch = ttk.Checkbutton(
             switches_container,
             text="Auto-paste",
@@ -1244,10 +1245,10 @@ class UIManager:
         self.hide_banner_link.pack(pady=(4, 12))
         self.hide_banner_link.bind("<Button-1>", lambda e: self.parent.toggle_banner())
         
-        # Powered by label
+        # Powered by label - uses ACCENT_PRIMARY (light blue) to match About dialog link
         self.powered_by_label = ttk.Label(
             self.banner_frame, text="Scorchsoft.com | App & AI Developers",
-            cursor="hand2", foreground=self.theme.SCORCHSOFT_RED,
+            cursor="hand2", foreground=self.theme.ACCENT_PRIMARY,
             font=get_font('xxs', 'underline')
         )
         self.powered_by_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
@@ -1294,7 +1295,8 @@ class UIManager:
             if self.banner_label:
                 self.banner_label.pack_forget()
             self.hide_banner_link.pack_forget()
-            self.powered_by_label.pack(pady=(8, 12))
+            # Use theme spacing for consistent padding - lg above for separation from buttons, xl below for window edge
+            self.powered_by_label.pack(pady=(get_spacing('lg'), get_spacing('xl')))
             try:
                 self.parent.help_menu.entryconfig("Hide Banner", label="Show Banner")
             except:
