@@ -23,7 +23,7 @@ def check_accessibility_permissions():
         # Use tccutil to check accessibility permissions
         # This is a heuristic - we try to create a listener and see if it works
         return True  # We'll detect permission issues when hotkeys fail
-    except:
+    except Exception:
         return False
 
 
@@ -121,7 +121,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 'open',
                 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
             ])
-        except:
+        except Exception:
             try:
                 # Fallback for older macOS versions
                 subprocess.run([
@@ -136,6 +136,11 @@ class MacOSHotkeyManager(HotkeyManagerBase):
         try:
             if self.listener:
                 self.listener.stop()
+                # Wait for listener thread to fully terminate to prevent duplicates
+                try:
+                    self.listener.join(timeout=1.0)
+                except Exception:
+                    pass  # Ignore join errors
                 self.listener = None
 
             with self._lock:

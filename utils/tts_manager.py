@@ -74,8 +74,8 @@ class TTSManager:
             if self.tts_engine:
                 try:
                     self.tts_engine.stop()
-                except:
-                    pass
+                except Exception:
+                    pass  # Ignore errors when stopping old engine
 
             pyttsx3 = _get_pyttsx3()
             if not pyttsx3:
@@ -115,8 +115,8 @@ class TTSManager:
                 "  sudo apt install espeak\n\n"
                 "The application will function normally without TTS."
             )
-        except:
-            pass
+        except Exception:
+            pass  # Ignore dialog errors
 
     def speak_text(self, text):
         """Speak the given text using the TTS engine."""
@@ -153,7 +153,7 @@ class TTSManager:
                 if self.tts_engine and not self.speech_should_stop.is_set():
                     try:
                         self.tts_engine.stop()
-                    except:
+                    except Exception:
                         self.init_tts_engine()
 
                     if self.tts_engine:
@@ -167,15 +167,15 @@ class TTSManager:
                                 if not self.tts_engine.iterate():
                                     break
                                 self.tts_engine.endLoop()
-                            except:
-                                break
+                            except Exception:
+                                break  # Exit loop on any TTS iteration error
 
                         # If we were interrupted, stop the engine
                         if self.speech_should_stop.is_set():
                             try:
                                 self.tts_engine.stop()
-                            except:
-                                pass
+                            except Exception:
+                                pass  # Ignore errors when stopping
 
             except Exception as e:
                 print(f"TTS error: {e}")
@@ -196,5 +196,5 @@ class TTSManager:
                 try:
                     self.tts_engine.stop()
                     self.tts_engine = None
-                except:
-                    pass
+                except Exception:
+                    pass  # Ignore errors during cleanup

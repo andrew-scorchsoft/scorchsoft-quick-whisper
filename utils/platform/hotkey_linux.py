@@ -101,14 +101,19 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 "The application will still function, but you may need "
                 "to use the UI buttons instead of hotkeys."
             )
-        except:
-            pass
+        except Exception:
+            pass  # Ignore dialog errors
 
     def unregister_hotkeys(self):
         """Stop the keyboard listener and clear hotkeys."""
         try:
             if self.listener:
                 self.listener.stop()
+                # Wait for listener thread to fully terminate to prevent duplicates
+                try:
+                    self.listener.join(timeout=1.0)
+                except Exception:
+                    pass  # Ignore join errors
                 self.listener = None
 
             with self._lock:

@@ -193,8 +193,8 @@ class HotkeyManagerBase(ABC):
                     menu.entryconfigure(0,
                         label=f"Cancel Recording ({self.shortcuts['cancel_recording']})"
                     )
-        except:
-            pass
+        except Exception:
+            pass  # Menu may not exist yet
 
     def format_shortcut(self, keys):
         """Format a set of keys into a shortcut string with consistent ordering."""

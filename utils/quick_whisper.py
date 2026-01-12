@@ -98,7 +98,7 @@ class QuickWhisper(tk.Tk):
         self.transcription_model_type = "gpt"  # Can be "gpt" or "whisper"
         self.ai_model = "gpt-5-mini"
         self.whisper_language = "auto"
-        self.last_trancription = "NO LATEST TRANSCRIPTION"
+        self.last_transcription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
 
         # Initialize auto hotkey refresh setting (default to True)
@@ -822,15 +822,20 @@ class QuickWhisper(tk.Tk):
             transcription_text = (transcription_text or "").rstrip()
 
             self.add_to_history(transcription_text)
-            self.last_trancription = transcription_text
+            self.last_transcription = transcription_text
 
             # Process transcription with or without GPT as per the checkbox setting
             if self.current_button_mode == "edit":
                 print("AI Editing Transcription")
 
+                # Helper to update UI safely from this thread
+                def update_transcription_ui(text):
+                    self.ui_manager.transcription_text.delete("1.0", tk.END)
+                    self.ui_manager.transcription_text.insert("1.0", text)
+
                 # set input box to transcription text first, just incase there is a failure
-                self.ui_manager.transcription_text.delete("1.0", tk.END)
-                self.ui_manager.transcription_text.insert("1.0", transcription_text)
+                # Schedule UI update on main thread (Tkinter is not thread-safe)
+                self.after(0, lambda: update_transcription_ui(transcription_text))
 
                 # Then GPT edit that transcribed text and insert
                 self.ui_manager.set_status("Processing - AI Editing...", "green")
@@ -842,12 +847,15 @@ class QuickWhisper(tk.Tk):
                 self.last_edit = edited_text
                 play_text = edited_text
 
-                self.ui_manager.transcription_text.delete("1.0", tk.END)
-                self.ui_manager.transcription_text.insert("1.0", play_text)
+                # Schedule UI update on main thread (Tkinter is not thread-safe)
+                self.after(0, lambda: update_transcription_ui(play_text))
             else:
                 print("Outputting Raw Transcription Only")
-                self.ui_manager.transcription_text.delete("1.0", tk.END)
-                self.ui_manager.transcription_text.insert("1.0", transcription_text)
+                # Schedule UI update on main thread (Tkinter is not thread-safe)
+                def update_transcription_ui(text):
+                    self.ui_manager.transcription_text.delete("1.0", tk.END)
+                    self.ui_manager.transcription_text.insert("1.0", text)
+                self.after(0, lambda: update_transcription_ui(transcription_text))
                 play_text = transcription_text
 
 
@@ -885,7 +893,7 @@ class QuickWhisper(tk.Tk):
     def copy_last_transcription(self):
         try:
             # Copy text to clipboard
-            pyperclip.copy(self.last_trancription)
+            pyperclip.copy(self.last_transcription)
 
         except Exception as e:
             messagebox.showerror("Auto-Copy Error", f"Failed to copy the transcription to clipboard: {e}")

@@ -12,13 +12,26 @@ class AudioManager:
     def __init__(self, parent):
         self.parent = parent
         self.audio = pyaudio.PyAudio()
-        self.recording = False
+        self._recording_event = threading.Event()  # Thread-safe recording flag
         self.frames = []
         self.record_thread = None
         self.stream = None
         self.device_index = None
         self.audio_file = None
         self.config = get_config()
+
+    @property
+    def recording(self):
+        """Thread-safe check if recording is in progress."""
+        return self._recording_event.is_set()
+
+    @recording.setter
+    def recording(self, value):
+        """Thread-safe set recording state."""
+        if value:
+            self._recording_event.set()
+        else:
+            self._recording_event.clear()
         
     def get_input_devices(self):
         """Get a list of available input audio devices."""
@@ -85,24 +98,46 @@ class AudioManager:
 
     def record(self):
         """Record audio data from the stream."""
-        while self.recording:
+        while self._recording_event.is_set():
             try:
-                data = self.stream.read(1024)
-                self.frames.append(data)
+                # Use a smaller timeout to allow checking the stop flag more frequently
+                if self.stream and self.stream.is_active():
+                    data = self.stream.read(1024, exception_on_overflow=False)
+                    self.frames.append(data)
+                else:
+                    break
+            except OSError as e:
+                # Stream was closed - this is expected when stopping
+                if not self._recording_event.is_set():
+                    break
+                print(f"Recording OSError: {e}")
+                break
             except Exception as e:
                 print(f"Recording error: {e}")
-                messagebox.showerror("Recording error", f"An error occurred while Recording: {e}")
+                # Only show error dialog if we're still supposed to be recording
+                if self._recording_event.is_set():
+                    self.parent.after(0, lambda: messagebox.showerror("Recording error", f"An error occurred while Recording: {e}"))
                 break
 
     def stop_recording(self):
         """Stop recording and save the audio file."""
         self.recording = False
-        if self.record_thread:
-            self.record_thread.join()
 
+        # Wait for record thread to finish with timeout
+        if self.record_thread:
+            self.record_thread.join(timeout=2.0)
+            if self.record_thread.is_alive():
+                print("Warning: Record thread did not stop in time")
+
+        # Safely close the stream
         if self.stream:
-            self.stream.stop_stream()
-            self.stream.close()
+            try:
+                self.stream.stop_stream()
+                self.stream.close()
+            except Exception as e:
+                print(f"Error closing stream: {e}")
+            finally:
+                self.stream = None
 
         print(f"Stopping, about to trigger '{self.parent.current_button_mode}' mode...")
 
@@ -145,12 +180,22 @@ class AudioManager:
         """Cancels the current recording without processing."""
         if self.recording:
             self.recording = False
-            if self.record_thread:
-                self.record_thread.join()
 
+            # Wait for record thread to finish with timeout
+            if self.record_thread:
+                self.record_thread.join(timeout=2.0)
+                if self.record_thread.is_alive():
+                    print("Warning: Record thread did not stop in time during cancel")
+
+            # Safely close the stream
             if self.stream:
-                self.stream.stop_stream()
-                self.stream.close()
+                try:
+                    self.stream.stop_stream()
+                    self.stream.close()
+                except Exception as e:
+                    print(f"Error closing stream during cancel: {e}")
+                finally:
+                    self.stream = None
 
             # Reset buttons back to original state - now through ui_manager
             self.parent.ui_manager.update_button_states(recording=False)
@@ -235,5 +280,5 @@ class AudioManager:
             # Continue with termination even if stop_recording fails
             try:
                 self.audio.terminate()
-            except:
-                pass 
+            except Exception as e2:
+                print(f"Error during audio termination: {e2}") 
