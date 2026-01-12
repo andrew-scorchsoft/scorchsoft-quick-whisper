@@ -172,12 +172,51 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 # Handle virtual key codes for special keys
                 # Windows virtual key codes
                 vk_map = {
+                    # Modifier keys
+                    16: 'shift',   # VK_SHIFT
+                    17: 'ctrl',    # VK_CONTROL
+                    18: 'alt',     # VK_MENU (Alt)
+                    160: 'shift',  # VK_LSHIFT
+                    161: 'shift',  # VK_RSHIFT
+                    162: 'ctrl',   # VK_LCONTROL
+                    163: 'ctrl',   # VK_RCONTROL
+                    164: 'alt',    # VK_LMENU (Left Alt)
+                    165: 'alt',    # VK_RMENU (Right Alt)
+                    91: 'win',     # VK_LWIN (Left Windows key)
+                    92: 'win',     # VK_RWIN (Right Windows key)
+                    # Arrow keys
                     37: 'left',    # VK_LEFT
                     38: 'up',      # VK_UP
                     39: 'right',   # VK_RIGHT
                     40: 'down',    # VK_DOWN
+                    # Special keys
+                    8: 'backspace',   # VK_BACK
+                    9: 'tab',         # VK_TAB
+                    13: 'enter',      # VK_RETURN
+                    27: 'escape',     # VK_ESCAPE
+                    32: 'space',      # VK_SPACE
+                    33: 'pageup',     # VK_PRIOR
+                    34: 'pagedown',   # VK_NEXT
+                    35: 'end',        # VK_END
+                    36: 'home',       # VK_HOME
+                    45: 'insert',     # VK_INSERT
+                    46: 'delete',     # VK_DELETE
+                    # Bracket/punctuation keys
                     219: '[',      # VK_OEM_4 (left bracket)
                     221: ']',      # VK_OEM_6 (right bracket)
+                    # Function keys
+                    112: 'f1', 113: 'f2', 114: 'f3', 115: 'f4',
+                    116: 'f5', 117: 'f6', 118: 'f7', 119: 'f8',
+                    120: 'f9', 121: 'f10', 122: 'f11', 123: 'f12',
+                    # Letters (A-Z) as fallback if key.char not set
+                    65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e',
+                    70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j',
+                    75: 'k', 76: 'l', 77: 'm', 78: 'n', 79: 'o',
+                    80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't',
+                    85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
+                    # Numbers (0-9) as fallback
+                    48: '0', 49: '1', 50: '2', 51: '3', 52: '4',
+                    53: '5', 54: '6', 55: '7', 56: '8', 57: '9',
                 }
                 return vk_map.get(key.vk)
         return None

@@ -221,18 +221,51 @@ class QuickWhisper(tk.Tk):
             return
 
         if system == 'Windows':
-            # Windows DPI awareness - improves sharpness
-            # Note: For best results, this should be called before Tk window creation
-            # but calling it here still helps with some scaling issues
+            # Windows HiDPI handling:
+            # - "disabled": Return early (handled above) - Windows default scaling preserved
+            # - "auto": Don't interfere - let Windows handle scaling via bitmap scaling
+            # - "enabled": User explicitly wants HiDPI - set DPI awareness and apply Tk scaling
             try:
-                # Try to set per-monitor DPI awareness (Windows 10 1607+)
-                ctypes.windll.shcore.SetProcessDpiAwareness(2)
-            except (AttributeError, OSError):
-                try:
-                    # Fallback for older Windows versions
-                    ctypes.windll.user32.SetProcessDPIAware()
-                except (AttributeError, OSError):
-                    pass
+                screen_width = self.winfo_screenwidth()
+                screen_height = self.winfo_screenheight()
+                current_scaling = float(self.tk.call('tk', 'scaling'))
+
+                print(f"Windows screen info: {screen_width}x{screen_height}, current Tk scaling: {current_scaling:.2f}")
+
+                if hidpi_mode == "enabled":
+                    # User explicitly enabled HiDPI - set DPI awareness for sharp rendering
+                    try:
+                        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI aware
+                        print("Set per-monitor DPI awareness")
+                    except (AttributeError, OSError):
+                        try:
+                            ctypes.windll.user32.SetProcessDPIAware()
+                            print("Set system DPI awareness (fallback)")
+                        except (AttributeError, OSError):
+                            print("Could not set DPI awareness")
+
+                    # Get actual DPI
+                    try:
+                        dpi = ctypes.windll.user32.GetDpiForSystem()
+                    except (AttributeError, OSError):
+                        hdc = ctypes.windll.user32.GetDC(0)
+                        dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
+                        ctypes.windll.user32.ReleaseDC(0, hdc)
+
+                    # Calculate and apply scale factor
+                    scale_factor = dpi / 96.0
+                    scale_factor = max(1.0, min(scale_factor, 2.5))  # Clamp between 1.0 and 2.5
+
+                    self.tk.call('tk', 'scaling', scale_factor)
+                    self.hidpi_scale_factor = scale_factor
+                    print(f"Windows HiDPI enabled: DPI={dpi}, applied {scale_factor:.2f}x scaling")
+                else:
+                    # Auto mode: Don't change anything, let Windows handle scaling naturally
+                    # This preserves Windows' default bitmap scaling behavior
+                    print("Windows auto mode: Using default Windows scaling")
+
+            except Exception as e:
+                print(f"Could not apply HiDPI scaling on Windows: {e}")
 
         elif system == 'Linux':
             # Linux: Multiple strategies for HiDPI detection

@@ -14,6 +14,9 @@ python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
+# Linux: use --system-site-packages for GTK/GStreamer bindings
+python3 -m venv venv --system-site-packages
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -22,6 +25,19 @@ python quick_whisper.py
 
 # Build standalone executable (PyInstaller)
 pyinstaller quick_whisper.spec
+```
+
+### Platform Prerequisites
+
+**Linux** (before creating venv):
+```bash
+sudo apt install portaudio19-dev python3-tk python3-gi gir1.2-gstreamer-1.0 gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 gstreamer1.0-plugins-base espeak
+```
+
+**macOS**:
+```bash
+brew install portaudio
+# Grant accessibility permissions: System Preferences > Security & Privacy > Privacy > Accessibility
 ```
 
 ## Architecture
@@ -39,31 +55,49 @@ pyinstaller quick_whisper.spec
 | Manager | Purpose |
 |---------|---------|
 | `AudioManager` | PyAudio recording, WAV file handling, sound playback |
-| `HotkeyManager` | Global keyboard shortcuts via `keyboard` library, handles registration/refresh/verification |
+| `HotkeyManager` | Global hotkeys via `pynput`, delegates to platform-specific implementations |
 | `UIManager` | All Tkinter widgets, Sun Valley theme (sv_ttk), custom `GradientButton` component |
 | `ConfigManager` | JSON-based settings (`config/settings.json`) and encrypted credentials (`config/credentials.json`) |
-| `TTSManager` | Text-to-speech for prompt name announcements (Windows only) |
+| `TTSManager` | Text-to-speech for prompt name announcements |
 | `TrayManager` | System tray icon via `pystray` |
 | `VersionUpdateManager` | GitHub release checking |
-| `SystemEventListener` | Windows session lock/unlock detection for hotkey refresh |
+| `SystemEventListener` | Session lock/unlock detection for hotkey refresh |
+
+### Platform-Specific Module (`utils/platform/`)
+Cross-platform support via factory pattern in `__init__.py`:
+- `hotkey_base.py` - Abstract base class for hotkey managers
+- `hotkey_windows.py`, `hotkey_macos.py`, `hotkey_linux.py` - Platform implementations using `pynput`
+- `system_events_base.py` - Abstract base for system event listeners
+- `system_events_windows.py`, `system_events_unix.py` - Platform-specific event handling
+
+Factory functions: `get_hotkey_manager_class()`, `get_system_event_listener_class()`
 
 ### Configuration
 - `config/settings.json` - UI preferences, model settings, keyboard shortcuts, recording options
 - `config/credentials.json` - Encrypted OpenAI API key (uses `cryptography` Fernet)
 - Auto-migrates from legacy `.env` format
 
-### Default Keyboard Shortcuts (Windows)
+### Default Keyboard Shortcuts
+**Windows/Linux:**
 - `Ctrl+Alt+J` - Record + AI Edit
 - `Ctrl+Alt+Shift+J` - Record + Transcribe only
 - `Win+X` - Cancel recording
 - `Alt+Left/Right` - Cycle through prompts
+
+**macOS:**
+- `Cmd+Alt+J` - Record + AI Edit
+- `Cmd+Alt+Shift+J` - Record + Transcribe only
+- `Cmd+X` - Cancel recording
+- `Cmd+[/]` - Cycle through prompts
 
 ### Theming
 Uses Sun Valley ttk theme (`sv_ttk`) with custom `ModernTheme` class defining Scorchsoft brand colors. Supports dark/light mode toggle.
 
 ## Key Technical Notes
 
-- Hotkeys can become unregistered after Windows lock/unlock - the app has health checking and auto-refresh (every 30s when enabled)
-- Transcription supports two model types: `gpt` (gpt-4o-transcribe) and `whisper` (whisper-1) with different API parameters
-- All keyboard callbacks are marshaled to main Tkinter thread via `self.parent.after(0, ...)` to prevent UI glitches
-- Recording files go to configurable location: alongside app, AppData, or custom path
+- **Thread safety**: All keyboard callbacks are marshaled to main Tkinter thread via `self.parent.after(0, ...)` to prevent UI glitches
+- **Hotkey reliability**: Hotkeys can become unregistered after Windows lock/unlock - the app has health checking and auto-refresh (every 30s when enabled)
+- **Transcription models**: Two types supported - `gpt` (gpt-4o-transcribe) and `whisper` (whisper-1) with different API parameters
+- **Recording storage**: Configurable location - alongside app, AppData/config folder, or custom path
+- **Linux/Wayland**: Global hotkeys have limited support under Wayland; X11 recommended for best results
+- **HiDPI**: Basic HiDPI scaling support; uses `tk.call('tk', 'scaling', ...)` for high-resolution displays
