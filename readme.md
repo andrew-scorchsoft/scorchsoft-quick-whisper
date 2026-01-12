@@ -31,9 +31,16 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
    pip install -r requirements.txt
    ```
 
-   **Mac/Linux:**
+   **Mac:**
    ```bash
    python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+   **Linux:**
+   ```bash
+   python3 -m venv venv --system-site-packages
    source venv/bin/activate
    pip install -r requirements.txt
    ```
@@ -44,6 +51,13 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
    {
      "openai_api_key": "your_openai_api_key_here"
    }
+   ```
+
+### Linux-Specific Setup
+
+1. Install required system packages (before creating the virtual environment):
+   ```bash
+   sudo apt install portaudio19-dev python3-tk python3-gi gir1.2-gstreamer-1.0 gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 gstreamer1.0-plugins-base espeak
    ```
 
 ### Mac-Specific Setup
