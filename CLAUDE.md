@@ -90,8 +90,38 @@ Factory functions: `get_hotkey_manager_class()`, `get_system_event_listener_clas
 - `Cmd+X` - Cancel recording
 - `Cmd+[/]` - Cycle through prompts
 
-### Theming
-Uses Sun Valley ttk theme (`sv_ttk`) with custom `ModernTheme` class defining Scorchsoft brand colors. Supports dark/light mode toggle.
+### Theming (`utils/theme/`)
+Centralized theming module with platform-aware HiDPI support. Uses Sun Valley ttk theme (`sv_ttk`) with custom styling.
+
+**Module Structure:**
+| File | Purpose |
+|------|---------|
+| `colors.py` | `ThemeColors` class with Scorchsoft brand colors |
+| `fonts.py` | `FontProvider` with platform-specific font sizes (base + HiDPI per platform) |
+| `spacing.py` | `SpacingProvider` for spacing, radius, button heights, border widths |
+| `windows.py` | `WindowSizeProvider` for dialog dimensions per platform/HiDPI mode |
+
+**Usage:**
+```python
+from utils.theme import (
+    get_font, get_font_size,           # Font tuples and sizes
+    get_spacing, get_radius,            # Padding and corner radius
+    get_button_height, get_border_width, # Button dimensions
+    get_window_size,                    # Dialog sizes
+    ThemeColors,                        # Color constants
+)
+
+# Examples
+font = get_font('md', 'bold')           # ("Segoe UI", 14, "bold") on Windows HiDPI
+padding = get_spacing('md')             # 14 on HiDPI, 12 on base
+width, height = get_window_size('main') # Platform/HiDPI-aware dimensions
+```
+
+**Initialization:** Call `init_theme(is_hidpi=True/False)` after Tk root is created, before UI setup.
+
+**Font size keys:** `xxs`, `xs`, `sm`, `md`, `lg`, `xl`, plus semantic names like `nav_arrow`, `copy_link`, `menu_button`
+
+**Legacy:** `ModernTheme` class in `ui_manager.py` delegates to `ThemeColors` for backward compatibility.
 
 ## Key Technical Notes
 
@@ -100,4 +130,4 @@ Uses Sun Valley ttk theme (`sv_ttk`) with custom `ModernTheme` class defining Sc
 - **Transcription models**: Two types supported - `gpt` (gpt-4o-transcribe) and `whisper` (whisper-1) with different API parameters
 - **Recording storage**: Configurable location - alongside app, AppData/config folder, or custom path
 - **Linux/Wayland**: Global hotkeys have limited support under Wayland; X11 recommended for best results
-- **HiDPI**: Basic HiDPI scaling support; uses `tk.call('tk', 'scaling', ...)` for high-resolution displays
+- **HiDPI**: Platform-specific scaling via `utils/theme/` module; explicit pixel values per platform (Windows, Linux, macOS) for fonts, spacing, and window sizes
