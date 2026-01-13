@@ -7,9 +7,26 @@ the WTS (Windows Terminal Services) API to detect screen lock/unlock events.
 import threading
 import time
 import ctypes
-from ctypes import wintypes
+from ctypes import wintypes, Structure, POINTER, WINFUNCTYPE
 
 from .system_events_base import SystemEventListenerBase
+
+
+# Define WNDCLASSW structure (not in wintypes)
+class WNDCLASSW(Structure):
+    """Windows WNDCLASSW structure for window class registration."""
+    _fields_ = [
+        ('style', wintypes.UINT),
+        ('lpfnWndProc', ctypes.c_void_p),  # Will be set to WNDPROC
+        ('cbClsExtra', ctypes.c_int),
+        ('cbWndExtra', ctypes.c_int),
+        ('hInstance', wintypes.HINSTANCE),
+        ('hIcon', wintypes.HICON),
+        ('hCursor', wintypes.HANDLE),
+        ('hbrBackground', wintypes.HBRUSH),
+        ('lpszMenuName', wintypes.LPCWSTR),
+        ('lpszClassName', wintypes.LPCWSTR),
+    ]
 
 
 class WindowsSystemEventListener(SystemEventListenerBase):
@@ -154,8 +171,6 @@ class WindowsSystemEventListener(SystemEventListenerBase):
 
     def _create_window_class(self):
         """Create a window class for the message-only window."""
-        wndclass = wintypes.WNDCLASSW()
-        wndclass.style = 0
         # WNDPROC signature must use pointer-sized types for 64-bit Windows compatibility
         WNDPROC = ctypes.WINFUNCTYPE(
             wintypes.LPARAM,   # LRESULT (pointer-sized return)
@@ -166,32 +181,78 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         )
         # Store callback to prevent garbage collection (critical!)
         self._wndproc_callback = WNDPROC(self._wnd_proc)
-        wndclass.lpfnWndProc = self._wndproc_callback
+        
+        # Use our custom WNDCLASSW structure
+        wndclass = WNDCLASSW()
+        wndclass.style = 0
+        # Cast the callback to get its pointer value
+        wndclass.lpfnWndProc = ctypes.cast(self._wndproc_callback, ctypes.c_void_p).value
         wndclass.cbClsExtra = 0
         wndclass.cbWndExtra = 0
         wndclass.hInstance = ctypes.windll.kernel32.GetModuleHandleW(None)
-        wndclass.hIcon = 0
-        wndclass.hCursor = 0
-        wndclass.hbrBackground = 0
-        wndclass.lpszMenuName = 0
+        wndclass.hIcon = None
+        wndclass.hCursor = None
+        wndclass.hbrBackground = None
+        wndclass.lpszMenuName = None
         wndclass.lpszClassName = "QuickWhisperMessageWindow"
 
-        if not ctypes.windll.user32.RegisterClassW(ctypes.byref(wndclass)):
-            print(f"Failed to register window class: {ctypes.GetLastError()}")
-            return None
+        result = ctypes.windll.user32.RegisterClassW(ctypes.byref(wndclass))
+        if not result:
+            error = ctypes.GetLastError()
+            # Error 1410 = class already exists (OK, we can reuse it)
+            if error == 1410:
+                print("Window class already registered (reusing)")
+            else:
+                print(f"Failed to register window class: error {error}")
+                return None
 
         return wndclass
 
     def _create_message_window(self, wndclass):
         """Create a message-only window to receive system events."""
         if not wndclass:
+            print("Cannot create message window: wndclass is None")
             return None
 
-        # HWND_MESSAGE = -3
-        return ctypes.windll.user32.CreateWindowExW(
-            0, wndclass.lpszClassName, "QuickWhisperMessageWindow",
-            0, 0, 0, 0, 0, -3, 0, wndclass.hInstance, 0
+        # Configure CreateWindowExW
+        ctypes.windll.user32.CreateWindowExW.argtypes = [
+            wintypes.DWORD,      # dwExStyle
+            wintypes.LPCWSTR,    # lpClassName
+            wintypes.LPCWSTR,    # lpWindowName
+            wintypes.DWORD,      # dwStyle
+            ctypes.c_int,        # x
+            ctypes.c_int,        # y
+            ctypes.c_int,        # nWidth
+            ctypes.c_int,        # nHeight
+            wintypes.HWND,       # hWndParent (HWND_MESSAGE = -3)
+            wintypes.HMENU,      # hMenu
+            wintypes.HINSTANCE,  # hInstance
+            wintypes.LPVOID,     # lpParam
+        ]
+        ctypes.windll.user32.CreateWindowExW.restype = wintypes.HWND
+
+        # HWND_MESSAGE = (HWND)-3 for message-only window
+        HWND_MESSAGE = wintypes.HWND(-3 & 0xFFFFFFFFFFFFFFFF)  # Handle sign extension
+        
+        hwnd = ctypes.windll.user32.CreateWindowExW(
+            0,                              # dwExStyle
+            wndclass.lpszClassName,         # lpClassName
+            "QuickWhisperMessageWindow",    # lpWindowName
+            0,                              # dwStyle
+            0, 0, 0, 0,                     # x, y, width, height
+            HWND_MESSAGE,                   # hWndParent = HWND_MESSAGE
+            None,                           # hMenu
+            wndclass.hInstance,             # hInstance
+            None                            # lpParam
         )
+        
+        if not hwnd:
+            error = ctypes.GetLastError()
+            print(f"Failed to create message window: error {error}")
+            return None
+        
+        print(f"Message window created successfully: hwnd={hwnd}")
+        return hwnd
 
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
         """Window procedure to handle window messages.

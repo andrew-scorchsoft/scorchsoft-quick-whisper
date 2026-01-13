@@ -1678,53 +1678,54 @@ class QuickWhisper(tk.Tk):
     def setup_hotkey_health_checker(self):
         """Set up a periodic check of hotkey health.
         
-        When the app is minimized, the health check is UNRELIABLE - the listener
-        can appear "alive" while hotkey combinations don't work. So when minimized,
-        we simply refresh hotkeys on every check cycle, regardless of health status.
+        The health check runs independently and provides diagnostic info.
+        When minimized, hotkeys are refreshed every 30 seconds regardless
+        of what the health check says (because the check is unreliable when
+        the listener is receiving regular keys but not modifier combinations).
         
-        This ensures hotkeys keep working after screen lock/unlock or other
-        system events that can break the Windows keyboard hook.
+        The health check now tracks:
+        - Total key events received
+        - Total modifier key events (Ctrl, Alt, Shift, Win)
+        - Total hotkey triggers
+        - Time since last modifier event (key diagnostic!)
         """
-        # Normal check interval (when window is visible)
+        # Check/refresh interval
         self.hotkey_check_interval_normal = 30000  # 30 seconds
-        # Refresh interval when minimized - just refresh every cycle
         self.hotkey_check_interval_minimized = 30000  # 30 seconds
-        # Track consecutive failures for when window is visible
+        # Track consecutive health check failures
         self._hotkey_check_failures = 0
         self._max_consecutive_failures = 3
         
         def check_hotkey_health():
-            # Determine check interval based on window state
+            # Determine state
             is_minimized = getattr(self, 'was_minimized', False) or self.winfo_viewable() == 0
             check_interval = self.hotkey_check_interval_minimized if is_minimized else self.hotkey_check_interval_normal
             
-            # Only run the check if auto hotkey refresh is enabled
+            # Only run if auto hotkey refresh is enabled
             if self.auto_hotkey_refresh.get():
+                # ALWAYS run diagnostic health check for visibility
+                health_ok = self.hotkey_manager.verify_hotkeys()
+                
                 if is_minimized:
-                    # When minimized, ALWAYS refresh - don't trust the health check
-                    # The listener can appear "alive" while hotkey combos don't work
-                    print("Minimized - forcing hotkey refresh (health check unreliable when minimized)")
+                    # When minimized: refresh regardless of health check result
+                    # The health check is logged for diagnostics but doesn't gate refresh
+                    print(f"[MINIMIZED] Forcing hotkey refresh (health_ok={health_ok})")
                     self.hotkey_manager.force_hotkey_refresh()
                     self._hotkey_check_failures = 0
                 else:
-                    # When visible, use normal health check logic
-                    health_ok = self.hotkey_manager.verify_hotkeys()
-                    
+                    # When visible: use health check to decide whether to refresh
                     if not health_ok:
                         self._hotkey_check_failures += 1
-                        print(f"Hotkey health check failed (attempt {self._hotkey_check_failures}/{self._max_consecutive_failures})")
-                        
                         if self._hotkey_check_failures >= self._max_consecutive_failures:
-                            print("Refreshing hotkeys due to health check failure")
+                            print(f"[VISIBLE] Refreshing after {self._hotkey_check_failures} failed checks")
                             self.hotkey_manager.force_hotkey_refresh()
                             self._hotkey_check_failures = 0
                     else:
                         self._hotkey_check_failures = 0
-                        print("Hotkey health check passed")
             else:
                 print("Hotkey health check skipped - auto refresh disabled")
                 
-            # Schedule next check with appropriate interval
+            # Schedule next check
             self.after(check_interval, check_hotkey_health)
         
         # Start the periodic check

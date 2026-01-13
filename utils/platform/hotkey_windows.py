@@ -27,10 +27,14 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         self._registered_hotkeys = {}
         # Track keyboard activity to detect stale listeners
         self._last_key_event_time = time.time()
+        self._last_modifier_event_time = time.time()  # Track modifier keys separately
         self._listener_start_time = 0
         # Threshold for considering listener stale (seconds)
-        # If no key events for this long, assume listener might be dead
         self._stale_threshold = 120  # 2 minutes
+        # Track statistics for diagnostics
+        self._total_key_events = 0
+        self._total_modifier_events = 0
+        self._hotkey_triggers = 0
         super().__init__(parent)
 
     def register_hotkeys(self):
@@ -63,9 +67,13 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             )
             self.listener.start()
             
-            # Track when listener was started and reset activity timestamp
+            # Track when listener was started and reset activity timestamps
             self._listener_start_time = time.time()
             self._last_key_event_time = time.time()
+            self._last_modifier_event_time = time.time()
+            # Don't reset statistics - they're useful for long-term diagnostics
+            # self._total_key_events = 0
+            # self._total_modifier_events = 0
 
             print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Windows/pynput)")
             return True
@@ -97,50 +105,73 @@ class WindowsHotkeyManager(HotkeyManagerBase):
     def verify_hotkeys(self):
         """Verify that the keyboard listener is running and responsive.
         
-        This method performs several checks:
+        This method performs diagnostic checks and returns detailed status.
+        
+        IMPORTANT: This check can return True even when hotkeys don't work!
+        The listener can receive regular key events while failing to receive
+        modifier key combinations. Use this for diagnostics, not as a gate
+        for whether to refresh hotkeys.
+        
+        Checks performed:
         1. Is the listener thread alive?
         2. Has the listener received any key events recently?
-        3. Is the listener in a potentially stale state?
-        
-        A listener can become "stale" when Windows releases or invalidates
-        the low-level keyboard hook, which can happen when:
-        - The app is minimized for extended periods
-        - Windows does power management/sleep cycles
-        - UAC dialogs or other system events occur
+        3. Has the listener received modifier key events recently?
+        4. Statistics on key events and hotkey triggers
         """
         try:
             if self._paused:
                 return True
 
             if not self._registered_hotkeys:
-                print("No hotkeys registered")
+                print("HEALTH CHECK: FAIL - No hotkeys registered")
                 return False
 
             if not self.listener or not self.listener.is_alive():
-                print("Keyboard listener not alive")
+                print("HEALTH CHECK: FAIL - Keyboard listener thread not alive")
                 return False
 
-            # Check if listener might be stale
-            # The listener thread can be "alive" but the Windows hook might be dead
             current_time = time.time()
             time_since_last_event = current_time - self._last_key_event_time
+            time_since_last_modifier = current_time - self._last_modifier_event_time
             time_since_start = current_time - self._listener_start_time
             
-            # Only consider staleness if listener has been running long enough
-            # to have reasonably received some keyboard activity
-            if time_since_start > self._stale_threshold:
-                if time_since_last_event > self._stale_threshold:
-                    print(f"Keyboard listener may be stale - no key events for {time_since_last_event:.0f}s")
-                    # Don't immediately fail - let the health checker handle refresh
-                    # This allows for cases where user genuinely hasn't typed
-                    # But flag it as potentially unhealthy
-                    return False
-
-            print(f"Hotkey verification passed - listener active (last event {time_since_last_event:.0f}s ago)")
-            return True
+            # Build diagnostic message
+            status_parts = []
+            is_healthy = True
+            
+            # Check for completely dead listener (no events at all)
+            if time_since_start > self._stale_threshold and time_since_last_event > self._stale_threshold:
+                status_parts.append(f"NO EVENTS for {time_since_last_event:.0f}s")
+                is_healthy = False
+            else:
+                status_parts.append(f"last_event={time_since_last_event:.0f}s")
+            
+            # Check for modifier key events - this is the key diagnostic
+            # If we're receiving regular events but no modifier events, hotkeys likely broken
+            if time_since_start > 30:  # Only check after listener has been running a bit
+                if time_since_last_modifier > 60 and time_since_last_event < 30:
+                    # Receiving regular keys but no modifier keys for a while - suspicious
+                    status_parts.append(f"NO MODIFIERS for {time_since_last_modifier:.0f}s (SUSPICIOUS)")
+                    is_healthy = False
+                else:
+                    status_parts.append(f"last_modifier={time_since_last_modifier:.0f}s")
+            
+            # Add statistics
+            status_parts.append(f"keys={self._total_key_events}")
+            status_parts.append(f"mods={self._total_modifier_events}")
+            status_parts.append(f"triggers={self._hotkey_triggers}")
+            
+            status_str = ", ".join(status_parts)
+            
+            if is_healthy:
+                print(f"HEALTH CHECK: OK - {status_str}")
+            else:
+                print(f"HEALTH CHECK: SUSPICIOUS - {status_str}")
+            
+            return is_healthy
 
         except Exception as e:
-            print(f"Error verifying hotkeys: {e}")
+            print(f"HEALTH CHECK: ERROR - {e}")
             return False
 
     def _normalize_shortcut(self, shortcut_str):
@@ -270,9 +301,15 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         try:
             # Update activity timestamp - this proves the listener is working
             self._last_key_event_time = time.time()
+            self._total_key_events += 1
             
             key_name = self._key_to_name(key)
             if key_name:
+                # Track modifier key events separately - these are critical for hotkeys
+                if key_name in ('ctrl', 'alt', 'shift', 'win'):
+                    self._last_modifier_event_time = time.time()
+                    self._total_modifier_events += 1
+                
                 with self._lock:
                     self.pressed_keys.add(key_name)
                     self._check_hotkeys()
@@ -300,6 +337,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             if hotkey_keys == current_keys:
                 # Execute callback
                 try:
+                    self._hotkey_triggers += 1
                     callback()
                 except Exception as e:
                     print(f"Error executing hotkey callback: {e}")
