@@ -81,12 +81,14 @@ class QuickWhisper(tk.Tk):
         if window_width > screen_width - 100:
             window_width = screen_width - 100
 
-        # Calculate center position
-        center_x = int((screen_width - window_width) / 2)
-        center_y = int((screen_height - window_height) / 2)
+        # Try to use saved window position from config
+        # This helps with multi-monitor setups where centering puts window between monitors
+        position_x, position_y = self._get_valid_window_position(
+            window_width, window_height, screen_width, screen_height
+        )
 
         # Set window geometry
-        self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
+        self.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         # Allow window resizing on all platforms
         self.resizable(True, True)
         # Set minimum size to prevent window becoming too small
@@ -661,7 +663,7 @@ class QuickWhisper(tk.Tk):
                                     variable=self.dark_mode,
                                     command=self.toggle_dark_mode)
         self.settings_menu.add_separator()
-        self.settings_menu.add_command(label="Check Keyboard Shortcuts", command=self.check_keyboard_shortcuts)
+        self.settings_menu.add_command(label="Keyboard Shortcut Mapping", command=self.check_keyboard_shortcuts)
         self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
 
         # Actions Menu - use styled popup menu for modern look
@@ -991,24 +993,82 @@ class QuickWhisper(tk.Tk):
 
     def on_closing(self):
         """Clean up resources before closing."""
+        # Save window position for next launch
+        self._save_window_position()
+
         # Stop the system tray icon
         if hasattr(self, 'tray_manager'):
             self.tray_manager.stop_tray()
-            
+
         # Stop the system event listener
         if hasattr(self, 'system_event_listener'):
             self.system_event_listener.stop_listening()
-            
+
         # Clean up TTS
         self.tts_manager.cleanup()
-        
+
         # Clean up hotkeys
         self.hotkey_manager.unregister_hotkeys()
-        
+
         # Clean up audio
         self.audio_manager.cleanup()
-        
+
         self.destroy()
+
+    def _get_valid_window_position(self, window_width, window_height, screen_width, screen_height):
+        """
+        Get a valid window position, using saved position if available and valid.
+        Falls back to centering on the primary monitor area if saved position is off-screen.
+        """
+        from utils.config_manager import get_config
+
+        try:
+            config = get_config()
+            saved_x = config.window_x
+            saved_y = config.window_y
+
+            if saved_x is not None and saved_y is not None:
+                # Validate the saved position is still on screen
+                # Allow the window to be partially off-screen but at least 100px must be visible
+                min_visible = 100
+
+                # Check if at least part of the window would be visible
+                if (saved_x > -window_width + min_visible and
+                    saved_x < screen_width - min_visible and
+                    saved_y > -window_height + min_visible and
+                    saved_y < screen_height - min_visible):
+                    return saved_x, saved_y
+                else:
+                    print(f"Saved window position ({saved_x}, {saved_y}) is off-screen, using default")
+        except Exception as e:
+            print(f"Error loading saved window position: {e}")
+
+        # Fall back to centering - but on multi-monitor setups, try to stay on the left/primary monitor
+        # If screen is very wide (suggesting multi-monitor), center on left half
+        if screen_width > 3000:  # Likely multi-monitor
+            # Center on the left portion of the screen (assuming ~1920px primary monitor)
+            center_x = int((min(1920, screen_width // 2) - window_width) / 2)
+        else:
+            center_x = int((screen_width - window_width) / 2)
+
+        center_y = int((screen_height - window_height) / 2)
+        return center_x, center_y
+
+    def _save_window_position(self):
+        """Save the current window position to config for next launch."""
+        try:
+            if hasattr(self, 'config_manager'):
+                # Get current window position
+                x = self.winfo_x()
+                y = self.winfo_y()
+
+                # Only save if position seems valid (not minimized/hidden)
+                if x > -10000 and y > -10000:
+                    self.config_manager.window_x = x
+                    self.config_manager.window_y = y
+                    self.config_manager.save_settings()
+        except Exception as e:
+            print(f"Error saving window position: {e}")
 
     def play_sound(self, sound_file):
         """Play sound using audio manager."""

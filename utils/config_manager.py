@@ -36,7 +36,9 @@ class ConfigManager:
             "selected_prompt": "Default",
             "selected_input_device": "",
             "dark_mode": True,
-            "hidpi_mode": "auto"  # "auto", "enabled", or "disabled"
+            "hidpi_mode": "auto",  # "auto", "enabled", or "disabled"
+            "window_x": None,  # Saved window position (None = center on screen)
+            "window_y": None
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -391,6 +393,24 @@ class ConfigManager:
         """Set HiDPI mode: 'auto', 'enabled', or 'disabled'."""
         if value in ("auto", "enabled", "disabled"):
             self._settings["ui"]["hidpi_mode"] = value
+
+    @property
+    def window_x(self) -> Optional[int]:
+        """Get saved window X position (None = not saved/center on screen)."""
+        return self._settings["ui"].get("window_x")
+
+    @window_x.setter
+    def window_x(self, value: Optional[int]):
+        self._settings["ui"]["window_x"] = value
+
+    @property
+    def window_y(self) -> Optional[int]:
+        """Get saved window Y position (None = not saved/center on screen)."""
+        return self._settings["ui"].get("window_y")
+
+    @window_y.setter
+    def window_y(self, value: Optional[int]):
+        self._settings["ui"]["window_y"] = value
 
     # Shortcuts
     @property
