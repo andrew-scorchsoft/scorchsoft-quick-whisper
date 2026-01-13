@@ -279,30 +279,47 @@ class HotkeyManagerBase(ABC):
         position_y = self.parent.winfo_y() + (self.parent.winfo_height() - window_height) // 2
         shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
-        main_frame = ttk.Frame(shortcut_window, padding="20")
+        # Configure styles for consistent fonts
+        style = ttk.Style()
+        style.configure('HotkeyDialog.TLabel', font=get_font('sm'))
+        style.configure('HotkeyDialog.TButton', font=get_font('sm'))
+
+        main_frame = ttk.Frame(shortcut_window, padding=get_spacing('xl'))
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         title_label = ttk.Label(
             main_frame,
             text="Keyboard Shortcuts",
-            font=get_font('sm', 'bold')
+            font=get_font('lg', 'bold')
         )
-        title_label.pack(pady=(0, 10))
+        title_label.pack(pady=(0, get_spacing('lg')))
 
         shortcuts_frame = ttk.Frame(main_frame)
         shortcuts_frame.pack(fill=tk.BOTH, expand=True)
 
         for name, shortcut in self.shortcuts.items():
             frame = ttk.Frame(shortcuts_frame)
-            frame.pack(fill=tk.X, pady=5)
+            frame.pack(fill=tk.X, pady=get_spacing('xs'))
 
-            name_label = ttk.Label(frame, text=name.replace('_', ' ').title() + ":")
-            name_label.pack(side=tk.LEFT, padx=(0, 10))
+            name_label = ttk.Label(
+                frame,
+                text=name.replace('_', ' ').title() + ":",
+                style='HotkeyDialog.TLabel'
+            )
+            name_label.pack(side=tk.LEFT, padx=(0, get_spacing('sm')))
 
-            shortcut_label = ttk.Label(frame, text=shortcut)
-            shortcut_label.pack(side=tk.LEFT, padx=(0, 10))
+            shortcut_label = ttk.Label(
+                frame,
+                text=shortcut,
+                style='HotkeyDialog.TLabel'
+            )
+            shortcut_label.pack(side=tk.LEFT, padx=(0, get_spacing('sm')))
 
-            edit_button = ttk.Button(frame, text="Edit")
+            edit_button = ttk.Button(
+                frame,
+                text="Edit",
+                style='HotkeyDialog.TButton'
+            )
             edit_button.pack(side=tk.RIGHT)
             edit_button.configure(
                 command=lambda n=name, b=edit_button, l=shortcut_label:
@@ -362,14 +379,22 @@ class HotkeyManagerBase(ABC):
             justify=tk.CENTER,
             font=get_font('xxs'),
             foreground="#666666"
-        ).pack(pady=10)
+        ).pack(pady=get_spacing('sm'))
 
-        close_button = ttk.Button(
+        # Close button using CTkButton for consistency
+        close_button = ctk.CTkButton(
             main_frame,
             text="Close",
+            corner_radius=corner_radius,
+            height=button_height,
+            width=120,
+            fg_color="#555555",
+            hover_color="#444444",
+            font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
+            cursor="hand2",
             command=shortcut_window.destroy
         )
-        close_button.pack(pady=(10, 0))
+        close_button.pack(pady=(get_spacing('sm'), 0))
 
     def _start_shortcut_edit(self, shortcut_name, button, label, shortcut_window):
         """Handle shortcut editing when user clicks Edit button."""

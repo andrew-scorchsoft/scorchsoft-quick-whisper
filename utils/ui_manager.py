@@ -1172,7 +1172,7 @@ class UIManager:
         
         self.record_button_transcribe = GradientButton(
             buttons_frame,
-            text="Record + Transcript",
+            text="Record + Transcribe",
             width=btn_width,
             height=get_button_height('md'),
             corner_radius=get_radius('pill'),
@@ -1188,7 +1188,8 @@ class UIManager:
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("transcribe")
         )
-        self.record_button_transcribe.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        btn_gap = get_spacing('sm')
+        self.record_button_transcribe.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, btn_gap))
 
         self.record_button_edit = GradientButton(
             buttons_frame,
@@ -1208,7 +1209,7 @@ class UIManager:
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("edit")
         )
-        self.record_button_edit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+        self.record_button_edit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(btn_gap, 0))
         
         # Shortcut tooltips only (no visible labels - tooltips show on hover)
         shortcut_transcribe = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
@@ -1543,7 +1544,7 @@ class UIManager:
         
         # Reset to original gradient mode with white text
         self.record_button_transcribe.configure(
-            text="Record + Transcript",
+            text="Record + Transcribe",
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
