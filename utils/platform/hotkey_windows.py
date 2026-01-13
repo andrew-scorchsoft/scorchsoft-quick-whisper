@@ -18,11 +18,21 @@ class WindowsHotkeyManager(HotkeyManagerBase):
 
     Uses pynput's keyboard listener to detect global hotkey combinations.
     """
+    
+    MODIFIER_KEYS = frozenset({'ctrl', 'alt', 'shift', 'win'})
+    
+    # Maximum time a key can be "pressed" before we assume the release was missed
+    KEY_EXPIRY_SECONDS = 30.0
+    
+    # Keys pressed more than this many seconds ago are ignored when matching hotkeys
+    # This filters out stale/phantom keys that weren't properly released
+    KEY_RELEVANCE_SECONDS = 3.0
 
     def __init__(self, parent):
         self.listener = None
         self.listener_thread = None
         self.pressed_keys = set()
+        self._key_press_times = {}  # Track when each key was pressed
         self._lock = threading.Lock()
         self._registered_hotkeys = {}
         # Track keyboard activity to detect stale listeners
@@ -87,6 +97,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             # This prevents stale keys from previous listener affecting new one
             with self._lock:
                 self.pressed_keys.clear()
+                self._key_press_times.clear()
 
             print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Windows/pynput)")
             return True
@@ -109,6 +120,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
 
             with self._lock:
                 self.pressed_keys.clear()
+                self._key_press_times.clear()
                 self._registered_hotkeys.clear()
 
             print("Hotkeys unregistered")
@@ -330,19 +342,25 @@ class WindowsHotkeyManager(HotkeyManagerBase):
     def _on_press(self, key):
         """Handle key press events."""
         try:
+            current_time = time.time()
+            
             # Update activity timestamp - this proves the listener is working
-            self._last_key_event_time = time.time()
+            self._last_key_event_time = current_time
             self._total_key_events += 1
             
             key_name = self._key_to_name(key)
             if key_name:
                 # Track modifier key events separately - these are critical for hotkeys
-                if key_name in ('ctrl', 'alt', 'shift', 'win'):
-                    self._last_modifier_event_time = time.time()
+                if key_name in self.MODIFIER_KEYS:
+                    self._last_modifier_event_time = current_time
                     self._total_modifier_events += 1
                 
                 with self._lock:
+                    # Clean up expired keys before adding new one
+                    self._cleanup_expired_keys(current_time)
+                    
                     self.pressed_keys.add(key_name)
+                    self._key_press_times[key_name] = current_time
                     self._check_hotkeys()
         except Exception as e:
             print(f"Error in key press handler: {e}")
@@ -357,11 +375,50 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             if key_name:
                 with self._lock:
                     self.pressed_keys.discard(key_name)
+                    self._key_press_times.pop(key_name, None)
+                    
+                    # When a modifier key is released, clear any non-modifier keys
+                    # This prevents stray characters from accumulating due to:
+                    # - Missed release events
+                    # - Keys that leaked in during modifier combinations
+                    if key_name in self.MODIFIER_KEYS:
+                        # Check if any modifiers are still held
+                        remaining_modifiers = self.pressed_keys & self.MODIFIER_KEYS
+                        if not remaining_modifiers:
+                            # All modifiers released - clear any lingering non-modifier keys
+                            non_modifiers = self.pressed_keys - self.MODIFIER_KEYS
+                            if non_modifiers:
+                                current_time = time.time()
+                                ages = [round(current_time - self._key_press_times.get(k, current_time), 1) for k in non_modifiers]
+                                print(f"[HOTKEY] Clearing {len(non_modifiers)} stray key(s) on modifier release: {non_modifiers} ages={ages}s")
+                                self.pressed_keys.clear()
+                                self._key_press_times.clear()
         except Exception as e:
             print(f"Error in key release handler: {e}")
 
+    def _cleanup_expired_keys(self, current_time):
+        """Remove keys that have been 'pressed' for too long (missed release events).
+        
+        Must be called while holding self._lock.
+        """
+        expired_keys = []
+        expired_ages = []
+        for key_name, press_time in self._key_press_times.items():
+            age = current_time - press_time
+            if age > self.KEY_EXPIRY_SECONDS:
+                expired_keys.append(key_name)
+                expired_ages.append(round(age, 1))
+        
+        if expired_keys:
+            print(f"[HOTKEY] Expiring {len(expired_keys)} stale key(s): {expired_keys} ages={expired_ages}s")
+            for key_name in expired_keys:
+                self.pressed_keys.discard(key_name)
+                self._key_press_times.pop(key_name, None)
+
     def _check_hotkeys(self):
         """Check if currently pressed keys match any registered hotkey."""
+        current_time = time.time()
+        
         # Defensive: filter out any invalid keys (non-printable chars that may have leaked in)
         valid_keys = {k for k in self.pressed_keys if len(k) == 1 and ord(k) >= 32 or len(k) > 1}
         
@@ -369,12 +426,29 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         if len(self.pressed_keys) > 8:
             print(f"[HOTKEY WARNING] pressed_keys too large ({len(self.pressed_keys)}), clearing: {self.pressed_keys}")
             self.pressed_keys.clear()
+            self._key_press_times.clear()
             return
         
-        current_keys = frozenset(valid_keys)
+        # Filter out stale keys - only consider keys pressed within KEY_RELEVANCE_SECONDS
+        # This prevents phantom/stale keys from blocking hotkey detection
+        recent_keys = set()
+        stale_keys = set()
+        for k in valid_keys:
+            age = current_time - self._key_press_times.get(k, current_time)
+            if age <= self.KEY_RELEVANCE_SECONDS:
+                recent_keys.add(k)
+            else:
+                stale_keys.add(k)
+        
+        # Log if we filtered out stale keys
+        if stale_keys:
+            stale_ages = [round(current_time - self._key_press_times.get(k, current_time), 2) for k in stale_keys]
+            print(f"[HOTKEY] Ignoring {len(stale_keys)} stale key(s): {stale_keys} ages={stale_ages}s")
+        
+        current_keys = frozenset(recent_keys)
         
         # Debug: log when we have multiple modifiers pressed (potential hotkey attempt)
-        modifier_count = sum(1 for k in current_keys if k in ('ctrl', 'alt', 'shift', 'win'))
+        modifier_count = sum(1 for k in current_keys if k in self.MODIFIER_KEYS)
         if modifier_count >= 2 and len(current_keys) >= 3:
             # User is pressing multiple modifiers + a key - log this for debugging
             matched = current_keys in self._registered_hotkeys
@@ -386,7 +460,8 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 # Execute callback
                 try:
                     self._hotkey_triggers += 1
-                    print(f"[HOTKEY] Triggered: {current_keys}")
+                    ages = [round(current_time - self._key_press_times.get(k, current_time), 2) for k in current_keys]
+                    print(f"[HOTKEY] Triggered: {current_keys} pressed_ago={ages}")
                     callback()
                 except Exception as e:
                     print(f"Error executing hotkey callback: {e}")
