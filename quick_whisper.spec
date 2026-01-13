@@ -54,7 +54,7 @@ a = Analysis(
     ['quick_whisper.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets')],
+    datas=[('assets', 'assets'), ('locale', 'locale')],
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

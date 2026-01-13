@@ -131,3 +131,55 @@ width, height = get_window_size('main') # Platform/HiDPI-aware dimensions
 - **Recording storage**: Configurable location - alongside app, AppData/config folder, or custom path
 - **Linux/Wayland**: Global hotkeys have limited support under Wayland; X11 recommended for best results
 - **HiDPI**: Platform-specific scaling via `utils/theme/` module; explicit pixel values per platform (Windows, Linux, macOS) for fonts, spacing, and window sizes
+
+### Internationalization (`utils/i18n.py`)
+
+The app uses Python's standard `gettext` module for translations.
+
+**Module Structure:**
+- `utils/i18n.py` - Core i18n module with translation functions and language management
+- `locale/` - Translation files organized by language code (e.g., `locale/fr/LC_MESSAGES/quickwhisper.po`)
+- `tools/i18n_tools.py` - Script for extracting strings and managing translations
+- `tools/compile_mo.py` - Pure Python .po to .mo compiler (no external dependencies)
+
+**Supported Languages:**
+- `en` - English (default)
+- `fr` - French
+- `de` - German
+- `es` - Spanish
+- `zh_CN` - Chinese (Simplified)
+- `ar` - Arabic
+
+**Usage:**
+```python
+from utils.i18n import _, _n, set_language, get_current_language
+
+# Simple translation
+label = _("Save Changes")
+
+# Plural form (not currently used extensively)
+msg = _n("1 file", "{n} files", count).format(n=count)
+
+# Change language at runtime (triggers UI refresh)
+set_language("manual", "fr")
+```
+
+**Key Functions:**
+| Function | Purpose |
+|----------|---------|
+| `_(text)` | Translate a string |
+| `_n(singular, plural, n)` | Translate with plural forms |
+| `init_i18n(mode, lang)` | Initialize i18n at startup |
+| `set_language(mode, lang)` | Change language and refresh UI |
+| `register_refresh_callback(fn)` | Register callback for language changes |
+| `get_available_languages()` | Get languages with compiled .mo files |
+
+**Adding New Strings:**
+1. Wrap UI strings with `_()` in Python code
+2. Run `python3 tools/i18n_tools.py extract` to update `.pot` template
+3. Run `python3 tools/i18n_tools.py update` to merge into existing `.po` files
+4. Translate the new strings in each `.po` file
+5. Run `python3 tools/compile_mo.py` to compile `.mo` files
+
+**Runtime Language Switching:**
+Language changes take effect immediately without restart. The i18n module uses a callback registry to notify UI components when the language changes - menus are rebuilt and the UIManager's `refresh_translations()` method updates widget text.

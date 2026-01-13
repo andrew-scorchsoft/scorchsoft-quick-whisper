@@ -1,0 +1,598 @@
+# Quick Whisper Translation Template
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Main window title
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr ""
+
+#. Menu items - File menu
+msgid "File"
+msgstr ""
+
+msgid "Save Session History"
+msgstr ""
+
+msgid "Minimize to Tray"
+msgstr ""
+
+msgid "Exit"
+msgstr ""
+
+#. Menu items - Settings menu
+msgid "Settings"
+msgstr ""
+
+msgid "Change API Key"
+msgstr ""
+
+msgid "Manage Prompts"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Automatically Check for Updates"
+msgstr ""
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr ""
+
+msgid "Dark Mode"
+msgstr ""
+
+msgid "Keyboard Shortcut Mapping"
+msgstr ""
+
+msgid "Refresh Hotkeys"
+msgstr ""
+
+#. Menu items - Actions menu
+msgid "Actions"
+msgstr ""
+
+msgid "Record & Edit"
+msgstr ""
+
+msgid "Record & Transcribe"
+msgstr ""
+
+msgid "Cancel Recording"
+msgstr ""
+
+msgid "Retry Last Recording"
+msgstr ""
+
+msgid "Copy Last Transcript"
+msgstr ""
+
+msgid "Copy Last Edit"
+msgstr ""
+
+msgid "Previous Prompt"
+msgstr ""
+
+msgid "Next Prompt"
+msgstr ""
+
+#. Menu items - Help menu
+msgid "Help"
+msgstr ""
+
+msgid "About Quick Whisper"
+msgstr ""
+
+msgid "Check for Updates"
+msgstr ""
+
+msgid "Hide Banner"
+msgstr ""
+
+msgid "Show Banner"
+msgstr ""
+
+msgid "Terms of Use and Licence"
+msgstr ""
+
+#. Main UI labels
+msgid "Input Device"
+msgstr ""
+
+msgid "Transcription"
+msgstr ""
+
+msgid "Copy to clipboard"
+msgstr ""
+
+msgid "Auto-paste"
+msgstr ""
+
+msgid "Record + Transcribe"
+msgstr ""
+
+msgid "Record + AI Edit"
+msgstr ""
+
+msgid "Stop and Process"
+msgstr ""
+
+#. Navigation
+msgid "Latest entry"
+msgstr ""
+
+msgid "Newer"
+msgstr ""
+
+msgid "Older"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+msgid "Copied to clipboard"
+msgstr ""
+
+#. Status messages
+msgid "Idle"
+msgstr ""
+
+msgid "Recording..."
+msgstr ""
+
+msgid "Processing - Transcript..."
+msgstr ""
+
+msgid "Processing - AI Editing..."
+msgstr ""
+
+msgid "Processing - Audio File..."
+msgstr ""
+
+msgid "Success"
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "Error during transcription"
+msgstr ""
+
+#. Dialog titles
+msgid "Configuration Settings"
+msgstr ""
+
+msgid "Prompt Management"
+msgstr ""
+
+msgid "Create New Prompt"
+msgstr ""
+
+msgid "Update Available"
+msgstr ""
+
+msgid "Update Check"
+msgstr ""
+
+msgid "Update Check Failed"
+msgstr ""
+
+msgid "Terms of Use"
+msgstr ""
+
+msgid "App Version"
+msgstr ""
+
+msgid "Enter New OpenAI API Key"
+msgstr ""
+
+#. Buttons
+msgid "Save"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "OK"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "New Prompt"
+msgstr ""
+
+msgid "Save Changes"
+msgstr ""
+
+msgid "Save Selection and Exit"
+msgstr ""
+
+msgid "Browse..."
+msgstr ""
+
+msgid "Learn More on Our Website"
+msgstr ""
+
+#. Config dialog - Recording settings
+msgid "Recording Settings"
+msgstr ""
+
+msgid "Recording Location"
+msgstr ""
+
+msgid "Choose where to save audio recording files:"
+msgstr ""
+
+msgid "Alongside application (recommended)"
+msgstr ""
+
+msgid "In AppData folder"
+msgstr ""
+
+msgid "In Application Support folder"
+msgstr ""
+
+msgid "In home config folder"
+msgstr ""
+
+msgid "Custom folder:"
+msgstr ""
+
+msgid "Select Recording Folder"
+msgstr ""
+
+msgid "File Handling"
+msgstr ""
+
+msgid "Choose how to handle recording files:"
+msgstr ""
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr ""
+
+msgid "Save each recording with date/time in filename"
+msgstr ""
+
+#. Config dialog - Display settings
+msgid "Display Settings"
+msgstr ""
+
+msgid "HiDPI Scaling"
+msgstr ""
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr ""
+
+msgid "Auto-detect (recommended)"
+msgstr ""
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr ""
+
+msgid "Force enabled"
+msgstr ""
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr ""
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr ""
+
+#. Config dialog - Language settings
+msgid "Language Settings"
+msgstr ""
+
+msgid "Application Language"
+msgstr ""
+
+msgid "Choose how the application language is determined:"
+msgstr ""
+
+msgid "Auto-detect from system"
+msgstr ""
+
+msgid "Automatically detect language from your operating system settings"
+msgstr ""
+
+msgid "Manual selection"
+msgstr ""
+
+msgid "Detected:"
+msgstr ""
+
+msgid "Select Language:"
+msgstr ""
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr ""
+
+#. Config dialog - AI Models settings
+msgid "AI Model Settings"
+msgstr ""
+
+msgid "Whisper Language Settings"
+msgstr ""
+
+msgid "Transcription Model:"
+msgstr ""
+
+msgid "Enter custom transcription model name:"
+msgstr ""
+
+msgid "OpenAI Copyediting Model:"
+msgstr ""
+
+msgid "Enter custom copyediting model name:"
+msgstr ""
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr ""
+
+msgid "Settings Categories"
+msgstr ""
+
+msgid "Recording"
+msgstr ""
+
+msgid "Display"
+msgstr ""
+
+msgid "AI Models"
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+#. Prompt management
+msgid "Prompt Selection"
+msgstr ""
+
+msgid "Prompt Content"
+msgstr ""
+
+msgid "Prompt Name:"
+msgstr ""
+
+msgid "(Default prompt cannot be edited)"
+msgstr ""
+
+#. Error messages
+msgid "API Key Missing"
+msgstr ""
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr ""
+
+msgid "No Audio Device"
+msgstr ""
+
+msgid "No audio devices found"
+msgstr ""
+
+msgid "Device Error"
+msgstr ""
+
+msgid "Recording error"
+msgstr ""
+
+msgid "Retry Failed"
+msgstr ""
+
+msgid "No previous recording found to retry"
+msgstr ""
+
+msgid "Prompt content cannot be empty"
+msgstr ""
+
+msgid "Please select a custom folder path"
+msgstr ""
+
+msgid "Could not create folder: {error}"
+msgstr ""
+
+msgid "Configuration settings saved successfully!"
+msgstr ""
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr ""
+
+msgid "Prompt Not Found"
+msgstr ""
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr ""
+
+msgid "No History"
+msgstr ""
+
+msgid "There is no history to save."
+msgstr ""
+
+msgid "Session history saved successfully to {path}"
+msgstr ""
+
+msgid "Save Error"
+msgstr ""
+
+msgid "An error occurred while saving: {error}"
+msgstr ""
+
+msgid "API Key Updated"
+msgstr ""
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr ""
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr ""
+
+msgid "How to obtain an OpenAI API key"
+msgstr ""
+
+msgid "Input Required"
+msgstr ""
+
+msgid "Please enter a valid API key."
+msgstr ""
+
+msgid "Transcription Error"
+msgstr ""
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr ""
+
+msgid "GPT Processing Error"
+msgstr ""
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr ""
+
+msgid "Auto-Copy Error"
+msgstr ""
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr ""
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr ""
+
+msgid "Auto-Paste Error"
+msgstr ""
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr ""
+
+msgid "Confirm Delete"
+msgstr ""
+
+msgid "No Selection"
+msgstr ""
+
+msgid "Please select a prompt before saving"
+msgstr ""
+
+msgid "Now using prompt: {name}"
+msgstr ""
+
+msgid "Please enter a prompt name"
+msgstr ""
+
+msgid "Prompt name must be 25 characters or less"
+msgstr ""
+
+msgid "Please enter a system prompt"
+msgstr ""
+
+msgid "Prompt changes saved successfully"
+msgstr ""
+
+msgid "Folder Does Not Exist"
+msgstr ""
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr ""
+
+msgid "Restart Required"
+msgstr ""
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr ""
+
+msgid "Would you like to restart the application now?"
+msgstr ""
+
+msgid "Settings Saved"
+msgstr ""
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr ""
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr ""
+
+msgid "Could not save settings: {error}"
+msgstr ""
+
+msgid "System Tray Unavailable"
+msgstr ""
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr ""
+
+msgid "Custom transcription model name cannot be empty."
+msgstr ""
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr ""
+
+#. About dialog
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr ""
+
+msgid "Version {version}"
+msgstr ""
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr ""
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr ""
+
+msgid "Key Features"
+msgstr ""
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr ""
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr ""
+
+#. Context menu
+msgid "Cut"
+msgstr ""
+
+msgid "Paste"
+msgstr ""
+
+msgid "Select All"
+msgstr ""
+
+#. Warnings
+msgid "Warning: This can consume significant disk space over time"
+msgstr ""
+
+#. Version update
+msgid "A new version ({version}) is available!"
+msgstr ""
+
+msgid "Would you like to download it now?"
+msgstr ""
+
+msgid "You are using the latest version."
+msgstr ""
+
+msgid "Could not check for updates. Please try again later."
+msgstr ""

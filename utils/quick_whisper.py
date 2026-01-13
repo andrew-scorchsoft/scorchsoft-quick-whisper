@@ -37,6 +37,7 @@ from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 from utils.platform import open_url
+from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, SUPPORTED_LANGUAGES
 
 
 class QuickWhisper(tk.Tk):
@@ -57,7 +58,7 @@ class QuickWhisper(tk.Tk):
         is_hidpi = getattr(self, 'hidpi_scale_factor', 1.0) > 1.0
         init_theme(is_hidpi=is_hidpi)
 
-        self.title(f"Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text) - v{self.version}")
+        self.title(f"{_('Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)')} - v{self.version}")
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
@@ -112,9 +113,19 @@ class QuickWhisper(tk.Tk):
         self.hidpi_enabled = tk.BooleanVar(value=False)
 
         self.load_config()
+
+        # Initialize internationalization (i18n)
+        # Must be done after config is loaded but before any UI strings are created
+        init_i18n(
+            config_language_mode=self.config_manager.language_mode,
+            config_language=self.config_manager.language
+        )
+        # Register callback to rebuild menus when language changes
+        register_refresh_callback(self._on_language_change)
+
         self.api_key = self.get_api_key()
         if not self.api_key:
-            messagebox.showerror("API Key Missing", "Please set your OpenAI API Key in config/credentials.json or input it now.")
+            messagebox.showerror(_("API Key Missing"), _("Please set your OpenAI API Key in config/credentials.json or input it now."))
             self.destroy()
             return
 
@@ -624,6 +635,7 @@ class QuickWhisper(tk.Tk):
         self.config_manager.save_credentials()
 
     def create_menu(self):
+        """Create application menus with translated labels."""
         # Dark menu styling with readable font
         menu_style = {
             'bg': '#111111',
@@ -634,7 +646,7 @@ class QuickWhisper(tk.Tk):
             'bd': 0,
             'font': ('Segoe UI', 11)  # Readable menu items
         }
-        
+
         # Create a hidden menubar (we use a custom dark one in UI)
         self.menubar = Menu(self, **menu_style)
         # Don't set the menu - we'll use custom menu bar
@@ -642,89 +654,89 @@ class QuickWhisper(tk.Tk):
 
         # File menu - use styled popup menu for modern look
         self.file_menu = StyledPopupMenu(self)
-        self.file_menu.add_command(label="Save Session History", command=self.save_session_history)
+        self.file_menu.add_command(label=_("Save Session History"), command=self.save_session_history)
         self.file_menu.add_separator()
-        self.file_menu.add_command(label="Minimize to Tray", command=self.minimize_to_tray)
-        self.file_menu.add_command(label="Exit", command=self.on_closing)
+        self.file_menu.add_command(label=_("Minimize to Tray"), command=self.minimize_to_tray)
+        self.file_menu.add_command(label=_("Exit"), command=self.on_closing)
 
         # Settings menu - use styled popup menu for modern look
         self.settings_menu = StyledPopupMenu(self)
-        self.settings_menu.add_command(label="Change API Key", command=self.change_api_key)
-        self.settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
-        self.settings_menu.add_command(label="Configuration", command=self.open_config)
+        self.settings_menu.add_command(label=_("Change API Key"), command=self.change_api_key)
+        self.settings_menu.add_command(label=_("Manage Prompts"), command=self.manage_prompts)
+        self.settings_menu.add_command(label=_("Configuration"), command=self.open_config)
         self.settings_menu.add_separator()
-        self.settings_menu.add_checkbutton(label="Automatically Check for Updates",
+        self.settings_menu.add_checkbutton(label=_("Automatically Check for Updates"),
                                     variable=self.version_manager.auto_update_check,
                                     command=self.version_manager.save_auto_update_setting)
-        self.settings_menu.add_checkbutton(label="Auto-Refresh Hotkeys (Every 30s)",
+        self.settings_menu.add_checkbutton(label=_("Auto-Refresh Hotkeys (Every 30s)"),
                                     variable=self.auto_hotkey_refresh,
                                     command=self.save_auto_hotkey_refresh)
-        self.settings_menu.add_checkbutton(label="Dark Mode",
+        self.settings_menu.add_checkbutton(label=_("Dark Mode"),
                                     variable=self.dark_mode,
                                     command=self.toggle_dark_mode)
         self.settings_menu.add_separator()
-        self.settings_menu.add_command(label="Keyboard Shortcut Mapping", command=self.check_keyboard_shortcuts)
-        self.settings_menu.add_command(label="Refresh Hotkeys", command=self.hotkey_manager.force_hotkey_refresh)
+        self.settings_menu.add_command(label=_("Keyboard Shortcut Mapping"), command=self.check_keyboard_shortcuts)
+        self.settings_menu.add_command(label=_("Refresh Hotkeys"), command=self.hotkey_manager.force_hotkey_refresh)
 
         # Actions Menu - use styled popup menu for modern look
         self.actions_menu = StyledPopupMenu(self)
-        
+
         # Recording actions group
         self.actions_menu.add_command(
-            label="Record & Edit", 
+            label=_("Record & Edit"),
             command=lambda: self.toggle_recording("edit"),
             accelerator=self.shortcuts['record_edit']
         )
         self.actions_menu.add_command(
-            label="Record & Transcribe", 
+            label=_("Record & Transcribe"),
             command=lambda: self.toggle_recording("transcribe"),
             accelerator=self.shortcuts['record_transcribe']
         )
         self.actions_menu.add_command(
-            label="Cancel Recording", 
+            label=_("Cancel Recording"),
             command=self.cancel_recording,
             accelerator=self.shortcuts['cancel_recording']
         )
         self.actions_menu.add_separator()
-        
+
         # Retry and copy actions group
         self.actions_menu.add_command(
-            label="Retry Last Recording", 
+            label=_("Retry Last Recording"),
             command=self.retry_last_recording
         )
         self.actions_menu.add_separator()
-        
+
         # Copy actions group
         self.actions_menu.add_command(
-            label="Copy Last Transcript", 
+            label=_("Copy Last Transcript"),
             command=self.copy_last_transcription
         )
         self.actions_menu.add_command(
-            label="Copy Last Edit", 
+            label=_("Copy Last Edit"),
             command=self.copy_last_edit
         )
         self.actions_menu.add_separator()
-        
+
         # Prompt navigation group
         self.actions_menu.add_command(
-            label="Previous Prompt", 
+            label=_("Previous Prompt"),
             command=self.cycle_prompt_backward,
             accelerator=self.shortcuts['cycle_prompt_back']
         )
         self.actions_menu.add_command(
-            label="Next Prompt", 
+            label=_("Next Prompt"),
             command=self.cycle_prompt_forward,
             accelerator=self.shortcuts['cycle_prompt_forward']
         )
 
         # Help menu - use styled popup menu for modern look
         self.help_menu = StyledPopupMenu(self)
-        
-        self.help_menu.add_command(label="About Quick Whisper", command=self.show_about)
+
+        self.help_menu.add_command(label=_("About Quick Whisper"), command=self.show_about)
         self.help_menu.add_separator()
-        self.help_menu.add_command(label="Check for Updates", command=lambda: self.version_manager.check_for_updates(True))
-        self.help_menu.add_command(label="Hide Banner", command=self.toggle_banner)
-        self.help_menu.add_command(label="Terms of Use and Licence", command=self.show_terms_of_use)
+        self.help_menu.add_command(label=_("Check for Updates"), command=lambda: self.version_manager.check_for_updates(True))
+        self.help_menu.add_command(label=_("Hide Banner") if self.banner_visible else _("Show Banner"), command=self.toggle_banner)
+        self.help_menu.add_command(label=_("Terms of Use and Licence"), command=self.show_terms_of_use)
 
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
@@ -1615,6 +1627,43 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.apply_theme(is_dark)
         print(f"Dark mode setting saved: {is_dark}")
 
+    def _on_language_change(self):
+        """Handle runtime language change by rebuilding menus and refreshing UI."""
+        # Update window title
+        self.title(f"{_('Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)')} - v{self.version}")
+
+        # Rebuild menus with new translations
+        # Destroy old menus first
+        if hasattr(self, 'file_menu'):
+            self.file_menu.destroy()
+        if hasattr(self, 'settings_menu'):
+            self.settings_menu.destroy()
+        if hasattr(self, 'actions_menu'):
+            self.actions_menu.destroy()
+        if hasattr(self, 'help_menu'):
+            self.help_menu.destroy()
+
+        # Recreate menus
+        self.create_menu()
+
+        # Update menu button labels in UI manager
+        if hasattr(self, 'ui_manager'):
+            self.ui_manager.refresh_translations()
+
+    def change_language(self, lang_code: str):
+        """Change the application language and refresh the UI.
+
+        Args:
+            lang_code: The language code to switch to (e.g., 'fr', 'de', 'zh_CN')
+        """
+        set_language(lang_code, refresh_ui=True)
+
+        # Save to config
+        self.config_manager.language = lang_code
+        self.config_manager.save_settings()
+
+        print(f"Language changed to: {lang_code}")
+
     def restart_application(self):
         """Restart the application to apply settings that require a restart."""
         import subprocess
@@ -1637,8 +1686,8 @@ class QuickWhisper(tk.Tk):
         if not success:
             # If we can't create a tray icon, don't change window closing behavior
             messagebox.showwarning(
-                "System Tray Unavailable", 
-                "Could not create system tray icon. Closing the window will exit the application."
+                _("System Tray Unavailable"),
+                _("Could not create system tray icon. Closing the window will exit the application.")
             )
             # Use normal window closing behavior
             self.protocol("WM_DELETE_WINDOW", self.on_closing)

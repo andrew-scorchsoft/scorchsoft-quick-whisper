@@ -1,0 +1,578 @@
+# German translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: German <de@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper von Scorchsoft.com (Sprache zu korrigiertem Text)"
+
+msgid "File"
+msgstr "Datei"
+
+msgid "Save Session History"
+msgstr "Sitzungsverlauf speichern"
+
+msgid "Minimize to Tray"
+msgstr "In Taskleiste minimieren"
+
+msgid "Exit"
+msgstr "Beenden"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Change API Key"
+msgstr "API-Schlussel andern"
+
+msgid "Manage Prompts"
+msgstr "Prompts verwalten"
+
+msgid "Configuration"
+msgstr "Konfiguration"
+
+msgid "Automatically Check for Updates"
+msgstr "Automatisch nach Updates suchen"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "Hotkeys automatisch aktualisieren (alle 30s)"
+
+msgid "Dark Mode"
+msgstr "Dunkelmodus"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "Tastaturkurzel-Zuordnung"
+
+msgid "Refresh Hotkeys"
+msgstr "Hotkeys aktualisieren"
+
+msgid "Actions"
+msgstr "Aktionen"
+
+msgid "Record & Edit"
+msgstr "Aufnehmen & Bearbeiten"
+
+msgid "Record & Transcribe"
+msgstr "Aufnehmen & Transkribieren"
+
+msgid "Cancel Recording"
+msgstr "Aufnahme abbrechen"
+
+msgid "Retry Last Recording"
+msgstr "Letzte Aufnahme wiederholen"
+
+msgid "Copy Last Transcript"
+msgstr "Letzte Transkription kopieren"
+
+msgid "Copy Last Edit"
+msgstr "Letzte Bearbeitung kopieren"
+
+msgid "Previous Prompt"
+msgstr "Vorheriger Prompt"
+
+msgid "Next Prompt"
+msgstr "Nachster Prompt"
+
+msgid "Help"
+msgstr "Hilfe"
+
+msgid "About Quick Whisper"
+msgstr "Uber Quick Whisper"
+
+msgid "Check for Updates"
+msgstr "Nach Updates suchen"
+
+msgid "Hide Banner"
+msgstr "Banner ausblenden"
+
+msgid "Show Banner"
+msgstr "Banner anzeigen"
+
+msgid "Terms of Use and Licence"
+msgstr "Nutzungsbedingungen und Lizenz"
+
+msgid "Input Device"
+msgstr "Eingabegerat"
+
+msgid "Transcription"
+msgstr "Transkription"
+
+msgid "Copy to clipboard"
+msgstr "In Zwischenablage kopieren"
+
+msgid "Auto-paste"
+msgstr "Automatisch einfugen"
+
+msgid "Record + Transcribe"
+msgstr "Aufnehmen + Transkribieren"
+
+msgid "Record + AI Edit"
+msgstr "Aufnehmen + KI-Bearbeitung"
+
+msgid "Stop and Process"
+msgstr "Stoppen und verarbeiten"
+
+msgid "Latest entry"
+msgstr "Neuester Eintrag"
+
+msgid "Newer"
+msgstr "Neuer"
+
+msgid "Older"
+msgstr "Alter"
+
+msgid "Copy"
+msgstr "Kopieren"
+
+msgid "Copied to clipboard"
+msgstr "In Zwischenablage kopiert"
+
+msgid "Idle"
+msgstr "Bereit"
+
+msgid "Recording..."
+msgstr "Aufnahme..."
+
+msgid "Processing - Transcript..."
+msgstr "Verarbeitung - Transkription..."
+
+msgid "Processing - AI Editing..."
+msgstr "Verarbeitung - KI-Bearbeitung..."
+
+msgid "Processing - Audio File..."
+msgstr "Verarbeitung - Audiodatei..."
+
+msgid "Success"
+msgstr "Erfolg"
+
+msgid "Error"
+msgstr "Fehler"
+
+msgid "Error during transcription"
+msgstr "Fehler bei der Transkription"
+
+msgid "Configuration Settings"
+msgstr "Konfigurationseinstellungen"
+
+msgid "Prompt Management"
+msgstr "Prompt-Verwaltung"
+
+msgid "Create New Prompt"
+msgstr "Neuen Prompt erstellen"
+
+msgid "Update Available"
+msgstr "Update verfugbar"
+
+msgid "Update Check"
+msgstr "Update-Prufung"
+
+msgid "Update Check Failed"
+msgstr "Update-Prufung fehlgeschlagen"
+
+msgid "Terms of Use"
+msgstr "Nutzungsbedingungen"
+
+msgid "App Version"
+msgstr "App-Version"
+
+msgid "Enter New OpenAI API Key"
+msgstr "Neuen OpenAI API-Schlussel eingeben"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Close"
+msgstr "Schliessen"
+
+msgid "Delete"
+msgstr "Loschen"
+
+msgid "New Prompt"
+msgstr "Neuer Prompt"
+
+msgid "Save Changes"
+msgstr "Anderungen speichern"
+
+msgid "Save Selection and Exit"
+msgstr "Auswahl speichern und beenden"
+
+msgid "Browse..."
+msgstr "Durchsuchen..."
+
+msgid "Learn More on Our Website"
+msgstr "Mehr auf unserer Website erfahren"
+
+msgid "Recording Settings"
+msgstr "Aufnahmeeinstellungen"
+
+msgid "Recording Location"
+msgstr "Aufnahmespeicherort"
+
+msgid "Choose where to save audio recording files:"
+msgstr "Wahlen Sie, wo Audioaufnahmen gespeichert werden sollen:"
+
+msgid "Alongside application (recommended)"
+msgstr "Neben der Anwendung (empfohlen)"
+
+msgid "In AppData folder"
+msgstr "Im AppData-Ordner"
+
+msgid "In Application Support folder"
+msgstr "Im Application Support-Ordner"
+
+msgid "In home config folder"
+msgstr "Im Home-Konfigurationsordner"
+
+msgid "Custom folder:"
+msgstr "Benutzerdefinierter Ordner:"
+
+msgid "Select Recording Folder"
+msgstr "Aufnahmeordner auswahlen"
+
+msgid "File Handling"
+msgstr "Dateiverwaltung"
+
+msgid "Choose how to handle recording files:"
+msgstr "Wahlen Sie, wie Aufnahmedateien behandelt werden sollen:"
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "Dieselbe Datei jedes Mal uberschreiben (spart Speicherplatz)"
+
+msgid "Save each recording with date/time in filename"
+msgstr "Jede Aufnahme mit Datum/Uhrzeit im Dateinamen speichern"
+
+msgid "Display Settings"
+msgstr "Anzeigeeinstellungen"
+
+msgid "HiDPI Scaling"
+msgstr "HiDPI-Skalierung"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "Wahlen Sie, wie HiDPI-Skalierung (hohe Auflosung) angewendet wird:"
+
+msgid "Auto-detect (recommended)"
+msgstr "Automatisch erkennen (empfohlen)"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "Automatisch erkennen und entsprechende Skalierung basierend auf Ihrem Display anwenden"
+
+msgid "Force enabled"
+msgstr "Erzwungen aktiviert"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "Immer HiDPI-Skalierung anwenden (verwenden, wenn automatische Erkennung nicht funktioniert)"
+
+msgid "Disabled"
+msgstr "Deaktiviert"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "Nie HiDPI-Skalierung anwenden (Standard-Skalierung verwenden)"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "Hinweis: Anderungen der HiDPI-Skalierung erfordern einen Neustart."
+
+msgid "Language Settings"
+msgstr "Spracheinstellungen"
+
+msgid "Application Language"
+msgstr "Anwendungssprache"
+
+msgid "Choose how the application language is determined:"
+msgstr "Wahlen Sie, wie die Anwendungssprache bestimmt wird:"
+
+msgid "Auto-detect from system"
+msgstr "Automatisch vom System erkennen"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "Sprache automatisch aus Ihren Betriebssystemeinstellungen erkennen"
+
+msgid "Manual selection"
+msgstr "Manuelle Auswahl"
+
+msgid "Detected:"
+msgstr "Erkannt:"
+
+msgid "Select Language:"
+msgstr "Sprache auswahlen:"
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "Hinweis: Das Andern der Sprache aktualisiert die Oberflache sofort."
+
+msgid "AI Model Settings"
+msgstr "KI-Modell-Einstellungen"
+
+msgid "Whisper Language Settings"
+msgstr "Whisper-Spracheinstellungen"
+
+msgid "Transcription Model:"
+msgstr "Transkriptionsmodell:"
+
+msgid "Enter custom transcription model name:"
+msgstr "Benutzerdefinierten Transkriptionsmodellnamen eingeben:"
+
+msgid "OpenAI Copyediting Model:"
+msgstr "OpenAI-Korrekturmodell:"
+
+msgid "Enter custom copyediting model name:"
+msgstr "Benutzerdefinierten Korrekturmodellnamen eingeben:"
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "Verfugbare OpenAI-Modelle und Preise anzeigen"
+
+msgid "Settings Categories"
+msgstr "Einstellungskategorien"
+
+msgid "Recording"
+msgstr "Aufnahme"
+
+msgid "Display"
+msgstr "Anzeige"
+
+msgid "AI Models"
+msgstr "KI-Modelle"
+
+msgid "Language"
+msgstr "Sprache"
+
+msgid "Prompt Selection"
+msgstr "Prompt-Auswahl"
+
+msgid "Prompt Content"
+msgstr "Prompt-Inhalt"
+
+msgid "Prompt Name:"
+msgstr "Prompt-Name:"
+
+msgid "(Default prompt cannot be edited)"
+msgstr "(Standard-Prompt kann nicht bearbeitet werden)"
+
+msgid "API Key Missing"
+msgstr "API-Schlussel fehlt"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "Bitte setzen Sie Ihren OpenAI API-Schlussel in config/credentials.json oder geben Sie ihn jetzt ein."
+
+msgid "No Audio Device"
+msgstr "Kein Audiogerat"
+
+msgid "No audio devices found"
+msgstr "Keine Audiogerate gefunden"
+
+msgid "Device Error"
+msgstr "Geratefehler"
+
+msgid "Recording error"
+msgstr "Aufnahmefehler"
+
+msgid "Retry Failed"
+msgstr "Wiederholung fehlgeschlagen"
+
+msgid "No previous recording found to retry"
+msgstr "Keine vorherige Aufnahme zum Wiederholen gefunden"
+
+msgid "Prompt content cannot be empty"
+msgstr "Prompt-Inhalt darf nicht leer sein"
+
+msgid "Please select a custom folder path"
+msgstr "Bitte wahlen Sie einen benutzerdefinierten Ordnerpfad"
+
+msgid "Could not create folder: {error}"
+msgstr "Ordner konnte nicht erstellt werden: {error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "Konfigurationseinstellungen erfolgreich gespeichert!"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "Sind Sie sicher, dass Sie '{name}' loschen mochten?"
+
+msgid "Prompt Not Found"
+msgstr "Prompt nicht gefunden"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "Ausgewahlter Prompt '{name}' nicht gefunden. Standard-Prompt wird verwendet."
+
+msgid "No History"
+msgstr "Kein Verlauf"
+
+msgid "There is no history to save."
+msgstr "Es gibt keinen Verlauf zum Speichern."
+
+msgid "Session history saved successfully to {path}"
+msgstr "Sitzungsverlauf erfolgreich in {path} gespeichert"
+
+msgid "Save Error"
+msgstr "Speicherfehler"
+
+msgid "An error occurred while saving: {error}"
+msgstr "Beim Speichern ist ein Fehler aufgetreten: {error}"
+
+msgid "API Key Updated"
+msgstr "API-Schlussel aktualisiert"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "Der OpenAI API-Schlussel wurde erfolgreich aktualisiert."
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "Bitte geben Sie Ihren neuen OpenAI API-Schlussel unten ein:"
+
+msgid "How to obtain an OpenAI API key"
+msgstr "So erhalten Sie einen OpenAI API-Schlussel"
+
+msgid "Input Required"
+msgstr "Eingabe erforderlich"
+
+msgid "Please enter a valid API key."
+msgstr "Bitte geben Sie einen gultigen API-Schlussel ein."
+
+msgid "Transcription Error"
+msgstr "Transkriptionsfehler"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "Bei der Transkription ist ein Fehler aufgetreten: {error}"
+
+msgid "GPT Processing Error"
+msgstr "GPT-Verarbeitungsfehler"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "Bei der Verarbeitung mit GPT ist ein Fehler aufgetreten: {error}"
+
+msgid "Auto-Copy Error"
+msgstr "Auto-Kopieren-Fehler"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "Kopieren der Transkription in die Zwischenablage fehlgeschlagen: {error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "Automatisches Kopieren der Transkription fehlgeschlagen: {error}"
+
+msgid "Auto-Paste Error"
+msgstr "Auto-Einfugen-Fehler"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "Automatisches Einfugen der Transkription fehlgeschlagen: {error}"
+
+msgid "Confirm Delete"
+msgstr "Loschen bestatigen"
+
+msgid "No Selection"
+msgstr "Keine Auswahl"
+
+msgid "Please select a prompt before saving"
+msgstr "Bitte wahlen Sie einen Prompt vor dem Speichern"
+
+msgid "Now using prompt: {name}"
+msgstr "Verwendet jetzt Prompt: {name}"
+
+msgid "Please enter a prompt name"
+msgstr "Bitte geben Sie einen Prompt-Namen ein"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "Prompt-Name muss 25 Zeichen oder weniger haben"
+
+msgid "Please enter a system prompt"
+msgstr "Bitte geben Sie einen System-Prompt ein"
+
+msgid "Prompt changes saved successfully"
+msgstr "Prompt-Anderungen erfolgreich gespeichert"
+
+msgid "Folder Does Not Exist"
+msgstr "Ordner existiert nicht"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "Der Ordner '{path}' existiert nicht. Mochten Sie ihn erstellen?"
+
+msgid "Restart Required"
+msgstr "Neustart erforderlich"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "Die HiDPI-Skalierungseinstellung wurde geandert. Ein Neustart ist erforderlich."
+
+msgid "Would you like to restart the application now?"
+msgstr "Mochten Sie die Anwendung jetzt neu starten?"
+
+msgid "Settings Saved"
+msgstr "Einstellungen gespeichert"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "Die HiDPI-Skalierungsanderung wird nach dem Neustart der Anwendung wirksam."
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "Konfigurationseinstellungen erfolgreich gespeichert und angewendet!"
+
+msgid "Could not save settings: {error}"
+msgstr "Einstellungen konnten nicht gespeichert werden: {error}"
+
+msgid "System Tray Unavailable"
+msgstr "Taskleiste nicht verfugbar"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "Taskleistensymbol konnte nicht erstellt werden. Das Schliessen des Fensters beendet die Anwendung."
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "Benutzerdefinierter Transkriptionsmodellname darf nicht leer sein."
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "Benutzerdefinierter Korrekturmodellname darf nicht leer sein."
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "KI-gestutzte Sprache-zu-korrigiertem-Text"
+
+msgid "Version {version}"
+msgstr "Version {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisper ist ein kostenloses und quelloffenes Sprache-zu-korrigiertem-Text-Tool, das KI verwendet, um gesprochenes Audio in eine korrigierte Transkription umzuwandeln und automatisch in Ihre aktive Anwendung einzufugen."
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "Entwickelt zur Steigerung der Produktivitat, beschleunigt es Arbeitsablaufe erheblich und ermoglicht schnellere Antworten auf E-Mails oder Nachrichten - Sprechen ist in der Regel zwei- bis dreimal schneller als Tippen."
+
+msgid "Key Features"
+msgstr "Hauptfunktionen"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "Verwendung: Drucken Sie Strg+Alt+J zum Aufnehmen und KI-Bearbeiten, oder Strg+Alt+Umschalt+J fur reine Transkription. Die App kopiert und fugt das Ergebnis automatisch in Ihre aktive Anwendung ein."
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "Entwickelt von Scorchsoft.com | App- & KI-Entwickler"
+
+msgid "Cut"
+msgstr "Ausschneiden"
+
+msgid "Paste"
+msgstr "Einfugen"
+
+msgid "Select All"
+msgstr "Alles auswahlen"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "Warnung: Dies kann mit der Zeit erheblichen Speicherplatz verbrauchen"
+
+msgid "A new version ({version}) is available!"
+msgstr "Eine neue Version ({version}) ist verfugbar!"
+
+msgid "Would you like to download it now?"
+msgstr "Mochten Sie sie jetzt herunterladen?"
+
+msgid "You are using the latest version."
+msgstr "Sie verwenden die neueste Version."
+
+msgid "Could not check for updates. Please try again later."
+msgstr "Updates konnten nicht gepruft werden. Bitte versuchen Sie es spater erneut."

@@ -38,7 +38,9 @@ class ConfigManager:
             "dark_mode": True,
             "hidpi_mode": "auto",  # "auto", "enabled", or "disabled"
             "window_x": None,  # Saved window position (None = center on screen)
-            "window_y": None
+            "window_y": None,
+            "language_mode": "auto",  # "auto" or "manual"
+            "language": "en"  # Language code when mode is "manual"
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -411,6 +413,27 @@ class ConfigManager:
     @window_y.setter
     def window_y(self, value: Optional[int]):
         self._settings["ui"]["window_y"] = value
+
+    @property
+    def language_mode(self) -> str:
+        """Get language mode: 'auto' or 'manual'."""
+        return self._settings["ui"].get("language_mode", "auto")
+
+    @language_mode.setter
+    def language_mode(self, value: str):
+        """Set language mode: 'auto' or 'manual'."""
+        if value in ("auto", "manual"):
+            self._settings["ui"]["language_mode"] = value
+
+    @property
+    def language(self) -> str:
+        """Get the configured language code (used when language_mode is 'manual')."""
+        return self._settings["ui"].get("language", "en")
+
+    @language.setter
+    def language(self, value: str):
+        """Set the language code."""
+        self._settings["ui"]["language"] = value
 
     # Shortcuts
     @property

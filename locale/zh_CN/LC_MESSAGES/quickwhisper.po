@@ -1,0 +1,578 @@
+# Simplified Chinese translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: Chinese (Simplified) <zh_CN@li.org>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper - Scorchsoft.com (语音转校对文本)"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Save Session History"
+msgstr "保存会话历史"
+
+msgid "Minimize to Tray"
+msgstr "最小化到托盘"
+
+msgid "Exit"
+msgstr "退出"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Change API Key"
+msgstr "更改API密钥"
+
+msgid "Manage Prompts"
+msgstr "管理提示词"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Automatically Check for Updates"
+msgstr "自动检查更新"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "自动刷新快捷键(每30秒)"
+
+msgid "Dark Mode"
+msgstr "深色模式"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "键盘快捷键映射"
+
+msgid "Refresh Hotkeys"
+msgstr "刷新快捷键"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Record & Edit"
+msgstr "录制并编辑"
+
+msgid "Record & Transcribe"
+msgstr "录制并转录"
+
+msgid "Cancel Recording"
+msgstr "取消录制"
+
+msgid "Retry Last Recording"
+msgstr "重试上次录制"
+
+msgid "Copy Last Transcript"
+msgstr "复制上次转录"
+
+msgid "Copy Last Edit"
+msgstr "复制上次编辑"
+
+msgid "Previous Prompt"
+msgstr "上一个提示词"
+
+msgid "Next Prompt"
+msgstr "下一个提示词"
+
+msgid "Help"
+msgstr "帮助"
+
+msgid "About Quick Whisper"
+msgstr "关于 Quick Whisper"
+
+msgid "Check for Updates"
+msgstr "检查更新"
+
+msgid "Hide Banner"
+msgstr "隐藏横幅"
+
+msgid "Show Banner"
+msgstr "显示横幅"
+
+msgid "Terms of Use and Licence"
+msgstr "使用条款和许可"
+
+msgid "Input Device"
+msgstr "输入设备"
+
+msgid "Transcription"
+msgstr "转录"
+
+msgid "Copy to clipboard"
+msgstr "复制到剪贴板"
+
+msgid "Auto-paste"
+msgstr "自动粘贴"
+
+msgid "Record + Transcribe"
+msgstr "录制 + 转录"
+
+msgid "Record + AI Edit"
+msgstr "录制 + AI编辑"
+
+msgid "Stop and Process"
+msgstr "停止并处理"
+
+msgid "Latest entry"
+msgstr "最新条目"
+
+msgid "Newer"
+msgstr "较新"
+
+msgid "Older"
+msgstr "较旧"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Copied to clipboard"
+msgstr "已复制到剪贴板"
+
+msgid "Idle"
+msgstr "空闲"
+
+msgid "Recording..."
+msgstr "录制中..."
+
+msgid "Processing - Transcript..."
+msgstr "处理中 - 转录..."
+
+msgid "Processing - AI Editing..."
+msgstr "处理中 - AI编辑..."
+
+msgid "Processing - Audio File..."
+msgstr "处理中 - 音频文件..."
+
+msgid "Success"
+msgstr "成功"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Error during transcription"
+msgstr "转录过程中出错"
+
+msgid "Configuration Settings"
+msgstr "配置设置"
+
+msgid "Prompt Management"
+msgstr "提示词管理"
+
+msgid "Create New Prompt"
+msgstr "创建新提示词"
+
+msgid "Update Available"
+msgstr "有可用更新"
+
+msgid "Update Check"
+msgstr "更新检查"
+
+msgid "Update Check Failed"
+msgstr "更新检查失败"
+
+msgid "Terms of Use"
+msgstr "使用条款"
+
+msgid "App Version"
+msgstr "应用版本"
+
+msgid "Enter New OpenAI API Key"
+msgstr "输入新的OpenAI API密钥"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "New Prompt"
+msgstr "新建提示词"
+
+msgid "Save Changes"
+msgstr "保存更改"
+
+msgid "Save Selection and Exit"
+msgstr "保存选择并退出"
+
+msgid "Browse..."
+msgstr "浏览..."
+
+msgid "Learn More on Our Website"
+msgstr "在我们的网站了解更多"
+
+msgid "Recording Settings"
+msgstr "录制设置"
+
+msgid "Recording Location"
+msgstr "录制位置"
+
+msgid "Choose where to save audio recording files:"
+msgstr "选择保存音频录制文件的位置:"
+
+msgid "Alongside application (recommended)"
+msgstr "应用程序旁边(推荐)"
+
+msgid "In AppData folder"
+msgstr "在AppData文件夹中"
+
+msgid "In Application Support folder"
+msgstr "在Application Support文件夹中"
+
+msgid "In home config folder"
+msgstr "在主目录配置文件夹中"
+
+msgid "Custom folder:"
+msgstr "自定义文件夹:"
+
+msgid "Select Recording Folder"
+msgstr "选择录制文件夹"
+
+msgid "File Handling"
+msgstr "文件处理"
+
+msgid "Choose how to handle recording files:"
+msgstr "选择如何处理录制文件:"
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "每次覆盖同一文件(节省磁盘空间)"
+
+msgid "Save each recording with date/time in filename"
+msgstr "使用日期/时间保存每个录制文件"
+
+msgid "Display Settings"
+msgstr "显示设置"
+
+msgid "HiDPI Scaling"
+msgstr "高DPI缩放"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "选择如何应用高DPI(高分辨率)缩放:"
+
+msgid "Auto-detect (recommended)"
+msgstr "自动检测(推荐)"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "根据您的显示器自动检测并应用适当的缩放"
+
+msgid "Force enabled"
+msgstr "强制启用"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "始终应用高DPI缩放(如果自动检测不正常则使用)"
+
+msgid "Disabled"
+msgstr "禁用"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "从不应用高DPI缩放(使用标准缩放)"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "注意:更改高DPI缩放需要重启才能生效。"
+
+msgid "Language Settings"
+msgstr "语言设置"
+
+msgid "Application Language"
+msgstr "应用程序语言"
+
+msgid "Choose how the application language is determined:"
+msgstr "选择如何确定应用程序语言:"
+
+msgid "Auto-detect from system"
+msgstr "从系统自动检测"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "从操作系统设置自动检测语言"
+
+msgid "Manual selection"
+msgstr "手动选择"
+
+msgid "Detected:"
+msgstr "检测到:"
+
+msgid "Select Language:"
+msgstr "选择语言:"
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "注意:更改语言将立即更新界面。"
+
+msgid "AI Model Settings"
+msgstr "AI模型设置"
+
+msgid "Whisper Language Settings"
+msgstr "Whisper语言设置"
+
+msgid "Transcription Model:"
+msgstr "转录模型:"
+
+msgid "Enter custom transcription model name:"
+msgstr "输入自定义转录模型名称:"
+
+msgid "OpenAI Copyediting Model:"
+msgstr "OpenAI校对模型:"
+
+msgid "Enter custom copyediting model name:"
+msgstr "输入自定义校对模型名称:"
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "查看可用的OpenAI模型和定价"
+
+msgid "Settings Categories"
+msgstr "设置类别"
+
+msgid "Recording"
+msgstr "录制"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "AI Models"
+msgstr "AI模型"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Prompt Selection"
+msgstr "提示词选择"
+
+msgid "Prompt Content"
+msgstr "提示词内容"
+
+msgid "Prompt Name:"
+msgstr "提示词名称:"
+
+msgid "(Default prompt cannot be edited)"
+msgstr "(默认提示词无法编辑)"
+
+msgid "API Key Missing"
+msgstr "缺少API密钥"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "请在config/credentials.json中设置您的OpenAI API密钥或现在输入。"
+
+msgid "No Audio Device"
+msgstr "无音频设备"
+
+msgid "No audio devices found"
+msgstr "未找到音频设备"
+
+msgid "Device Error"
+msgstr "设备错误"
+
+msgid "Recording error"
+msgstr "录制错误"
+
+msgid "Retry Failed"
+msgstr "重试失败"
+
+msgid "No previous recording found to retry"
+msgstr "未找到可重试的上一次录制"
+
+msgid "Prompt content cannot be empty"
+msgstr "提示词内容不能为空"
+
+msgid "Please select a custom folder path"
+msgstr "请选择自定义文件夹路径"
+
+msgid "Could not create folder: {error}"
+msgstr "无法创建文件夹:{error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "配置设置保存成功!"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "您确定要删除'{name}'吗?"
+
+msgid "Prompt Not Found"
+msgstr "未找到提示词"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "未找到选定的提示词'{name}'。使用默认提示词。"
+
+msgid "No History"
+msgstr "无历史记录"
+
+msgid "There is no history to save."
+msgstr "没有可保存的历史记录。"
+
+msgid "Session history saved successfully to {path}"
+msgstr "会话历史已成功保存到{path}"
+
+msgid "Save Error"
+msgstr "保存错误"
+
+msgid "An error occurred while saving: {error}"
+msgstr "保存时发生错误:{error}"
+
+msgid "API Key Updated"
+msgstr "API密钥已更新"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "OpenAI API密钥已成功更新。"
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "请在下方输入您的新OpenAI API密钥:"
+
+msgid "How to obtain an OpenAI API key"
+msgstr "如何获取OpenAI API密钥"
+
+msgid "Input Required"
+msgstr "需要输入"
+
+msgid "Please enter a valid API key."
+msgstr "请输入有效的API密钥。"
+
+msgid "Transcription Error"
+msgstr "转录错误"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "转录时发生错误:{error}"
+
+msgid "GPT Processing Error"
+msgstr "GPT处理错误"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "使用GPT处理时发生错误:{error}"
+
+msgid "Auto-Copy Error"
+msgstr "自动复制错误"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "复制转录到剪贴板失败:{error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "自动复制转录失败:{error}"
+
+msgid "Auto-Paste Error"
+msgstr "自动粘贴错误"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "自动粘贴转录失败:{error}"
+
+msgid "Confirm Delete"
+msgstr "确认删除"
+
+msgid "No Selection"
+msgstr "未选择"
+
+msgid "Please select a prompt before saving"
+msgstr "请在保存前选择一个提示词"
+
+msgid "Now using prompt: {name}"
+msgstr "现在使用提示词:{name}"
+
+msgid "Please enter a prompt name"
+msgstr "请输入提示词名称"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "提示词名称必须为25个字符或更少"
+
+msgid "Please enter a system prompt"
+msgstr "请输入系统提示词"
+
+msgid "Prompt changes saved successfully"
+msgstr "提示词更改保存成功"
+
+msgid "Folder Does Not Exist"
+msgstr "文件夹不存在"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "文件夹'{path}'不存在。您想创建它吗?"
+
+msgid "Restart Required"
+msgstr "需要重启"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "高DPI缩放设置已更改。需要重启才能生效。"
+
+msgid "Would you like to restart the application now?"
+msgstr "您想现在重启应用程序吗?"
+
+msgid "Settings Saved"
+msgstr "设置已保存"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "高DPI缩放更改将在您重启应用程序后生效。"
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "配置设置已成功保存并应用!"
+
+msgid "Could not save settings: {error}"
+msgstr "无法保存设置:{error}"
+
+msgid "System Tray Unavailable"
+msgstr "系统托盘不可用"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "无法创建系统托盘图标。关闭窗口将退出应用程序。"
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "自定义转录模型名称不能为空。"
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "自定义校对模型名称不能为空。"
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "AI驱动的语音转校对文本"
+
+msgid "Version {version}"
+msgstr "版本 {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisper是一款免费开源的语音转校对文本软件工具,使用AI将语音音频转换为校对后的转录文本,并自动粘贴到您的活动应用程序中。"
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "旨在提高生产力,它显著加快工作流程,使您能更快地回复电子邮件或消息——说话通常比打字快两到三倍。"
+
+msgid "Key Features"
+msgstr "主要功能"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "使用方法:按Ctrl+Alt+J录制并AI编辑,或按Ctrl+Alt+Shift+J进行原始转录。应用程序将自动将结果复制并粘贴到您的活动应用程序中。"
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "由Scorchsoft.com开发 | 应用程序和AI开发者"
+
+msgid "Cut"
+msgstr "剪切"
+
+msgid "Paste"
+msgstr "粘贴"
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "警告:这可能会随着时间的推移消耗大量磁盘空间"
+
+msgid "A new version ({version}) is available!"
+msgstr "有新版本({version})可用!"
+
+msgid "Would you like to download it now?"
+msgstr "您想现在下载吗?"
+
+msgid "You are using the latest version."
+msgstr "您正在使用最新版本。"
+
+msgid "Could not check for updates. Please try again later."
+msgstr "无法检查更新。请稍后重试。"
