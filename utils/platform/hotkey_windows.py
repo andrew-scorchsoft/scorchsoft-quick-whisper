@@ -67,13 +67,26 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             )
             self.listener.start()
             
+            # Wait for the listener to fully initialize its Windows hook
+            # pynput's start() is async - the hook isn't ready immediately
+            try:
+                # Use wait() with timeout if available, otherwise small delay
+                if hasattr(self.listener, 'wait'):
+                    self.listener.wait()
+                else:
+                    time.sleep(0.1)  # Give the hook time to initialize
+            except Exception:
+                time.sleep(0.1)
+            
             # Track when listener was started and reset activity timestamps
             self._listener_start_time = time.time()
             self._last_key_event_time = time.time()
             self._last_modifier_event_time = time.time()
-            # Don't reset statistics - they're useful for long-term diagnostics
-            # self._total_key_events = 0
-            # self._total_modifier_events = 0
+            
+            # Clear pressed_keys AFTER new listener is ready
+            # This prevents stale keys from previous listener affecting new one
+            with self._lock:
+                self.pressed_keys.clear()
 
             print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Windows/pynput)")
             return True
@@ -332,12 +345,21 @@ class WindowsHotkeyManager(HotkeyManagerBase):
     def _check_hotkeys(self):
         """Check if currently pressed keys match any registered hotkey."""
         current_keys = frozenset(self.pressed_keys)
+        
+        # Debug: log when we have multiple modifiers pressed (potential hotkey attempt)
+        modifier_count = sum(1 for k in current_keys if k in ('ctrl', 'alt', 'shift', 'win'))
+        if modifier_count >= 2 and len(current_keys) >= 3:
+            # User is pressing multiple modifiers + a key - log this for debugging
+            matched = current_keys in self._registered_hotkeys
+            if not matched:
+                print(f"[HOTKEY DEBUG] Keys pressed: {current_keys} - no match")
 
         for hotkey_keys, callback in self._registered_hotkeys.items():
             if hotkey_keys == current_keys:
                 # Execute callback
                 try:
                     self._hotkey_triggers += 1
+                    print(f"[HOTKEY] Triggered: {current_keys}")
                     callback()
                 except Exception as e:
                     print(f"Error executing hotkey callback: {e}")
