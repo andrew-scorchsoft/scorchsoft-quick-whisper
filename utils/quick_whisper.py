@@ -445,8 +445,6 @@ class QuickWhisper(tk.Tk):
             self.save_api_key(new_key)
             self.api_key = new_key
             messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.")
-        else:
-            messagebox.showinfo("Update Cancelled", "The OpenAI API Key was not changed.")
 
 
     def openai_key_dialog(self):

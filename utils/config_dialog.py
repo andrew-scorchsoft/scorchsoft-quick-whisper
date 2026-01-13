@@ -4,6 +4,7 @@ import customtkinter as ctk
 from pathlib import Path
 import os
 import platform
+import time
 from utils.config_manager import get_config
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from utils.platform import open_url
@@ -15,10 +16,14 @@ THEME_ACCENT_HOVER = "#67e8f9"
 
 class ConfigDialog:
     def __init__(self, parent):
+        _t0 = time.perf_counter()
+        print(f"[CONFIG DIALOG] __init__ started")
+
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.withdraw()  # Hide window until UI is built
         self.dialog.title("Configuration Settings")
+        print(f"[CONFIG DIALOG] Toplevel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('config_dialog')
@@ -28,11 +33,12 @@ class ConfigDialog:
         position_x = parent.winfo_x() + (parent.winfo_width() - window_width) // 2
         position_y = parent.winfo_y() + (parent.winfo_height() - window_height) // 2
         self.dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
-        
+
         self.dialog.transient(parent)
 
         # Handle window close (X button) to ensure hotkeys are resumed
         self.dialog.protocol("WM_DELETE_WINDOW", self._close_dialog)
+        print(f"[CONFIG DIALOG] Window configured: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Variables for settings
         self.recording_location_var = tk.StringVar()
@@ -49,6 +55,7 @@ class ConfigDialog:
 
         # Track original HiDPI setting for restart prompt
         self.original_hidpi_mode = None
+        print(f"[CONFIG DIALOG] Variables initialized: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Define Whisper supported languages
         self.languages = {
@@ -131,25 +138,41 @@ class ConfigDialog:
             "gpt-4o-mini",
             "other"
         ]
+        print(f"[CONFIG DIALOG] Static data defined: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Load current settings
         self.load_current_settings()
+        print(f"[CONFIG DIALOG] Settings loaded: {(time.perf_counter() - _t0)*1000:.1f}ms")
         
         # Current selected category
         self.current_category = "Recording"
 
         self.create_dialog()
+        print(f"[CONFIG DIALOG] create_dialog() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+
+        # Force Tkinter to process all widget geometry before showing
+        # This prevents the black flash by ensuring widgets are rendered
+        self.dialog.update_idletasks()
+        print(f"[CONFIG DIALOG] update_idletasks() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Show window now that UI is fully built (prevents black flash)
         self.dialog.deiconify()
+        print(f"[CONFIG DIALOG] deiconify() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Make dialog modal after UI is built (faster perceived load)
         self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
+        print(f"[CONFIG DIALOG] wait_visibility() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
         self.dialog.grab_set()
+        print(f"[CONFIG DIALOG] grab_set() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
-        # Defer hotkey pause to after dialog is displayed for faster UI response
+        # Defer hotkey pause to after dialog is fully painted
+        # Using after(50) + update() ensures widgets are rendered before the blocking pause
         if hasattr(self.parent, 'hotkey_manager'):
-            self.dialog.after(1, self.parent.hotkey_manager.pause)
+            def pause_hotkeys():
+                self.dialog.update()  # Force full repaint before blocking pause
+                self.parent.hotkey_manager.pause()
+            self.dialog.after(50, pause_hotkeys)
+        print(f"[CONFIG DIALOG] __init__ complete: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
     def load_current_settings(self):
         """Load current configuration settings from settings.json."""
@@ -189,6 +212,8 @@ class ConfigDialog:
         
     def create_dialog(self):
         """Create the main dialog layout."""
+        _t0 = time.perf_counter()
+
         # Check current theme for appropriate colors
         is_dark = self.config.dark_mode
 
@@ -218,6 +243,7 @@ class ConfigDialog:
                 background=[('!disabled', '#e0e0e0'), ('active', '#d0d0d0')],
                 foreground=[('!disabled', '#000000')]
             )
+        print(f"[CONFIG DIALOG]   - styles configured: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -225,16 +251,21 @@ class ConfigDialog:
         # Create top frame for navigation and content
         top_frame = ttk.Frame(main_frame)
         top_frame.pack(fill=tk.BOTH, expand=True)
+        print(f"[CONFIG DIALOG]   - frames created: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Create bottom frame for buttons
         self.create_bottom_buttons(main_frame)
+        print(f"[CONFIG DIALOG]   - bottom buttons created: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Create left navigation and right content areas in the top frame
         self.create_navigation_panel(top_frame)
+        print(f"[CONFIG DIALOG]   - navigation panel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
         self.create_content_panel(top_frame)
+        print(f"[CONFIG DIALOG]   - content panel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Initially show recording settings
         self.show_recording_settings()
+        print(f"[CONFIG DIALOG]   - recording settings shown: {(time.perf_counter() - _t0)*1000:.1f}ms")
         
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""
