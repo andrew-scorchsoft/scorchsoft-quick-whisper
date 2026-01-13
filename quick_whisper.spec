@@ -1,8 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
 import platform
+import os
+import sys
+from PyInstaller.utils.hooks import collect_submodules
 
 # Determine current platform
 system = platform.system()
+
+# Get the spec file directory (project root)
+SPEC_ROOT = os.path.abspath(SPECPATH)
+
+# Add project root to sys.path BEFORE collecting submodules
+# so PyInstaller can find the local 'utils' package
+if SPEC_ROOT not in sys.path:
+    sys.path.insert(0, SPEC_ROOT)
+
+# Collect all submodules from the local utils package
+utils_imports = collect_submodules('utils')
+# Explicitly add utils.quick_whisper in case collect_submodules misses it
+if 'utils.quick_whisper' not in utils_imports:
+    utils_imports.append('utils.quick_whisper')
 
 # Base hidden imports (cross-platform)
 hidden_imports = [
@@ -12,6 +29,9 @@ hidden_imports = [
     'pynput.keyboard',
     'pynput.mouse',
 ]
+
+# Add local utils package imports
+hidden_imports.extend(utils_imports)
 
 # Platform-specific hidden imports
 if system == 'Windows':
@@ -41,7 +61,6 @@ if system == 'Windows':
     icon_file = ['assets/icon.ico']
 elif system == 'Darwin':
     # macOS uses .icns format; fall back to .ico if .icns doesn't exist
-    import os
     if os.path.exists('assets/icon.icns'):
         icon_file = ['assets/icon.icns']
     else:
@@ -52,7 +71,7 @@ else:  # Linux
 
 a = Analysis(
     ['quick_whisper.py'],
-    pathex=[],
+    pathex=[SPEC_ROOT],
     binaries=[],
     datas=[('assets', 'assets'), ('locale', 'locale')],
     hiddenimports=hidden_imports,

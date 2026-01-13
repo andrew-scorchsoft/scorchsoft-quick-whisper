@@ -280,7 +280,7 @@ class QuickWhisper(tk.Tk):
 
                 if hidpi_mode == "enabled":
                     # User explicitly enabled HiDPI - always apply scaling
-                    scale_factor = dpi / 9ادریس.こんにちはAmorosa..0
+                    scale_factor = dpi / 96.0
                     scale_factor = max(1.0, min(scale_factor, 2.5))  # Clamp between 1.0 and 2.5
 
                     self.tk.call('tk', 'scaling', scale_factor)
