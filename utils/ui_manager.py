@@ -586,11 +586,12 @@ class GradientButton(tk.Canvas):
         self._is_hovered = False
         self._gradient_image = None
         self._hover_gradient_image = None
-        
-        # Create gradient images
-        self._create_gradient_images()
-        self._draw()
-        
+        self._resize_pending = None  # For debouncing resize events
+        self._initial_render_done = False  # Skip initial render, wait for correct size
+
+        # Don't create gradient images here - wait for Configure event with actual size
+        # This prevents the "flash" where buttons render small then resize
+
         # Bind events
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
@@ -761,11 +762,34 @@ class GradientButton(tk.Canvas):
             self.command()
     
     def _on_resize(self, event):
+        """Handle resize with debouncing to prevent expensive operations during drag."""
         if event.width != self.width or event.height != self.height:
             self.width = event.width
             self.height = event.height
-            self._create_gradient_images()
+
+            # First render: create images immediately at correct size (no debounce)
+            # This prevents the "flash" where buttons appear small then resize
+            if not self._initial_render_done:
+                self._initial_render_done = True
+                self._create_gradient_images()
+                self._draw()
+                return
+
+            # Cancel any pending resize operation
+            if self._resize_pending is not None:
+                self.after_cancel(self._resize_pending)
+
+            # Debounce: only regenerate images after resize stops (100ms delay)
+            self._resize_pending = self.after(100, self._do_resize)
+
+            # Immediately redraw with existing images (scaled/stretched) for responsiveness
             self._draw()
+
+    def _do_resize(self):
+        """Actually regenerate gradient images after resize stops."""
+        self._resize_pending = None
+        self._create_gradient_images()
+        self._draw()
     
     def configure(self, **kwargs):
         """Configure button properties."""
