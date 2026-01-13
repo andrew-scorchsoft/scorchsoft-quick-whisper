@@ -218,7 +218,17 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         return frozenset(keys)
 
     def _key_to_name(self, key):
-        """Convert a pynput key to a normalized name string."""
+        """Convert a pynput key to a normalized name string.
+        
+        IMPORTANT: For letter and number keys, we ALWAYS use virtual key codes (vk)
+        instead of key.char. This is because when Ctrl+Alt is held on Windows,
+        it's often interpreted as AltGr (used for typing special characters in 
+        some keyboard layouts). This causes key.char to return the AltGr character
+        (e.g., '!' for AltGr+J on some layouts) instead of the actual key pressed.
+        
+        Virtual key codes represent the physical key, not the character produced,
+        so they're immune to keyboard layout transformations.
+        """
         if isinstance(key, Key):
             key_map = {
                 Key.ctrl: 'ctrl',
@@ -254,14 +264,19 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             }
             return key_map.get(key)
         elif isinstance(key, KeyCode):
-            # Check key.char first, but ONLY if it's a printable character.
-            # When Ctrl is held, key.char becomes a control character (e.g. \x0a for Ctrl+J)
-            # which pollutes our pressed_keys set. Fall through to vk lookup for non-printable chars.
-            if key.char and len(key.char) == 1 and 32 <= ord(key.char) <= 126:
-                return key.char.lower()
-            # Use virtual key code for non-printable characters or when char is not set
+            # ALWAYS check virtual key codes FIRST for letters and numbers.
+            # This prevents keyboard layout transformations (Ctrl+Alt → AltGr)
+            # from polluting our pressed_keys set with wrong characters.
             if key.vk:
-                # Handle virtual key codes for special keys
+                # Letters (A-Z): vk codes 65-90 → always use these for hotkey detection
+                if 65 <= key.vk <= 90:
+                    return chr(key.vk).lower()  # 65 → 'a', 66 → 'b', etc.
+                
+                # Numbers (0-9): vk codes 48-57 → always use these for hotkey detection
+                if 48 <= key.vk <= 57:
+                    return chr(key.vk)  # 48 → '0', 49 → '1', etc.
+                
+                # Handle other virtual key codes for special keys
                 # Windows virtual key codes
                 vk_map = {
                     # Modifier keys
@@ -300,17 +315,16 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                     112: 'f1', 113: 'f2', 114: 'f3', 115: 'f4',
                     116: 'f5', 117: 'f6', 118: 'f7', 119: 'f8',
                     120: 'f9', 121: 'f10', 122: 'f11', 123: 'f12',
-                    # Letters (A-Z) as fallback if key.char not set
-                    65: 'a', 66: 'b', 67: 'c', 68: 'd', 69: 'e',
-                    70: 'f', 71: 'g', 72: 'h', 73: 'i', 74: 'j',
-                    75: 'k', 76: 'l', 77: 'm', 78: 'n', 79: 'o',
-                    80: 'p', 81: 'q', 82: 'r', 83: 's', 84: 't',
-                    85: 'u', 86: 'v', 87: 'w', 88: 'x', 89: 'y', 90: 'z',
-                    # Numbers (0-9) as fallback
-                    48: '0', 49: '1', 50: '2', 51: '3', 52: '4',
-                    53: '5', 54: '6', 55: '7', 56: '8', 57: '9',
                 }
-                return vk_map.get(key.vk)
+                result = vk_map.get(key.vk)
+                if result:
+                    return result
+            
+            # Fall back to key.char ONLY for keys not handled above (symbols, etc.)
+            # This is safe because we've already handled letters/numbers via vk codes
+            if key.char and len(key.char) == 1 and 32 <= ord(key.char) <= 126:
+                return key.char.lower()
+            
         return None
 
     def _on_press(self, key):
