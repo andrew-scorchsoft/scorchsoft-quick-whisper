@@ -348,7 +348,16 @@ class WindowsHotkeyManager(HotkeyManagerBase):
 
     def _check_hotkeys(self):
         """Check if currently pressed keys match any registered hotkey."""
-        current_keys = frozenset(self.pressed_keys)
+        # Defensive: filter out any invalid keys (non-printable chars that may have leaked in)
+        valid_keys = {k for k in self.pressed_keys if len(k) == 1 and ord(k) >= 32 or len(k) > 1}
+        
+        # Defensive: if pressed_keys has grown unreasonably large, it's corrupted - clear it
+        if len(self.pressed_keys) > 8:
+            print(f"[HOTKEY WARNING] pressed_keys too large ({len(self.pressed_keys)}), clearing: {self.pressed_keys}")
+            self.pressed_keys.clear()
+            return
+        
+        current_keys = frozenset(valid_keys)
         
         # Debug: log when we have multiple modifiers pressed (potential hotkey attempt)
         modifier_count = sum(1 for k in current_keys if k in ('ctrl', 'alt', 'shift', 'win'))
