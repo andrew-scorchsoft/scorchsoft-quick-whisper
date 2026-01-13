@@ -1690,7 +1690,7 @@ class QuickWhisper(tk.Tk):
         # Health check interval (frequent, for diagnostics)
         self.hotkey_check_interval = 5000  # 5 seconds
         # Refresh interval (less frequent, to actually fix issues)
-        self.hotkey_refresh_interval = 600000  # 10 minutes 
+        self.hotkey_refresh_interval = 30000  # 30 seconds 
         # Track time since last refresh
         self._last_hotkey_refresh = time.time()
         # Track consecutive health check failures

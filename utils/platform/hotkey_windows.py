@@ -254,9 +254,13 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             }
             return key_map.get(key)
         elif isinstance(key, KeyCode):
-            if key.char:
+            # Check key.char first, but ONLY if it's a printable character.
+            # When Ctrl is held, key.char becomes a control character (e.g. \x0a for Ctrl+J)
+            # which pollutes our pressed_keys set. Fall through to vk lookup for non-printable chars.
+            if key.char and len(key.char) == 1 and 32 <= ord(key.char) <= 126:
                 return key.char.lower()
-            elif key.vk:
+            # Use virtual key code for non-printable characters or when char is not set
+            if key.vk:
                 # Handle virtual key codes for special keys
                 # Windows virtual key codes
                 vk_map = {
