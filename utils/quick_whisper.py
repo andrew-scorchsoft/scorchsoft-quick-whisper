@@ -1019,27 +1019,36 @@ class QuickWhisper(tk.Tk):
         """
         Get a valid window position, using saved position if available and valid.
         Falls back to centering on the primary monitor area if saved position is off-screen.
+        
+        Properly handles multi-monitor setups on all platforms.
         """
         from utils.config_manager import get_config
 
+        # Get virtual screen bounds (spans all monitors)
+        virtual_left, virtual_top, virtual_width, virtual_height = self._get_virtual_screen_bounds()
+        
         try:
             config = get_config()
             saved_x = config.window_x
             saved_y = config.window_y
 
             if saved_x is not None and saved_y is not None:
-                # Validate the saved position is still on screen
+                # Validate the saved position is still on the virtual screen
                 # Allow the window to be partially off-screen but at least 100px must be visible
                 min_visible = 100
 
-                # Check if at least part of the window would be visible
-                if (saved_x > -window_width + min_visible and
-                    saved_x < screen_width - min_visible and
-                    saved_y > -window_height + min_visible and
-                    saved_y < screen_height - min_visible):
+                # Check if at least part of the window would be visible on any monitor
+                # Using virtual screen bounds for multi-monitor support
+                if (saved_x > virtual_left - window_width + min_visible and
+                    saved_x < virtual_left + virtual_width - min_visible and
+                    saved_y > virtual_top - window_height + min_visible and
+                    saved_y < virtual_top + virtual_height - min_visible):
+                    print(f"Restoring window position to ({saved_x}, {saved_y})")
                     return saved_x, saved_y
                 else:
-                    print(f"Saved window position ({saved_x}, {saved_y}) is off-screen, using default")
+                    print(f"Saved window position ({saved_x}, {saved_y}) is off virtual screen "
+                          f"(bounds: {virtual_left},{virtual_top} to {virtual_left + virtual_width},{virtual_top + virtual_height}), "
+                          f"using default")
         except Exception as e:
             print(f"Error loading saved window position: {e}")
 
@@ -1053,6 +1062,63 @@ class QuickWhisper(tk.Tk):
 
         center_y = int((screen_height - window_height) / 2)
         return center_x, center_y
+    
+    def _get_virtual_screen_bounds(self):
+        """
+        Get the bounds of the virtual screen (spanning all monitors).
+        
+        Returns:
+            Tuple of (left, top, width, height) representing the virtual screen bounds.
+            On single-monitor setups, this will be (0, 0, screen_width, screen_height).
+        """
+        try:
+            if platform.system() == "Windows":
+                # Use Windows API to get virtual screen dimensions
+                user32 = ctypes.windll.user32
+                # SM_XVIRTUALSCREEN = 76 (left edge of virtual screen)
+                # SM_YVIRTUALSCREEN = 77 (top edge of virtual screen)
+                # SM_CXVIRTUALSCREEN = 78 (width of virtual screen)
+                # SM_CYVIRTUALSCREEN = 79 (height of virtual screen)
+                virtual_left = user32.GetSystemMetrics(76)
+                virtual_top = user32.GetSystemMetrics(77)
+                virtual_width = user32.GetSystemMetrics(78)
+                virtual_height = user32.GetSystemMetrics(79)
+                return virtual_left, virtual_top, virtual_width, virtual_height
+            
+            elif platform.system() == "Darwin":
+                # On macOS, try to use AppKit if available
+                try:
+                    from AppKit import NSScreen
+                    screens = NSScreen.screens()
+                    if screens:
+                        # Calculate the bounding box of all screens
+                        min_x = min(screen.frame().origin.x for screen in screens)
+                        min_y = min(screen.frame().origin.y for screen in screens)
+                        max_x = max(screen.frame().origin.x + screen.frame().size.width for screen in screens)
+                        max_y = max(screen.frame().origin.y + screen.frame().size.height for screen in screens)
+                        return int(min_x), int(min_y), int(max_x - min_x), int(max_y - min_y)
+                except ImportError:
+                    pass
+                # Fallback: macOS tkinter usually returns virtual screen dimensions
+                return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
+            
+            else:  # Linux and others
+                # On Linux with X11, winfo_vrootwidth/height should give virtual screen size
+                # Try to get the virtual root dimensions
+                try:
+                    vroot_width = self.winfo_vrootwidth()
+                    vroot_height = self.winfo_vrootheight()
+                    if vroot_width > 0 and vroot_height > 0:
+                        return 0, 0, vroot_width, vroot_height
+                except:
+                    pass
+                # Fallback to standard screen dimensions
+                return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
+                
+        except Exception as e:
+            print(f"Error getting virtual screen bounds: {e}")
+            # Fallback to basic screen dimensions
+            return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
 
     def _save_window_position(self):
         """Save the current window position to config for next launch."""
