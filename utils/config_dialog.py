@@ -741,6 +741,49 @@ class ConfigDialog:
         # Update visibility based on current mode
         self._on_language_mode_change()
 
+        # AI Language Settings Section (for transcription)
+        ai_language_frame = ttk.LabelFrame(
+            self.content_frame,
+            text=_("AI Language Settings"),
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        ai_language_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            ai_language_frame,
+            text=_("Select the language for AI transcription:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 5))
+
+        # Prepare sorted language list with Auto Detect first
+        language_values = [(code, name) for code, name in self.languages.items()]
+        auto_option = next(item for item in language_values if item[0] == "auto")
+        language_values.remove(auto_option)
+        language_values.sort(key=lambda x: x[1])
+        language_values.insert(0, auto_option)
+
+        # AI Language combobox
+        self.ai_language_combo = ttk.Combobox(
+            ai_language_frame,
+            values=[f"{name} ({code})" for code, name in language_values],
+            state="readonly",
+            font=get_font('sm')
+        )
+        self.ai_language_combo.pack(fill="x", pady=(0, 5))
+
+        # Set current language value
+        current_ai_lang = self.whisper_language_var.get()
+        current_ai_lang_name = self.languages.get(current_ai_lang, "Auto Detect")
+        self.ai_language_combo.set(f"{current_ai_lang_name} ({current_ai_lang})")
+
+        ttk.Label(
+            ai_language_frame,
+            text=_("Specifying the language improves transcription accuracy and speed."),
+            font=get_font('xxs'),
+            foreground="#888888"
+        ).pack(anchor="w")
+
     def _on_language_mode_change(self):
         """Handle changes to the language mode selection."""
         is_auto = self.language_mode_var.get() == "auto"
@@ -770,43 +813,6 @@ class ConfigDialog:
             font=get_font('lg', 'bold')
         )
         title_label.pack(anchor="w", pady=(0, 20))
-
-        # Language Selection Frame
-        language_frame = ttk.LabelFrame(
-            self.content_frame,
-            text=_("Whisper Language Settings"),
-            padding="15",
-            style='Dialog.TLabelframe'
-        )
-        language_frame.pack(fill="x", pady=(0, 15))
-
-        # Language selection label
-        ttk.Label(
-            language_frame,
-            text=_("Select Language:"),
-            style='Dialog.TLabel'
-        ).pack(anchor="w", pady=(0, 5))
-
-        # Prepare sorted language list with Auto Detect first
-        language_values = [(code, name) for code, name in self.languages.items()]
-        auto_option = next(item for item in language_values if item[0] == "auto")
-        language_values.remove(auto_option)
-        language_values.sort(key=lambda x: x[1])
-        language_values.insert(0, auto_option)
-
-        # Language combobox
-        self.language_combo = ttk.Combobox(
-            language_frame,
-            values=[f"{name} ({code})" for code, name in language_values],
-            state="readonly",
-            font=get_font('sm')
-        )
-        self.language_combo.pack(fill="x", pady=(0, 5))
-
-        # Set current language value
-        current_lang = self.whisper_language_var.get()
-        current_lang_name = self.languages.get(current_lang, "Auto Detect")
-        self.language_combo.set(f"{current_lang_name} ({current_lang})")
 
         # Model Settings Frame
         models_frame = ttk.LabelFrame(
@@ -993,9 +999,9 @@ class ConfigDialog:
         hidpi_changed = self.hidpi_mode_var.get() != self.original_hidpi_mode
 
         # Validate AI Models settings
-        # Get selected whisper language code from combo box (if AI Models category was visited)
-        if hasattr(self, 'language_combo') and self.current_category == "AI Models":
-            selected_language = self.language_combo.get()
+        # Get selected AI language code from combo box (if Language category was visited)
+        if hasattr(self, 'ai_language_combo'):
+            selected_language = self.ai_language_combo.get()
             whisper_language_code = selected_language.split('(')[-1].strip(')')
         else:
             whisper_language_code = self.whisper_language_var.get()
