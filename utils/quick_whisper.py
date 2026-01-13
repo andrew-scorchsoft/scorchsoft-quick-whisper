@@ -443,7 +443,21 @@ class QuickWhisper(tk.Tk):
         """Get the OpenAI API key, prompting if not found."""
         api_key = self.config_manager.openai_api_key
         if not api_key:  # Prompt for the key if it's not set
+            # Ensure the main window is visible and on top before showing the dialog
+            try:
+                self.deiconify()
+                self.lift()
+                self.attributes("-topmost", True)
+            except Exception:
+                pass
+
             api_key = self.openai_key_dialog()  # Call custom dialog
+
+            # Release the topmost flag after showing the dialog
+            try:
+                self.attributes("-topmost", False)
+            except Exception:
+                pass
             if api_key:
                 self.save_api_key(api_key)
             else:

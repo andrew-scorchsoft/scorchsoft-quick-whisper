@@ -97,6 +97,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
+    # Set console=True temporarily to see stdout/stderr when running the EXE
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
