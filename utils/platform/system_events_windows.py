@@ -38,6 +38,9 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         self.WTS_SESSION_LOGON = 0x5        # Session logon
         self.WTS_SESSION_LOGOFF = 0x6       # Session logoff
         self.WTS_SESSION_REMOTE_CONTROL = 0x9  # Remote control
+        
+        # Store the WNDPROC callback to prevent garbage collection
+        self._wndproc_callback = None
 
         # Configure ctypes for 64-bit Windows compatibility
         self._configure_ctypes()
@@ -161,7 +164,9 @@ class WindowsSystemEventListener(SystemEventListenerBase):
             wintypes.WPARAM,   # WPARAM (pointer-sized)
             wintypes.LPARAM    # LPARAM (pointer-sized)
         )
-        wndclass.lpfnWndProc = WNDPROC(self._wnd_proc)
+        # Store callback to prevent garbage collection (critical!)
+        self._wndproc_callback = WNDPROC(self._wnd_proc)
+        wndclass.lpfnWndProc = self._wndproc_callback
         wndclass.cbClsExtra = 0
         wndclass.cbWndExtra = 0
         wndclass.hInstance = ctypes.windll.kernel32.GetModuleHandleW(None)
@@ -189,5 +194,18 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         )
 
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
-        """Window procedure to handle window messages."""
+        """Window procedure to handle window messages.
+        
+        This is called directly by Windows for each message sent to our window.
+        WM_WTSSESSION_CHANGE messages are sent (not posted) to the window,
+        so they must be handled here in the window procedure.
+        """
+        try:
+            if msg == self.WM_WTSSESSION_CHANGE:
+                # Handle session change in the window procedure
+                # wparam contains the event type (lock, unlock, etc.)
+                self._handle_session_change(wparam)
+        except Exception as e:
+            print(f"Error in window procedure: {e}")
+        
         return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)

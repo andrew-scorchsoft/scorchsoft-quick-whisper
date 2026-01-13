@@ -7,6 +7,7 @@ using the pynput library.
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 import threading
+import time
 
 from .hotkey_base import HotkeyManagerBase
 
@@ -24,6 +25,12 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         self.pressed_keys = set()
         self._lock = threading.Lock()
         self._registered_hotkeys = {}
+        # Track keyboard activity to detect stale listeners
+        self._last_key_event_time = time.time()
+        self._listener_start_time = 0
+        # Threshold for considering listener stale (seconds)
+        # If no key events for this long, assume listener might be dead
+        self._stale_threshold = 120  # 2 minutes
         super().__init__(parent)
 
     def register_hotkeys(self):
@@ -55,6 +62,10 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 on_release=self._on_release
             )
             self.listener.start()
+            
+            # Track when listener was started and reset activity timestamp
+            self._listener_start_time = time.time()
+            self._last_key_event_time = time.time()
 
             print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Windows/pynput)")
             return True
@@ -84,7 +95,19 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             print(f"Error unregistering hotkeys: {e}")
 
     def verify_hotkeys(self):
-        """Verify that the keyboard listener is running."""
+        """Verify that the keyboard listener is running and responsive.
+        
+        This method performs several checks:
+        1. Is the listener thread alive?
+        2. Has the listener received any key events recently?
+        3. Is the listener in a potentially stale state?
+        
+        A listener can become "stale" when Windows releases or invalidates
+        the low-level keyboard hook, which can happen when:
+        - The app is minimized for extended periods
+        - Windows does power management/sleep cycles
+        - UAC dialogs or other system events occur
+        """
         try:
             if self._paused:
                 return True
@@ -97,7 +120,23 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 print("Keyboard listener not alive")
                 return False
 
-            print("Hotkey verification passed - listener is active")
+            # Check if listener might be stale
+            # The listener thread can be "alive" but the Windows hook might be dead
+            current_time = time.time()
+            time_since_last_event = current_time - self._last_key_event_time
+            time_since_start = current_time - self._listener_start_time
+            
+            # Only consider staleness if listener has been running long enough
+            # to have reasonably received some keyboard activity
+            if time_since_start > self._stale_threshold:
+                if time_since_last_event > self._stale_threshold:
+                    print(f"Keyboard listener may be stale - no key events for {time_since_last_event:.0f}s")
+                    # Don't immediately fail - let the health checker handle refresh
+                    # This allows for cases where user genuinely hasn't typed
+                    # But flag it as potentially unhealthy
+                    return False
+
+            print(f"Hotkey verification passed - listener active (last event {time_since_last_event:.0f}s ago)")
             return True
 
         except Exception as e:
@@ -229,6 +268,9 @@ class WindowsHotkeyManager(HotkeyManagerBase):
     def _on_press(self, key):
         """Handle key press events."""
         try:
+            # Update activity timestamp - this proves the listener is working
+            self._last_key_event_time = time.time()
+            
             key_name = self._key_to_name(key)
             if key_name:
                 with self._lock:
@@ -240,6 +282,9 @@ class WindowsHotkeyManager(HotkeyManagerBase):
     def _on_release(self, key):
         """Handle key release events."""
         try:
+            # Update activity timestamp - this proves the listener is working
+            self._last_key_event_time = time.time()
+            
             key_name = self._key_to_name(key)
             if key_name:
                 with self._lock:
