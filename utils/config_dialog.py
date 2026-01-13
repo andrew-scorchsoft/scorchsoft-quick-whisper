@@ -6,11 +6,18 @@ import os
 import platform
 from utils.config_manager import get_config
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.platform import open_url
+
+# Theme colors for dark mode (used in AI Models section)
+THEME_TEXT_MUTED = "#909090"
+THEME_ACCENT = "#22d3ee"
+THEME_ACCENT_HOVER = "#67e8f9"
 
 class ConfigDialog:
     def __init__(self, parent):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
+        self.dialog.withdraw()  # Hide window until UI is built
         self.dialog.title("Configuration Settings")
 
         # Get window dimensions from theme
@@ -23,32 +30,127 @@ class ConfigDialog:
         self.dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         
         self.dialog.transient(parent)
-        self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
-        self.dialog.grab_set()
-        # Pause hotkeys while config is active
-        if hasattr(self.parent, 'hotkey_manager'):
-            self.parent.hotkey_manager.pause()
-        
+
         # Handle window close (X button) to ensure hotkeys are resumed
         self.dialog.protocol("WM_DELETE_WINDOW", self._close_dialog)
-        
+
         # Variables for settings
         self.recording_location_var = tk.StringVar()
         self.custom_location_var = tk.StringVar()
         self.file_handling_var = tk.StringVar()
         self.hidpi_mode_var = tk.StringVar()
 
+        # AI Models settings variables
+        self.whisper_language_var = tk.StringVar()
+        self.transcription_model_var = tk.StringVar()
+        self.custom_transcription_model_var = tk.StringVar()
+        self.llm_model_var = tk.StringVar()
+        self.custom_llm_model_var = tk.StringVar()
+
         # Track original HiDPI setting for restart prompt
         self.original_hidpi_mode = None
+
+        # Define Whisper supported languages
+        self.languages = {
+            "auto": "Auto Detect",
+            "af": "Afrikaans",
+            "ar": "Arabic",
+            "hy": "Armenian",
+            "az": "Azerbaijani",
+            "be": "Belarusian",
+            "bs": "Bosnian",
+            "bg": "Bulgarian",
+            "ca": "Catalan",
+            "zh": "Chinese",
+            "hr": "Croatian",
+            "cs": "Czech",
+            "da": "Danish",
+            "nl": "Dutch",
+            "en": "English",
+            "et": "Estonian",
+            "fi": "Finnish",
+            "fr": "French",
+            "gl": "Galician",
+            "de": "German",
+            "el": "Greek",
+            "he": "Hebrew",
+            "hi": "Hindi",
+            "hu": "Hungarian",
+            "is": "Icelandic",
+            "id": "Indonesian",
+            "it": "Italian",
+            "ja": "Japanese",
+            "kn": "Kannada",
+            "kk": "Kazakh",
+            "ko": "Korean",
+            "lv": "Latvian",
+            "lt": "Lithuanian",
+            "mk": "Macedonian",
+            "ms": "Malay",
+            "mr": "Marathi",
+            "mi": "Maori",
+            "ne": "Nepali",
+            "no": "Norwegian",
+            "fa": "Persian",
+            "pl": "Polish",
+            "pt": "Portuguese",
+            "ro": "Romanian",
+            "ru": "Russian",
+            "sr": "Serbian",
+            "sk": "Slovak",
+            "sl": "Slovenian",
+            "es": "Spanish",
+            "sw": "Swahili",
+            "sv": "Swedish",
+            "tl": "Tagalog",
+            "ta": "Tamil",
+            "th": "Thai",
+            "tr": "Turkish",
+            "uk": "Ukrainian",
+            "ur": "Urdu",
+            "vi": "Vietnamese",
+            "cy": "Welsh"
+        }
+
+        # Define transcription models and their types
+        self.transcription_models = {
+            "gpt-4o-transcribe": "gpt",
+            "whisper-1": "whisper",
+            "other": "unknown"
+        }
+
+        # Define LLM models for copy-editing
+        self.llm_models = [
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "other"
+        ]
 
         # Load current settings
         self.load_current_settings()
         
         # Current selected category
         self.current_category = "Recording"
-        
+
         self.create_dialog()
-        
+
+        # Show window now that UI is fully built (prevents black flash)
+        self.dialog.deiconify()
+
+        # Make dialog modal after UI is built (faster perceived load)
+        self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
+        self.dialog.grab_set()
+
+        # Defer hotkey pause to after dialog is displayed for faster UI response
+        if hasattr(self.parent, 'hotkey_manager'):
+            self.dialog.after(1, self.parent.hotkey_manager.pause)
+
     def load_current_settings(self):
         """Load current configuration settings from settings.json."""
         self.config = get_config()
@@ -65,6 +167,25 @@ class ConfigDialog:
         # HiDPI mode (default: auto)
         self.hidpi_mode_var.set(self.config.hidpi_mode)
         self.original_hidpi_mode = self.config.hidpi_mode
+
+        # AI Models settings
+        self.whisper_language_var.set(self.config.whisper_language)
+
+        # Transcription model - determine if it's a known model or custom
+        current_trans_model = self.config.transcription_model
+        if current_trans_model in self.transcription_models:
+            self.transcription_model_var.set(current_trans_model)
+        else:
+            self.transcription_model_var.set("other")
+            self.custom_transcription_model_var.set(current_trans_model)
+
+        # LLM model - determine if it's a known model or custom
+        current_llm = self.config.ai_model
+        if current_llm in self.llm_models:
+            self.llm_model_var.set(current_llm)
+        else:
+            self.llm_model_var.set("other")
+            self.custom_llm_model_var.set(current_llm)
         
     def create_dialog(self):
         """Create the main dialog layout."""
@@ -143,6 +264,16 @@ class ConfigDialog:
         )
         self.nav_buttons["Display"].pack(fill=tk.X, pady=2)
 
+        self.nav_buttons["AI Models"] = ttk.Button(
+            self.nav_frame,
+            text="AI Models",
+            command=lambda: self.switch_category("AI Models"),
+            width=15,
+            style='Nav.TButton',
+            cursor='hand2'
+        )
+        self.nav_buttons["AI Models"].pack(fill=tk.X, pady=2)
+
         # Highlight current selection
         self.update_navigation_highlight()
         
@@ -203,6 +334,8 @@ class ConfigDialog:
             self.show_recording_settings()
         elif category == "Display":
             self.show_display_settings()
+        elif category == "AI Models":
+            self.show_ai_models_settings()
             
     def update_navigation_highlight(self):
         """Update the visual highlight for the current navigation selection."""
@@ -433,6 +566,195 @@ class ConfigDialog:
             foreground="#CC6600"
         ).pack(anchor="w")
 
+    def show_ai_models_settings(self):
+        """Show the AI models settings panel."""
+        # Main title
+        title_label = ttk.Label(
+            self.content_frame,
+            text="AI Model Settings",
+            font=get_font('lg', 'bold')
+        )
+        title_label.pack(anchor="w", pady=(0, 20))
+
+        # Language Selection Frame
+        language_frame = ttk.LabelFrame(
+            self.content_frame,
+            text="Whisper Language Settings",
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        language_frame.pack(fill="x", pady=(0, 15))
+
+        # Language selection label
+        ttk.Label(
+            language_frame,
+            text="Select Language:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 5))
+
+        # Prepare sorted language list with Auto Detect first
+        language_values = [(code, name) for code, name in self.languages.items()]
+        auto_option = next(item for item in language_values if item[0] == "auto")
+        language_values.remove(auto_option)
+        language_values.sort(key=lambda x: x[1])
+        language_values.insert(0, auto_option)
+
+        # Language combobox
+        self.language_combo = ttk.Combobox(
+            language_frame,
+            values=[f"{name} ({code})" for code, name in language_values],
+            state="readonly",
+            font=get_font('sm')
+        )
+        self.language_combo.pack(fill="x", pady=(0, 5))
+
+        # Set current language value
+        current_lang = self.whisper_language_var.get()
+        current_lang_name = self.languages.get(current_lang, "Auto Detect")
+        self.language_combo.set(f"{current_lang_name} ({current_lang})")
+
+        # Model Settings Frame
+        models_frame = ttk.LabelFrame(
+            self.content_frame,
+            text="AI Model Settings",
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        models_frame.pack(fill="x", pady=(0, 15))
+
+        # --- Transcription Model Section ---
+        transcription_section = ttk.Frame(models_frame)
+        transcription_section.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(
+            transcription_section,
+            text="Transcription Model:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w")
+
+        # Transcription model dropdown
+        dropdown_frame = ttk.Frame(transcription_section)
+        dropdown_frame.pack(fill="x", pady=(5, 0))
+
+        self.transcription_model_combo = ttk.Combobox(
+            dropdown_frame,
+            textvariable=self.transcription_model_var,
+            values=list(self.transcription_models.keys()),
+            state="readonly",
+            font=get_font('sm')
+        )
+        self.transcription_model_combo.pack(fill="x")
+
+        # Custom transcription model input frame
+        self.custom_trans_frame = ttk.Frame(transcription_section)
+        ttk.Label(
+            self.custom_trans_frame,
+            text="Enter custom transcription model name:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w")
+        self.custom_trans_entry = ttk.Entry(
+            self.custom_trans_frame,
+            textvariable=self.custom_transcription_model_var,
+            font=get_font('sm')
+        )
+        self.custom_trans_entry.pack(fill="x", pady=(2, 0))
+
+        # Show custom frame if "other" selected
+        if self.transcription_model_var.get() == "other":
+            self.custom_trans_frame.pack(fill="x", pady=(5, 0))
+
+        # Bind transcription model change
+        self.transcription_model_var.trace_add("write", self._on_transcription_model_change)
+
+        # Model type info
+        ttk.Label(
+            transcription_section,
+            text="Note: GPT models provide higher quality transcription with broad language support.\nWhisper is the traditional speech recognition model.",
+            font=get_font('xxs'),
+            foreground=THEME_TEXT_MUTED
+        ).pack(anchor="w", pady=(8, 0))
+
+        # --- LLM Model Section ---
+        ttk.Label(
+            models_frame,
+            text="OpenAI Copyediting Model:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(5, 0))
+
+        llm_dropdown_frame = ttk.Frame(models_frame)
+        llm_dropdown_frame.pack(fill="x", pady=(5, 0))
+
+        self.llm_model_combo = ttk.Combobox(
+            llm_dropdown_frame,
+            textvariable=self.llm_model_var,
+            values=self.llm_models,
+            state="readonly",
+            font=get_font('sm')
+        )
+        self.llm_model_combo.pack(fill="x")
+
+        # Custom LLM model input frame
+        self.custom_llm_frame = ttk.Frame(models_frame)
+        ttk.Label(
+            self.custom_llm_frame,
+            text="Enter custom copyediting model name:",
+            style='Dialog.TLabel'
+        ).pack(anchor="w")
+        self.custom_llm_entry = ttk.Entry(
+            self.custom_llm_frame,
+            textvariable=self.custom_llm_model_var,
+            font=get_font('sm')
+        )
+        self.custom_llm_entry.pack(fill="x", pady=(2, 0))
+
+        # Show custom frame if "other" selected
+        if self.llm_model_var.get() == "other":
+            self.custom_llm_frame.pack(fill="x", pady=(5, 0))
+
+        # Bind LLM model change
+        self.llm_model_var.trace_add("write", self._on_llm_model_change)
+
+        # Model info
+        ttk.Label(
+            models_frame,
+            text="e.g., gpt-5, gpt-4o, gpt-4o-mini, o1-mini, o1-preview",
+            font=get_font('xxs'),
+            foreground=THEME_TEXT_MUTED
+        ).pack(anchor="w", pady=(5, 0))
+
+        # Link to OpenAI Pricing
+        link = tk.Label(
+            self.content_frame,
+            text="View Available OpenAI Models and Pricing",
+            fg=THEME_ACCENT,
+            cursor="hand2",
+            font=get_font('copy_link', 'underline')
+        )
+        link.pack(anchor="w", pady=(10, 0))
+        link.bind("<Button-1>", lambda e: open_url("https://openai.com/api/pricing/"))
+        link.bind("<Enter>", lambda e: link.config(fg=THEME_ACCENT_HOVER))
+        link.bind("<Leave>", lambda e: link.config(fg=THEME_ACCENT))
+
+    def _on_transcription_model_change(self, *args):
+        """Handle transcription model dropdown change."""
+        if hasattr(self, 'custom_trans_frame'):
+            if self.transcription_model_var.get() == "other":
+                self.custom_trans_frame.pack(fill="x", pady=(5, 0))
+                if hasattr(self, 'custom_trans_entry'):
+                    self.custom_trans_entry.focus()
+            else:
+                self.custom_trans_frame.pack_forget()
+
+    def _on_llm_model_change(self, *args):
+        """Handle LLM model dropdown change."""
+        if hasattr(self, 'custom_llm_frame'):
+            if self.llm_model_var.get() == "other":
+                self.custom_llm_frame.pack(fill="x", pady=(5, 0))
+                if hasattr(self, 'custom_llm_entry'):
+                    self.custom_llm_entry.focus()
+            else:
+                self.custom_llm_frame.pack_forget()
+
     def on_custom_location_selected(self):
         """Handle when custom location radio button is selected."""
         # If no custom path is set and custom is selected, open browse dialog
@@ -475,6 +797,34 @@ class ConfigDialog:
         # Check if HiDPI setting changed (requires restart)
         hidpi_changed = self.hidpi_mode_var.get() != self.original_hidpi_mode
 
+        # Validate AI Models settings
+        # Get selected language code from combo box (if AI Models category was visited)
+        if hasattr(self, 'language_combo'):
+            selected_language = self.language_combo.get()
+            language_code = selected_language.split('(')[-1].strip(')')
+        else:
+            language_code = self.whisper_language_var.get()
+
+        # Get the selected transcription model
+        if self.transcription_model_var.get() == "other":
+            transcription_model = self.custom_transcription_model_var.get().strip()
+            if not transcription_model:
+                messagebox.showerror("Error", "Custom transcription model name cannot be empty.")
+                return
+            model_type = "unknown"
+        else:
+            transcription_model = self.transcription_model_var.get()
+            model_type = self.transcription_models.get(transcription_model, "unknown")
+
+        # Get the selected LLM model
+        if self.llm_model_var.get() == "other":
+            llm_model = self.custom_llm_model_var.get().strip()
+            if not llm_model:
+                messagebox.showerror("Error", "Custom copyediting model name cannot be empty.")
+                return
+        else:
+            llm_model = self.llm_model_var.get()
+
         # Update configuration values
         try:
             self.config.recording_location = self.recording_location_var.get()
@@ -482,11 +832,26 @@ class ConfigDialog:
             self.config.file_handling = self.file_handling_var.get()
             self.config.hidpi_mode = self.hidpi_mode_var.get()
 
+            # Save AI Models settings
+            self.config.whisper_language = language_code
+            self.config.transcription_model = transcription_model
+            self.config.transcription_model_type = model_type
+            self.config.ai_model = llm_model
+
             # Save to file
             self.config.save_settings()
 
             # Update parent's recording directory
             self.parent.update_recording_directory()
+
+            # Update parent's AI model instance variables
+            self.parent.whisper_language = language_code
+            self.parent.transcription_model = transcription_model
+            self.parent.transcription_model_type = model_type
+            self.parent.ai_model = llm_model
+
+            # Update the model label in the UI
+            self.parent.update_model_label()
 
             # If HiDPI changed, prompt for restart
             if hidpi_changed:

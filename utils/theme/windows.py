@@ -28,9 +28,8 @@ WINDOW_SIZES = {
         'terms_of_use': (580, 800),
         'manage_prompts': (800, 650),
         'edit_prompt_dialog': (600, 600),
-        'config_dialog': (700, 500),
+        'config_dialog': (700, 620),
         'hotkey_dialog': (500, 400),
-        'adjust_models': (450, 620),
         'version_notification': (400, 200),
     },
     # Windows HiDPI - explicit values
@@ -42,9 +41,8 @@ WINDOW_SIZES = {
         'terms_of_use': (720, 1080),
         'manage_prompts': (1500, 1050),
         'edit_prompt_dialog': (700, 720),
-        'config_dialog': (1050, 750),
+        'config_dialog': (1050, 930),
         'hotkey_dialog': (720, 620),
-        'adjust_models': (540, 880),
         'version_notification': (440, 220),
     },
     # Linux HiDPI - explicit values (matched to windows_hd for consistent HiDPI experience)
@@ -56,9 +54,8 @@ WINDOW_SIZES = {
         'terms_of_use': (720, 1080),
         'manage_prompts': (1500, 1050),
         'edit_prompt_dialog': (700, 720),
-        'config_dialog': (1050, 750),
+        'config_dialog': (1050, 930),
         'hotkey_dialog': (720, 620),
-        'adjust_models': (540, 880),
         'version_notification': (440, 220),
     },
     # macOS HiDPI - OS handles most scaling
@@ -70,9 +67,8 @@ WINDOW_SIZES = {
         'terms_of_use': (580, 800),
         'manage_prompts': (800, 650),
         'edit_prompt_dialog': (600, 600),
-        'config_dialog': (700, 500),
+        'config_dialog': (700, 620),
         'hotkey_dialog': (500, 400),
-        'adjust_models': (450, 620),
         'version_notification': (400, 200),
     },
 }
@@ -124,7 +120,7 @@ class WindowSizeProvider:
             window_name: One of 'main', 'api_key_dialog', 'about_dialog',
                         'tos_dialog', 'terms_of_use', 'manage_prompts',
                         'edit_prompt_dialog', 'config_dialog', 'hotkey_dialog',
-                        'adjust_models', 'version_notification'
+                        'version_notification'
 
         Returns:
             Tuple of (width, height) for the current platform and HiDPI mode
@@ -154,7 +150,7 @@ def get_window_size(window_name: str) -> tuple:
         window_name: One of 'main', 'api_key_dialog', 'about_dialog',
                     'tos_dialog', 'terms_of_use', 'manage_prompts',
                     'edit_prompt_dialog', 'config_dialog', 'hotkey_dialog',
-                    'adjust_models', 'version_notification'
+                    'version_notification'
 
     Returns:
         Tuple of (width, height) for the current platform and HiDPI mode

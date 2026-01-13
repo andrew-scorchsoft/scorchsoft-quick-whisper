@@ -26,7 +26,6 @@ if platform.system() == 'Windows':
     from ctypes import wintypes
 
 from utils.tooltip import ToolTip
-from utils.adjust_models_dialog import AdjustModelsDialog
 from utils.manage_prompts_dialog import ManagePromptsDialog
 from utils.config_dialog import ConfigDialog
 from utils.hotkey_manager import HotkeyManager
@@ -651,7 +650,6 @@ class QuickWhisper(tk.Tk):
         # Settings menu - use styled popup menu for modern look
         self.settings_menu = StyledPopupMenu(self)
         self.settings_menu.add_command(label="Change API Key", command=self.change_api_key)
-        self.settings_menu.add_command(label="Adjust AI Models", command=self.adjust_models)
         self.settings_menu.add_command(label="Manage Prompts", command=self.manage_prompts)
         self.settings_menu.add_command(label="Configuration", command=self.open_config)
         self.settings_menu.add_separator()
@@ -1456,9 +1454,6 @@ class QuickWhisper(tk.Tk):
 
     def manage_prompts(self):
         ManagePromptsDialog(self)
-
-    def adjust_models(self):
-        AdjustModelsDialog(self)
 
     def open_config(self):
         """Open the configuration dialog."""
