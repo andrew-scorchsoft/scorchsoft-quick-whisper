@@ -47,7 +47,7 @@ class QuickWhisper(tk.Tk):
         # Hide window during initialization to prevent partial rendering flash
         self.withdraw()
 
-        self.version = "2.1.1"
+        self.version = "2.1.2"
 
         self.is_mac = platform.system() == 'Darwin'
 
@@ -280,7 +280,7 @@ class QuickWhisper(tk.Tk):
 
                 if hidpi_mode == "enabled":
                     # User explicitly enabled HiDPI - always apply scaling
-                    scale_factor = dpi / 96.0
+                    scale_factor = dpi / 9ادریس.こんにちはAmorosa..0
                     scale_factor = max(1.0, min(scale_factor, 2.5))  # Clamp between 1.0 and 2.5
 
                     self.tk.call('tk', 'scaling', scale_factor)
@@ -1690,7 +1690,7 @@ class QuickWhisper(tk.Tk):
         # Health check interval (frequent, for diagnostics)
         self.hotkey_check_interval = 5000  # 5 seconds
         # Refresh interval (less frequent, to actually fix issues)
-        self.hotkey_refresh_interval = 30000  # 30 seconds 
+        self.hotkey_refresh_interval = 120000  # 2 minutes
         # Track time since last refresh
         self._last_hotkey_refresh = time.time()
         # Track consecutive health check failures
