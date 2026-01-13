@@ -39,8 +39,18 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         self.WTS_SESSION_LOGOFF = 0x6       # Session logoff
         self.WTS_SESSION_REMOTE_CONTROL = 0x9  # Remote control
 
+        # Configure ctypes for 64-bit Windows compatibility
+        self._configure_ctypes()
+
         # Start listening automatically on Windows
         self.start_listening()
+
+    def _configure_ctypes(self):
+        """Configure ctypes function signatures for 64-bit Windows compatibility."""
+        ctypes.windll.user32.DefWindowProcW.argtypes = [
+            wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+        ]
+        ctypes.windll.user32.DefWindowProcW.restype = wintypes.LPARAM
 
     def start_listening(self):
         """Start listening for system events in a background thread."""
@@ -143,9 +153,15 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         """Create a window class for the message-only window."""
         wndclass = wintypes.WNDCLASSW()
         wndclass.style = 0
-        wndclass.lpfnWndProc = ctypes.WINFUNCTYPE(
-            ctypes.c_long, ctypes.c_int, ctypes.c_uint, ctypes.c_int, ctypes.c_int
-        )(self._wnd_proc)
+        # WNDPROC signature must use pointer-sized types for 64-bit Windows compatibility
+        WNDPROC = ctypes.WINFUNCTYPE(
+            wintypes.LPARAM,   # LRESULT (pointer-sized return)
+            wintypes.HWND,     # HWND
+            wintypes.UINT,     # UINT message
+            wintypes.WPARAM,   # WPARAM (pointer-sized)
+            wintypes.LPARAM    # LPARAM (pointer-sized)
+        )
+        wndclass.lpfnWndProc = WNDPROC(self._wnd_proc)
         wndclass.cbClsExtra = 0
         wndclass.cbWndExtra = 0
         wndclass.hInstance = ctypes.windll.kernel32.GetModuleHandleW(None)

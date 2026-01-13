@@ -94,8 +94,9 @@ def _get_system_font():
                 return "TkDefaultFont"
             available_fonts = tkfont.families()
             linux_fonts = [
-                "Ubuntu",
+                "Noto Sans CJK SC",  # CJK support (Simplified Chinese)
                 "Noto Sans",
+                "Ubuntu",
                 "DejaVu Sans",
                 "Liberation Sans",
                 "FreeSans",

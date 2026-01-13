@@ -11,6 +11,7 @@ import pyperclip
 from utils.tooltip import ToolTip
 from utils.config_manager import get_config
 from utils.platform import open_url
+from utils.i18n import _, _n
 from utils.theme import (
     ThemeColors,
     get_font,
@@ -960,25 +961,25 @@ class UIManager:
         menubar.pack(fill=tk.X, side=tk.TOP, pady=(0, 0))
 
         # Use Menu.TButton style for scaled fonts
-        file_btn = ttk.Button(menubar, text="File", width=8, style="Menu.TButton",
+        self.file_btn = ttk.Button(menubar, text=_("File"), width=8, style="Menu.TButton",
                               command=lambda: self._show_menu("file"))
-        file_btn.pack(side=tk.LEFT, padx=(8, 2), pady=6)
+        self.file_btn.pack(side=tk.LEFT, padx=(8, 2), pady=6)
 
-        settings_btn = ttk.Button(menubar, text="Settings", width=10, style="Menu.TButton",
+        self.settings_btn = ttk.Button(menubar, text=_("Settings"), width=10, style="Menu.TButton",
                                   command=lambda: self._show_menu("settings"))
-        settings_btn.pack(side=tk.LEFT, padx=2, pady=6)
+        self.settings_btn.pack(side=tk.LEFT, padx=2, pady=6)
 
-        actions_btn = ttk.Button(menubar, text="Actions", width=9, style="Menu.TButton",
+        self.actions_btn = ttk.Button(menubar, text=_("Actions"), width=9, style="Menu.TButton",
                                  command=lambda: self._show_menu("actions"))
-        actions_btn.pack(side=tk.LEFT, padx=2, pady=6)
+        self.actions_btn.pack(side=tk.LEFT, padx=2, pady=6)
 
-        help_btn = ttk.Button(menubar, text="Help", width=8, style="Menu.TButton",
+        self.help_btn = ttk.Button(menubar, text=_("Help"), width=8, style="Menu.TButton",
                               command=lambda: self._show_menu("help"))
-        help_btn.pack(side=tk.LEFT, padx=2, pady=6)
-        
+        self.help_btn.pack(side=tk.LEFT, padx=2, pady=6)
+
         self._menu_buttons = {
-            "file": file_btn, "settings": settings_btn,
-            "actions": actions_btn, "help": help_btn
+            "file": self.file_btn, "settings": self.settings_btn,
+            "actions": self.actions_btn, "help": self.help_btn
         }
         
         # Content area with padding (minimal bottom padding)
@@ -989,8 +990,8 @@ class UIManager:
         # INPUT DEVICE
         # ─────────────────────────────────────────────────────────────────────
         
-        device_label = ttk.Label(content, text="Input Device", style="Section.TLabel")
-        device_label.pack(anchor="w", pady=(0, 10))
+        self.device_label = ttk.Label(content, text=_("Input Device"), style="Section.TLabel")
+        self.device_label.pack(anchor="w", pady=(0, 10))
 
         devices = self.parent.audio_manager.get_input_devices()
         self._has_audio_devices = bool(devices)
@@ -1035,8 +1036,8 @@ class UIManager:
         header_row = ttk.Frame(content)
         header_row.pack(fill=tk.X, pady=(0, 10))
         
-        transcription_label = ttk.Label(header_row, text="Transcription", style="Section.TLabel")
-        transcription_label.pack(side=tk.LEFT)
+        self.transcription_label = ttk.Label(header_row, text=_("Transcription"), style="Section.TLabel")
+        self.transcription_label.pack(side=tk.LEFT)
         
         # Navigation buttons - minimal icon-only style
         # Use ttk widgets throughout to inherit correct theme background
@@ -1064,7 +1065,7 @@ class UIManager:
         separator_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
 
         # Copy button - more top padding since smaller font (to ai: don't remove the space before "Copy")
-        self.button_copy = ttk.Label(nav_frame, text="  Copy", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
+        self.button_copy = ttk.Label(nav_frame, text=f"  {_('Copy')}", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
         self.button_copy.pack(side=tk.LEFT, pady=(8, 0))
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
         
@@ -1142,7 +1143,7 @@ class UIManager:
         self.status_dot = ttk.Label(status_left, text="●", font=get_font('status_dot'))
         self.status_dot.pack(side=tk.LEFT, padx=(0, 6))
         
-        self.status_label = ttk.Label(status_left, text="Idle", style="Status.TLabel")
+        self.status_label = ttk.Label(status_left, text=_("Idle"), style="Status.TLabel")
         self.status_label.pack(side=tk.LEFT)
         
         # Model info - smaller font
@@ -1165,21 +1166,21 @@ class UIManager:
         switches_container.pack(expand=True)
 
         # Sun Valley provides "Switch.TCheckbutton" style for toggle switches
-        auto_copy_switch = ttk.Checkbutton(
+        self.auto_copy_switch = ttk.Checkbutton(
             switches_container,
-            text="Copy to clipboard",
+            text=_("Copy to clipboard"),
             variable=self.parent.auto_copy,
             style="Switch.TCheckbutton"
         )
-        auto_copy_switch.pack(side=tk.LEFT, padx=(0, 32))
+        self.auto_copy_switch.pack(side=tk.LEFT, padx=(0, 32))
 
-        auto_paste_switch = ttk.Checkbutton(
+        self.auto_paste_switch = ttk.Checkbutton(
             switches_container,
-            text="Auto-paste",
+            text=_("Auto-paste"),
             variable=self.parent.auto_paste,
             style="Switch.TCheckbutton"
         )
-        auto_paste_switch.pack(side=tk.LEFT)
+        self.auto_paste_switch.pack(side=tk.LEFT)
         
         # ─────────────────────────────────────────────────────────────────────
         # ACTION BUTTONS (Keep custom gradient buttons)
@@ -1196,7 +1197,7 @@ class UIManager:
         
         self.record_button_transcribe = GradientButton(
             buttons_frame,
-            text="Record + Transcribe",
+            text=_("Record + Transcribe"),
             width=btn_width,
             height=get_button_height('md'),
             corner_radius=get_radius('pill'),
@@ -1217,7 +1218,7 @@ class UIManager:
 
         self.record_button_edit = GradientButton(
             buttons_frame,
-            text="Record + AI Edit",
+            text=_("Record + AI Edit"),
             width=btn_width,
             height=get_button_height('md'),
             corner_radius=get_radius('pill'),
@@ -1271,16 +1272,16 @@ class UIManager:
             self.banner_height = 260
         
         self.hide_banner_link = ttk.Label(
-            self.banner_frame, text="Hide Banner",
+            self.banner_frame, text=_("Hide Banner"),
             style="Muted.TLabel", cursor="hand2"
         )
         self.hide_banner_link.pack(pady=(4, 12))
         self.hide_banner_link.bind("<Button-1>", lambda e: self.parent.toggle_banner())
-        
+
         # Powered by label - light blue in dark mode, purple in light mode
         link_color = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
         self.powered_by_label = ttk.Label(
-            self.banner_frame, text="Scorchsoft.com | App & AI Developers",
+            self.banner_frame, text=_("Developed by Scorchsoft.com | App & AI Developers"),
             cursor="hand2", foreground=link_color,
             font=get_font('xxs', 'underline')
         )
@@ -1512,11 +1513,11 @@ class UIManager:
             font=get_font('md'),
             bd=0, relief="flat"
         )
-        menu.add_command(label="Cut", command=lambda: self.transcription_text.event_generate('<<Cut>>'))
-        menu.add_command(label="Copy", command=lambda: self.transcription_text.event_generate('<<Copy>>'))
-        menu.add_command(label="Paste", command=lambda: self.transcription_text.event_generate('<<Paste>>'))
+        menu.add_command(label=_("Cut"), command=lambda: self.transcription_text.event_generate('<<Cut>>'))
+        menu.add_command(label=_("Copy"), command=lambda: self.transcription_text.event_generate('<<Copy>>'))
+        menu.add_command(label=_("Paste"), command=lambda: self.transcription_text.event_generate('<<Paste>>'))
         menu.add_separator()
-        menu.add_command(label="Select All", command=lambda: self.transcription_text.tag_add("sel", "1.0", "end-1c"))
+        menu.add_command(label=_("Select All"), command=lambda: self.transcription_text.tag_add("sel", "1.0", "end-1c"))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -1526,7 +1527,7 @@ class UIManager:
         if recording:
             # BOTH buttons turn red gradient and show "Stop and Process"
             self.record_button_transcribe.configure(
-                text="Stop and Process",
+                text=_("Stop and Process"),
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -1539,7 +1540,7 @@ class UIManager:
                 text_color=self.theme.TEXT_PRIMARY  # White text on red
             )
             self.record_button_edit.configure(
-                text="Stop and Process",
+                text=_("Stop and Process"),
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -1568,7 +1569,7 @@ class UIManager:
         
         # Reset to original gradient mode with white text
         self.record_button_transcribe.configure(
-            text="Record + Transcribe",
+            text=_("Record + Transcribe"),
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -1581,7 +1582,7 @@ class UIManager:
             text_color=self.theme.TEXT_PRIMARY
         )
         self.record_button_edit.configure(
-            text="Record + AI Edit",
+            text=_("Record + AI Edit"),
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -1599,7 +1600,68 @@ class UIManager:
             self.shortcut_label_left.configure(text=transcribe_shortcut)
         if hasattr(self, 'shortcut_label_right') and self.shortcut_label_right:
             self.shortcut_label_right.configure(text=edit_shortcut)
-    
+
+    def refresh_translations(self):
+        """Refresh all UI labels with current translations.
+
+        Called when the application language is changed at runtime.
+        """
+        # Update menu bar buttons
+        if hasattr(self, 'file_btn'):
+            self.file_btn.configure(text=_("File"))
+        if hasattr(self, 'settings_btn'):
+            self.settings_btn.configure(text=_("Settings"))
+        if hasattr(self, 'actions_btn'):
+            self.actions_btn.configure(text=_("Actions"))
+        if hasattr(self, 'help_btn'):
+            self.help_btn.configure(text=_("Help"))
+
+        # Update section labels
+        if hasattr(self, 'device_label'):
+            self.device_label.configure(text=_("Input Device"))
+        if hasattr(self, 'transcription_label'):
+            self.transcription_label.configure(text=_("Transcription"))
+
+        # Update navigation and copy button
+        if hasattr(self, 'button_copy'):
+            self.button_copy.configure(text=f"  {_('Copy')}")
+
+        # Update status label (only if showing "Idle")
+        if hasattr(self, 'status_label'):
+            current_text = str(self.status_label.cget('text'))
+            # Only update if it's a translatable status
+            status_translations = {
+                "Idle": _("Idle"),
+                "Recording...": _("Recording..."),
+                "Success": _("Success"),
+                "Error": _("Error"),
+            }
+            for orig, trans in status_translations.items():
+                if current_text == orig or current_text == trans:
+                    self.status_label.configure(text=trans)
+                    break
+
+        # Update option switches
+        if hasattr(self, 'auto_copy_switch'):
+            self.auto_copy_switch.configure(text=_("Copy to clipboard"))
+        if hasattr(self, 'auto_paste_switch'):
+            self.auto_paste_switch.configure(text=_("Auto-paste"))
+
+        # Update action buttons (only if not in recording state)
+        if hasattr(self, 'record_button_transcribe') and hasattr(self, 'record_button_edit'):
+            if not self.parent.audio_manager.recording:
+                self.record_button_transcribe.configure(text=_("Record + Transcribe"))
+                self.record_button_edit.configure(text=_("Record + AI Edit"))
+            else:
+                self.record_button_transcribe.configure(text=_("Stop and Process"))
+                self.record_button_edit.configure(text=_("Stop and Process"))
+
+        # Update banner labels
+        if hasattr(self, 'hide_banner_link'):
+            self.hide_banner_link.configure(text=_("Hide Banner"))
+        if hasattr(self, 'powered_by_label'):
+            self.powered_by_label.configure(text=_("Developed by Scorchsoft.com | App & AI Developers"))
+
     def apply_theme(self, is_dark: bool):
         """Apply the Sun Valley theme (dark or light mode).
         

@@ -130,6 +130,57 @@ All configuration settings are saved to JSON files in the `config/` folder:
 
 Settings will persist between application restarts. If you're upgrading from an older version that used `.env` files, your settings will be automatically migrated to the new JSON format.
 
+## Language Support (i18n)
+
+QuickWhisper supports multiple languages for the user interface:
+
+- **English** (default)
+- **French** (Français)
+- **German** (Deutsch)
+- **Spanish** (Español)
+- **Chinese Simplified** (简体中文)
+- **Arabic** (العربية)
+
+### Changing the Language
+
+1. Go to **Settings > Configuration**
+2. Select the **Language** category
+3. Choose between:
+   - **Auto-detect from system**: Uses your operating system's language setting
+   - **Manual selection**: Choose a specific language from the dropdown
+
+The interface will update immediately when you save the settings - no restart required.
+
+### Linux Users: Chinese Font Support
+
+If Chinese characters appear as boxes (□□), install CJK fonts:
+```bash
+sudo apt install fonts-noto-cjk
+```
+
+### For Developers: Adding New Translations
+
+If you want to contribute translations or add a new language:
+
+1. **Extract translatable strings** to update the template:
+   ```bash
+   python3 tools/i18n_tools.py extract
+   ```
+
+2. **Create a new language** (e.g., Italian):
+   ```bash
+   python3 tools/i18n_tools.py init it
+   ```
+
+3. **Edit the .po file** at `locale/it/LC_MESSAGES/quickwhisper.po` with your translations
+
+4. **Compile translations** to .mo files:
+   ```bash
+   python3 tools/compile_mo.py
+   ```
+
+5. **Add the language** to `SUPPORTED_LANGUAGES` in `utils/i18n.py`
+
 ## Building an Executable
 
 To create a standalone executable, first ensure you have your virtual environment activated with dependencies installed, then install PyInstaller:

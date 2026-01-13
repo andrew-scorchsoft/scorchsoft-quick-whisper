@@ -8,6 +8,10 @@ import time
 from utils.config_manager import get_config
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from utils.platform import open_url
+from utils.i18n import (
+    _, _n, set_language, get_current_language, detect_os_locale,
+    get_detected_locale_display, get_available_languages, SUPPORTED_LANGUAGES
+)
 
 # Theme colors for dark mode (used in AI Models section)
 THEME_TEXT_MUTED = "#909090"
@@ -22,7 +26,7 @@ class ConfigDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.withdraw()  # Hide window until UI is built
-        self.dialog.title("Configuration Settings")
+        self.dialog.title(_("Configuration Settings"))
         print(f"[CONFIG DIALOG] Toplevel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
 
         # Get window dimensions from theme
@@ -45,6 +49,10 @@ class ConfigDialog:
         self.custom_location_var = tk.StringVar()
         self.file_handling_var = tk.StringVar()
         self.hidpi_mode_var = tk.StringVar()
+
+        # Language settings variables
+        self.language_mode_var = tk.StringVar()
+        self.language_var = tk.StringVar()
 
         # AI Models settings variables
         self.whisper_language_var = tk.StringVar()
@@ -191,6 +199,10 @@ class ConfigDialog:
         self.hidpi_mode_var.set(self.config.hidpi_mode)
         self.original_hidpi_mode = self.config.hidpi_mode
 
+        # Language settings
+        self.language_mode_var.set(self.config.language_mode)
+        self.language_var.set(self.config.language)
+
         # AI Models settings
         self.whisper_language_var.set(self.config.whisper_language)
 
@@ -269,7 +281,7 @@ class ConfigDialog:
         
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""
-        self.nav_frame = ttk.LabelFrame(parent, text="Settings Categories", padding="10", style='Dialog.TLabelframe')
+        self.nav_frame = ttk.LabelFrame(parent, text=_("Settings Categories"), padding="10", style='Dialog.TLabelframe')
         self.nav_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
 
         # Navigation buttons
@@ -277,7 +289,7 @@ class ConfigDialog:
 
         self.nav_buttons["Recording"] = ttk.Button(
             self.nav_frame,
-            text="Recording",
+            text=_("Recording"),
             command=lambda: self.switch_category("Recording"),
             width=15,
             style='Nav.TButton',
@@ -287,7 +299,7 @@ class ConfigDialog:
 
         self.nav_buttons["Display"] = ttk.Button(
             self.nav_frame,
-            text="Display",
+            text=_("Display"),
             command=lambda: self.switch_category("Display"),
             width=15,
             style='Nav.TButton',
@@ -295,9 +307,19 @@ class ConfigDialog:
         )
         self.nav_buttons["Display"].pack(fill=tk.X, pady=2)
 
+        self.nav_buttons["Language"] = ttk.Button(
+            self.nav_frame,
+            text=_("Language"),
+            command=lambda: self.switch_category("Language"),
+            width=15,
+            style='Nav.TButton',
+            cursor='hand2'
+        )
+        self.nav_buttons["Language"].pack(fill=tk.X, pady=2)
+
         self.nav_buttons["AI Models"] = ttk.Button(
             self.nav_frame,
-            text="AI Models",
+            text=_("AI Models"),
             command=lambda: self.switch_category("AI Models"),
             width=15,
             style='Nav.TButton',
@@ -325,7 +347,7 @@ class ConfigDialog:
         # Cancel and Save buttons (Cancel on left, Save on right)
         cancel_button = ctk.CTkButton(
             button_frame,
-            text="Cancel",
+            text=_("Cancel"),
             corner_radius=corner_radius,
             height=button_height,
             width=180,
@@ -339,7 +361,7 @@ class ConfigDialog:
 
         save_button = ctk.CTkButton(
             button_frame,
-            text="Save Changes",
+            text=_("Save Changes"),
             corner_radius=corner_radius,
             height=button_height,
             width=200,
@@ -350,7 +372,7 @@ class ConfigDialog:
             command=self.save_settings
         )
         save_button.pack(side=tk.RIGHT, padx=(get_spacing('sm'), 0))
-        
+
     def switch_category(self, category):
         """Switch to a different settings category."""
         self.current_category = category
@@ -365,6 +387,8 @@ class ConfigDialog:
             self.show_recording_settings()
         elif category == "Display":
             self.show_display_settings()
+        elif category == "Language":
+            self.show_language_settings()
         elif category == "AI Models":
             self.show_ai_models_settings()
             
@@ -383,7 +407,7 @@ class ConfigDialog:
         # Main title
         title_label = ttk.Label(
             self.content_frame,
-            text="Recording Settings",
+            text=_("Recording Settings"),
             font=get_font('lg', 'bold')
         )
         title_label.pack(anchor="w", pady=(0, 20))
@@ -391,7 +415,7 @@ class ConfigDialog:
         # Recording Location Section
         location_frame = ttk.LabelFrame(
             self.content_frame,
-            text="Recording Location",
+            text=_("Recording Location"),
             padding="15",
             style='Dialog.TLabelframe'
         )
@@ -399,14 +423,14 @@ class ConfigDialog:
 
         ttk.Label(
             location_frame,
-            text="Choose where to save audio recording files:",
+            text=_("Choose where to save audio recording files:"),
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
 
         # Radio buttons for location options
         ttk.Radiobutton(
             location_frame,
-            text="Alongside application (recommended)",
+            text=_("Alongside application (recommended)"),
             variable=self.recording_location_var,
             value="alongside",
             style='Dialog.TRadiobutton'
@@ -414,11 +438,11 @@ class ConfigDialog:
 
         # Get the appropriate AppData path based on OS
         if platform.system() == "Windows":
-            appdata_text = "In AppData folder"
+            appdata_text = _("In AppData folder")
         elif platform.system() == "Darwin":  # macOS
-            appdata_text = "In Application Support folder"
+            appdata_text = _("In Application Support folder")
         else:  # Linux
-            appdata_text = "In home config folder"
+            appdata_text = _("In home config folder")
 
         ttk.Radiobutton(
             location_frame,
@@ -430,13 +454,13 @@ class ConfigDialog:
 
         ttk.Radiobutton(
             location_frame,
-            text="Custom folder:",
+            text=_("Custom folder:"),
             variable=self.recording_location_var,
             value="custom",
             command=self.on_custom_location_selected,
             style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        
+
         # Custom folder selection frame
         self.custom_folder_frame = ttk.Frame(location_frame)
         self.custom_folder_frame.pack(fill="x", pady=(5, 0), padx=(20, 0))
@@ -451,18 +475,18 @@ class ConfigDialog:
 
         self.browse_button = ttk.Button(
             self.custom_folder_frame,
-            text="Browse...",
+            text=_("Browse..."),
             command=self.browse_custom_folder,
             state="disabled" if self.recording_location_var.get() != "custom" else "normal",
             style='Dialog.TButton',
             cursor='hand2'
         )
         self.browse_button.pack(side=tk.RIGHT)
-        
+
         # File Handling Section
         handling_frame = ttk.LabelFrame(
             self.content_frame,
-            text="File Handling",
+            text=_("File Handling"),
             padding="15",
             style='Dialog.TLabelframe'
         )
@@ -470,13 +494,13 @@ class ConfigDialog:
 
         ttk.Label(
             handling_frame,
-            text="Choose how to handle recording files:",
+            text=_("Choose how to handle recording files:"),
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
 
         ttk.Radiobutton(
             handling_frame,
-            text="Overwrite the same file each time (saves disk space)",
+            text=_("Overwrite the same file each time (saves disk space)"),
             variable=self.file_handling_var,
             value="overwrite",
             style='Dialog.TRadiobutton'
@@ -484,19 +508,19 @@ class ConfigDialog:
 
         ttk.Radiobutton(
             handling_frame,
-            text="Save each recording with date/time in filename",
+            text=_("Save each recording with date/time in filename"),
             variable=self.file_handling_var,
             value="timestamp",
             style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        
+
         # Warning for timestamp option
         warning_frame = ttk.Frame(handling_frame)
         warning_frame.pack(fill="x", pady=(5, 0), padx=(20, 0))
-        
+
         ttk.Label(
             warning_frame,
-            text="⚠️ Warning: This can consume significant disk space over time",
+            text=_("Warning: This can consume significant disk space over time"),
             font=get_font('xxs'),
             foreground="#CC6600"
         ).pack(anchor="w")
@@ -517,7 +541,7 @@ class ConfigDialog:
         # Main title
         title_label = ttk.Label(
             self.content_frame,
-            text="Display Settings",
+            text=_("Display Settings"),
             font=get_font('lg', 'bold')
         )
         title_label.pack(anchor="w", pady=(0, 20))
@@ -525,7 +549,7 @@ class ConfigDialog:
         # HiDPI Scaling Section
         hidpi_frame = ttk.LabelFrame(
             self.content_frame,
-            text="HiDPI Scaling",
+            text=_("HiDPI Scaling"),
             padding="15",
             style='Dialog.TLabelframe'
         )
@@ -533,14 +557,14 @@ class ConfigDialog:
 
         ttk.Label(
             hidpi_frame,
-            text="Choose how HiDPI (high resolution) scaling is applied:",
+            text=_("Choose how HiDPI (high resolution) scaling is applied:"),
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
 
         # Radio buttons for HiDPI options
         ttk.Radiobutton(
             hidpi_frame,
-            text="Auto-detect (recommended)",
+            text=_("Auto-detect (recommended)"),
             variable=self.hidpi_mode_var,
             value="auto",
             style='Dialog.TRadiobutton'
@@ -548,7 +572,7 @@ class ConfigDialog:
 
         auto_description = ttk.Label(
             hidpi_frame,
-            text="Automatically detect and apply appropriate scaling based on your display",
+            text=_("Automatically detect and apply appropriate scaling based on your display"),
             font=get_font('xxs'),
             foreground="#888888"
         )
@@ -556,7 +580,7 @@ class ConfigDialog:
 
         ttk.Radiobutton(
             hidpi_frame,
-            text="Force enabled",
+            text=_("Force enabled"),
             variable=self.hidpi_mode_var,
             value="enabled",
             style='Dialog.TRadiobutton'
@@ -564,7 +588,7 @@ class ConfigDialog:
 
         enabled_description = ttk.Label(
             hidpi_frame,
-            text="Always apply HiDPI scaling (use if auto-detection doesn't work correctly)",
+            text=_("Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"),
             font=get_font('xxs'),
             foreground="#888888"
         )
@@ -572,7 +596,7 @@ class ConfigDialog:
 
         ttk.Radiobutton(
             hidpi_frame,
-            text="Disabled",
+            text=_("Disabled"),
             variable=self.hidpi_mode_var,
             value="disabled",
             style='Dialog.TRadiobutton'
@@ -580,7 +604,7 @@ class ConfigDialog:
 
         disabled_description = ttk.Label(
             hidpi_frame,
-            text="Never apply HiDPI scaling (use standard scaling)",
+            text=_("Never apply HiDPI scaling (use standard scaling)"),
             font=get_font('xxs'),
             foreground="#888888"
         )
@@ -592,34 +616,143 @@ class ConfigDialog:
 
         ttk.Label(
             note_frame,
-            text="Note: Changes to HiDPI scaling require a restart to take effect.",
+            text=_("Note: Changes to HiDPI scaling require a restart to take effect."),
             font=get_font('xs'),
             foreground="#CC6600"
         ).pack(anchor="w")
 
-    def show_ai_models_settings(self):
-        """Show the AI models settings panel."""
+    def show_language_settings(self):
+        """Show the language settings panel."""
         # Main title
         title_label = ttk.Label(
             self.content_frame,
-            text="AI Model Settings",
+            text=_("Language Settings"),
             font=get_font('lg', 'bold')
         )
         title_label.pack(anchor="w", pady=(0, 20))
 
-        # Language Selection Frame
+        # Application Language Section
         language_frame = ttk.LabelFrame(
             self.content_frame,
-            text="Whisper Language Settings",
+            text=_("Application Language"),
             padding="15",
             style='Dialog.TLabelframe'
         )
-        language_frame.pack(fill="x", pady=(0, 15))
+        language_frame.pack(fill="x", pady=(0, 20))
 
-        # Language selection label
         ttk.Label(
             language_frame,
-            text="Select Language:",
+            text=_("Choose how the application language is determined:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Radio buttons for language mode
+        ttk.Radiobutton(
+            language_frame,
+            text=_("Auto-detect from system"),
+            variable=self.language_mode_var,
+            value="auto",
+            command=self._on_language_mode_change,
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        auto_description = ttk.Label(
+            language_frame,
+            text=_("Automatically detect language from your operating system settings"),
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        auto_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        # Show detected language when auto is selected
+        self.detected_lang_frame = ttk.Frame(language_frame)
+        self.detected_lang_frame.pack(fill="x", padx=(20, 0), pady=(0, 8))
+
+        detected_label = ttk.Label(
+            self.detected_lang_frame,
+            text=_("Detected:"),
+            font=get_font('xxs'),
+            foreground="#22d3ee"
+        )
+        detected_label.pack(side=tk.LEFT)
+
+        self.detected_lang_value = ttk.Label(
+            self.detected_lang_frame,
+            text=get_detected_locale_display(),
+            font=get_font('xxs'),
+            foreground="#22d3ee"
+        )
+        self.detected_lang_value.pack(side=tk.LEFT, padx=(5, 0))
+
+        ttk.Radiobutton(
+            language_frame,
+            text=_("Manual selection"),
+            variable=self.language_mode_var,
+            value="manual",
+            command=self._on_language_mode_change,
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        # Manual language selection frame
+        self.manual_lang_frame = ttk.Frame(language_frame)
+        self.manual_lang_frame.pack(fill="x", padx=(20, 0), pady=(5, 0))
+
+        ttk.Label(
+            self.manual_lang_frame,
+            text=_("Select Language:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 5))
+
+        # Get available languages from compiled translations
+        available = get_available_languages()
+
+        # Language dropdown
+        self.language_combo = ttk.Combobox(
+            self.manual_lang_frame,
+            values=[f"{name} ({code})" for code, name in available.items()],
+            state="readonly",
+            font=get_font('sm')
+        )
+        self.language_combo.pack(fill="x", pady=(0, 5))
+
+        # Set current language value
+        current_lang = self.language_var.get()
+        if current_lang in available:
+            self.language_combo.set(f"{available[current_lang]} ({current_lang})")
+        elif current_lang in SUPPORTED_LANGUAGES:
+            self.language_combo.set(f"{SUPPORTED_LANGUAGES[current_lang]} ({current_lang})")
+        else:
+            self.language_combo.set(f"English (en)")
+
+        # Bind language change to update preview
+        self.language_combo.bind("<<ComboboxSelected>>", self._on_manual_language_change)
+
+        # Note about immediate update
+        note_frame = ttk.Frame(language_frame)
+        note_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Label(
+            note_frame,
+            text=_("Note: Changing the language will update the interface immediately."),
+            font=get_font('xs'),
+            foreground="#CC6600"
+        ).pack(anchor="w")
+
+        # Update visibility based on current mode
+        self._on_language_mode_change()
+
+        # AI Language Settings Section (for transcription)
+        ai_language_frame = ttk.LabelFrame(
+            self.content_frame,
+            text=_("AI Language Settings"),
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        ai_language_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            ai_language_frame,
+            text=_("Select the language for AI transcription:"),
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 5))
 
@@ -630,24 +763,61 @@ class ConfigDialog:
         language_values.sort(key=lambda x: x[1])
         language_values.insert(0, auto_option)
 
-        # Language combobox
-        self.language_combo = ttk.Combobox(
-            language_frame,
+        # AI Language combobox
+        self.ai_language_combo = ttk.Combobox(
+            ai_language_frame,
             values=[f"{name} ({code})" for code, name in language_values],
             state="readonly",
             font=get_font('sm')
         )
-        self.language_combo.pack(fill="x", pady=(0, 5))
+        self.ai_language_combo.pack(fill="x", pady=(0, 5))
 
         # Set current language value
-        current_lang = self.whisper_language_var.get()
-        current_lang_name = self.languages.get(current_lang, "Auto Detect")
-        self.language_combo.set(f"{current_lang_name} ({current_lang})")
+        current_ai_lang = self.whisper_language_var.get()
+        current_ai_lang_name = self.languages.get(current_ai_lang, "Auto Detect")
+        self.ai_language_combo.set(f"{current_ai_lang_name} ({current_ai_lang})")
+
+        ttk.Label(
+            ai_language_frame,
+            text=_("Specifying the language improves transcription accuracy and speed."),
+            font=get_font('xxs'),
+            foreground="#888888"
+        ).pack(anchor="w")
+
+    def _on_language_mode_change(self):
+        """Handle changes to the language mode selection."""
+        is_auto = self.language_mode_var.get() == "auto"
+
+        # Show/hide detected language info
+        if is_auto:
+            self.detected_lang_frame.pack(fill="x", padx=(20, 0), pady=(0, 8))
+            self.manual_lang_frame.pack_forget()
+        else:
+            self.detected_lang_frame.pack_forget()
+            self.manual_lang_frame.pack(fill="x", padx=(20, 0), pady=(5, 0))
+
+    def _on_manual_language_change(self, event=None):
+        """Handle manual language selection change."""
+        selected = self.language_combo.get()
+        # Extract language code from "Display Name (code)" format
+        if "(" in selected and ")" in selected:
+            lang_code = selected.split("(")[-1].strip(")")
+            self.language_var.set(lang_code)
+
+    def show_ai_models_settings(self):
+        """Show the AI models settings panel."""
+        # Main title
+        title_label = ttk.Label(
+            self.content_frame,
+            text=_("AI Model Settings"),
+            font=get_font('lg', 'bold')
+        )
+        title_label.pack(anchor="w", pady=(0, 20))
 
         # Model Settings Frame
         models_frame = ttk.LabelFrame(
             self.content_frame,
-            text="AI Model Settings",
+            text=_("AI Model Settings"),
             padding="15",
             style='Dialog.TLabelframe'
         )
@@ -659,7 +829,7 @@ class ConfigDialog:
 
         ttk.Label(
             transcription_section,
-            text="Transcription Model:",
+            text=_("Transcription Model:"),
             style='Dialog.TLabel'
         ).pack(anchor="w")
 
@@ -680,7 +850,7 @@ class ConfigDialog:
         self.custom_trans_frame = ttk.Frame(transcription_section)
         ttk.Label(
             self.custom_trans_frame,
-            text="Enter custom transcription model name:",
+            text=_("Enter custom transcription model name:"),
             style='Dialog.TLabel'
         ).pack(anchor="w")
         self.custom_trans_entry = ttk.Entry(
@@ -708,7 +878,7 @@ class ConfigDialog:
         # --- LLM Model Section ---
         ttk.Label(
             models_frame,
-            text="OpenAI Copyediting Model:",
+            text=_("OpenAI Copyediting Model:"),
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(5, 0))
 
@@ -728,7 +898,7 @@ class ConfigDialog:
         self.custom_llm_frame = ttk.Frame(models_frame)
         ttk.Label(
             self.custom_llm_frame,
-            text="Enter custom copyediting model name:",
+            text=_("Enter custom copyediting model name:"),
             style='Dialog.TLabel'
         ).pack(anchor="w")
         self.custom_llm_entry = ttk.Entry(
@@ -756,7 +926,7 @@ class ConfigDialog:
         # Link to OpenAI Pricing
         link = tk.Label(
             self.content_frame,
-            text="View Available OpenAI Models and Pricing",
+            text=_("View Available OpenAI Models and Pricing"),
             fg=THEME_ACCENT,
             cursor="hand2",
             font=get_font('copy_link', 'underline')
@@ -795,7 +965,7 @@ class ConfigDialog:
     def browse_custom_folder(self):
         """Open a folder selection dialog."""
         folder_path = filedialog.askdirectory(
-            title="Select Recording Folder",
+            title=_("Select Recording Folder"),
             initialdir=self.custom_location_var.get() or os.path.expanduser("~")
         )
         
@@ -808,19 +978,19 @@ class ConfigDialog:
         if self.recording_location_var.get() == "custom":
             custom_path = self.custom_location_var.get().strip()
             if not custom_path:
-                messagebox.showerror("Error", "Please select a custom folder path.")
+                messagebox.showerror(_("Error"), _("Please select a custom folder path"))
                 return
 
             if not os.path.exists(custom_path):
                 create_folder = messagebox.askyesno(
-                    "Folder Does Not Exist",
-                    f"The folder '{custom_path}' does not exist. Would you like to create it?"
+                    _("Folder Does Not Exist"),
+                    _("The folder '{path}' does not exist. Would you like to create it?").format(path=custom_path)
                 )
                 if create_folder:
                     try:
                         os.makedirs(custom_path, exist_ok=True)
                     except Exception as e:
-                        messagebox.showerror("Error", f"Could not create folder: {e}")
+                        messagebox.showerror(_("Error"), _("Could not create folder: {error}").format(error=e))
                         return
                 else:
                     return
@@ -829,18 +999,18 @@ class ConfigDialog:
         hidpi_changed = self.hidpi_mode_var.get() != self.original_hidpi_mode
 
         # Validate AI Models settings
-        # Get selected language code from combo box (if AI Models category was visited)
-        if hasattr(self, 'language_combo'):
-            selected_language = self.language_combo.get()
-            language_code = selected_language.split('(')[-1].strip(')')
+        # Get selected AI language code from combo box (if Language category was visited)
+        if hasattr(self, 'ai_language_combo'):
+            selected_language = self.ai_language_combo.get()
+            whisper_language_code = selected_language.split('(')[-1].strip(')')
         else:
-            language_code = self.whisper_language_var.get()
+            whisper_language_code = self.whisper_language_var.get()
 
         # Get the selected transcription model
         if self.transcription_model_var.get() == "other":
             transcription_model = self.custom_transcription_model_var.get().strip()
             if not transcription_model:
-                messagebox.showerror("Error", "Custom transcription model name cannot be empty.")
+                messagebox.showerror(_("Error"), _("Custom transcription model name cannot be empty."))
                 return
             model_type = "unknown"
         else:
@@ -851,7 +1021,7 @@ class ConfigDialog:
         if self.llm_model_var.get() == "other":
             llm_model = self.custom_llm_model_var.get().strip()
             if not llm_model:
-                messagebox.showerror("Error", "Custom copyediting model name cannot be empty.")
+                messagebox.showerror(_("Error"), _("Custom copyediting model name cannot be empty."))
                 return
         else:
             llm_model = self.llm_model_var.get()
@@ -863,8 +1033,12 @@ class ConfigDialog:
             self.config.file_handling = self.file_handling_var.get()
             self.config.hidpi_mode = self.hidpi_mode_var.get()
 
+            # Save language settings
+            self.config.language_mode = self.language_mode_var.get()
+            self.config.language = self.language_var.get()
+
             # Save AI Models settings
-            self.config.whisper_language = language_code
+            self.config.whisper_language = whisper_language_code
             self.config.transcription_model = transcription_model
             self.config.transcription_model_type = model_type
             self.config.ai_model = llm_model
@@ -876,7 +1050,7 @@ class ConfigDialog:
             self.parent.update_recording_directory()
 
             # Update parent's AI model instance variables
-            self.parent.whisper_language = language_code
+            self.parent.whisper_language = whisper_language_code
             self.parent.transcription_model = transcription_model
             self.parent.transcription_model_type = model_type
             self.parent.ai_model = llm_model
@@ -884,13 +1058,22 @@ class ConfigDialog:
             # Update the model label in the UI
             self.parent.update_model_label()
 
+            # Apply language change immediately
+            new_lang_mode = self.language_mode_var.get()
+            new_lang = self.language_var.get()
+            # Resolve language based on mode
+            if new_lang_mode == "auto":
+                resolved_lang = detect_os_locale()
+            else:
+                resolved_lang = new_lang
+            set_language(resolved_lang)
+
             # If HiDPI changed, prompt for restart
             if hidpi_changed:
                 restart_now = messagebox.askyesno(
-                    "Restart Required",
-                    "The HiDPI scaling setting has been changed. "
-                    "This requires a restart to take effect.\n\n"
-                    "Would you like to restart the application now?",
+                    _("Restart Required"),
+                    _("The HiDPI scaling setting has been changed. This requires a restart to take effect.") + "\n\n" +
+                    _("Would you like to restart the application now?"),
                     icon='question'
                 )
                 if restart_now:
@@ -899,18 +1082,18 @@ class ConfigDialog:
                     return
                 else:
                     messagebox.showinfo(
-                        "Settings Saved",
-                        "Configuration settings saved successfully!\n\n"
-                        "The HiDPI scaling change will take effect after you restart the application."
+                        _("Settings Saved"),
+                        _("Configuration settings saved successfully!") + "\n\n" +
+                        _("The HiDPI scaling change will take effect after you restart the application.")
                     )
                     self._close_dialog()
                     return
 
-            messagebox.showinfo("Success", "Configuration settings saved and applied successfully!")
+            messagebox.showinfo(_("Success"), _("Configuration settings saved and applied successfully!"))
             self._close_dialog()
 
         except Exception as e:
-            messagebox.showerror("Error", f"Could not save settings: {e}") 
+            messagebox.showerror(_("Error"), _("Could not save settings: {error}").format(error=e)) 
 
     def _close_dialog(self):
         try:

@@ -1,0 +1,581 @@
+# Arabic translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+# Note: Arabic is a right-to-left (RTL) language. Tkinter/ttk has limited RTL support.
+# Text will display correctly but layout may need manual adjustments in some cases.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: Arabic <ar@li.org>\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper من Scorchsoft.com (تحويل الكلام إلى نص محرر)"
+
+msgid "File"
+msgstr "ملف"
+
+msgid "Save Session History"
+msgstr "حفظ سجل الجلسة"
+
+msgid "Minimize to Tray"
+msgstr "تصغير إلى شريط المهام"
+
+msgid "Exit"
+msgstr "خروج"
+
+msgid "Settings"
+msgstr "الإعدادات"
+
+msgid "Change API Key"
+msgstr "تغيير مفتاح API"
+
+msgid "Manage Prompts"
+msgstr "إدارة التعليمات"
+
+msgid "Configuration"
+msgstr "التكوين"
+
+msgid "Automatically Check for Updates"
+msgstr "التحقق من التحديثات تلقائياً"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "تحديث الاختصارات تلقائياً (كل 30 ثانية)"
+
+msgid "Dark Mode"
+msgstr "الوضع الداكن"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "تعيين اختصارات لوحة المفاتيح"
+
+msgid "Refresh Hotkeys"
+msgstr "تحديث الاختصارات"
+
+msgid "Actions"
+msgstr "الإجراءات"
+
+msgid "Record & Edit"
+msgstr "تسجيل وتحرير"
+
+msgid "Record & Transcribe"
+msgstr "تسجيل ونسخ"
+
+msgid "Cancel Recording"
+msgstr "إلغاء التسجيل"
+
+msgid "Retry Last Recording"
+msgstr "إعادة محاولة التسجيل الأخير"
+
+msgid "Copy Last Transcript"
+msgstr "نسخ آخر نص منسوخ"
+
+msgid "Copy Last Edit"
+msgstr "نسخ آخر تحرير"
+
+msgid "Previous Prompt"
+msgstr "التعليمة السابقة"
+
+msgid "Next Prompt"
+msgstr "التعليمة التالية"
+
+msgid "Help"
+msgstr "مساعدة"
+
+msgid "About Quick Whisper"
+msgstr "حول Quick Whisper"
+
+msgid "Check for Updates"
+msgstr "التحقق من التحديثات"
+
+msgid "Hide Banner"
+msgstr "إخفاء الشعار"
+
+msgid "Show Banner"
+msgstr "إظهار الشعار"
+
+msgid "Terms of Use and Licence"
+msgstr "شروط الاستخدام والترخيص"
+
+msgid "Input Device"
+msgstr "جهاز الإدخال"
+
+msgid "Transcription"
+msgstr "النسخ"
+
+msgid "Copy to clipboard"
+msgstr "نسخ إلى الحافظة"
+
+msgid "Auto-paste"
+msgstr "لصق تلقائي"
+
+msgid "Record + Transcribe"
+msgstr "تسجيل + نسخ"
+
+msgid "Record + AI Edit"
+msgstr "تسجيل + تحرير AI"
+
+msgid "Stop and Process"
+msgstr "إيقاف ومعالجة"
+
+msgid "Latest entry"
+msgstr "أحدث إدخال"
+
+msgid "Newer"
+msgstr "أحدث"
+
+msgid "Older"
+msgstr "أقدم"
+
+msgid "Copy"
+msgstr "نسخ"
+
+msgid "Copied to clipboard"
+msgstr "تم النسخ إلى الحافظة"
+
+msgid "Idle"
+msgstr "خامل"
+
+msgid "Recording..."
+msgstr "جاري التسجيل..."
+
+msgid "Processing - Transcript..."
+msgstr "جاري المعالجة - النسخ..."
+
+msgid "Processing - AI Editing..."
+msgstr "جاري المعالجة - تحرير AI..."
+
+msgid "Processing - Audio File..."
+msgstr "جاري المعالجة - ملف صوتي..."
+
+msgid "Success"
+msgstr "نجاح"
+
+msgid "Error"
+msgstr "خطأ"
+
+msgid "Error during transcription"
+msgstr "خطأ أثناء النسخ"
+
+msgid "Configuration Settings"
+msgstr "إعدادات التكوين"
+
+msgid "Prompt Management"
+msgstr "إدارة التعليمات"
+
+msgid "Create New Prompt"
+msgstr "إنشاء تعليمة جديدة"
+
+msgid "Update Available"
+msgstr "تحديث متاح"
+
+msgid "Update Check"
+msgstr "التحقق من التحديث"
+
+msgid "Update Check Failed"
+msgstr "فشل التحقق من التحديث"
+
+msgid "Terms of Use"
+msgstr "شروط الاستخدام"
+
+msgid "App Version"
+msgstr "إصدار التطبيق"
+
+msgid "Enter New OpenAI API Key"
+msgstr "أدخل مفتاح OpenAI API الجديد"
+
+msgid "Save"
+msgstr "حفظ"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "OK"
+msgstr "موافق"
+
+msgid "Close"
+msgstr "إغلاق"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "New Prompt"
+msgstr "تعليمة جديدة"
+
+msgid "Save Changes"
+msgstr "حفظ التغييرات"
+
+msgid "Save Selection and Exit"
+msgstr "حفظ الاختيار والخروج"
+
+msgid "Browse..."
+msgstr "استعراض..."
+
+msgid "Learn More on Our Website"
+msgstr "اعرف المزيد على موقعنا"
+
+msgid "Recording Settings"
+msgstr "إعدادات التسجيل"
+
+msgid "Recording Location"
+msgstr "موقع التسجيل"
+
+msgid "Choose where to save audio recording files:"
+msgstr "اختر مكان حفظ ملفات التسجيل الصوتي:"
+
+msgid "Alongside application (recommended)"
+msgstr "بجانب التطبيق (موصى به)"
+
+msgid "In AppData folder"
+msgstr "في مجلد AppData"
+
+msgid "In Application Support folder"
+msgstr "في مجلد Application Support"
+
+msgid "In home config folder"
+msgstr "في مجلد التكوين الرئيسي"
+
+msgid "Custom folder:"
+msgstr "مجلد مخصص:"
+
+msgid "Select Recording Folder"
+msgstr "اختر مجلد التسجيل"
+
+msgid "File Handling"
+msgstr "معالجة الملفات"
+
+msgid "Choose how to handle recording files:"
+msgstr "اختر كيفية معالجة ملفات التسجيل:"
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "الكتابة فوق نفس الملف في كل مرة (يوفر مساحة القرص)"
+
+msgid "Save each recording with date/time in filename"
+msgstr "حفظ كل تسجيل مع التاريخ/الوقت في اسم الملف"
+
+msgid "Display Settings"
+msgstr "إعدادات العرض"
+
+msgid "HiDPI Scaling"
+msgstr "تحجيم HiDPI"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "اختر كيفية تطبيق تحجيم HiDPI (الدقة العالية):"
+
+msgid "Auto-detect (recommended)"
+msgstr "الكشف التلقائي (موصى به)"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "الكشف التلقائي وتطبيق التحجيم المناسب بناءً على شاشتك"
+
+msgid "Force enabled"
+msgstr "تمكين إجباري"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "تطبيق تحجيم HiDPI دائماً (استخدم إذا لم يعمل الكشف التلقائي بشكل صحيح)"
+
+msgid "Disabled"
+msgstr "معطل"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "عدم تطبيق تحجيم HiDPI أبداً (استخدم التحجيم القياسي)"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "ملاحظة: تغييرات تحجيم HiDPI تتطلب إعادة التشغيل لتصبح سارية."
+
+msgid "Language Settings"
+msgstr "إعدادات اللغة"
+
+msgid "Application Language"
+msgstr "لغة التطبيق"
+
+msgid "Choose how the application language is determined:"
+msgstr "اختر كيفية تحديد لغة التطبيق:"
+
+msgid "Auto-detect from system"
+msgstr "الكشف التلقائي من النظام"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "الكشف التلقائي عن اللغة من إعدادات نظام التشغيل"
+
+msgid "Manual selection"
+msgstr "الاختيار اليدوي"
+
+msgid "Detected:"
+msgstr "تم الكشف عن:"
+
+msgid "Select Language:"
+msgstr "اختر اللغة:"
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "ملاحظة: تغيير اللغة سيحدث الواجهة فوراً."
+
+msgid "AI Model Settings"
+msgstr "إعدادات نموذج AI"
+
+msgid "Whisper Language Settings"
+msgstr "إعدادات لغة Whisper"
+
+msgid "Transcription Model:"
+msgstr "نموذج النسخ:"
+
+msgid "Enter custom transcription model name:"
+msgstr "أدخل اسم نموذج النسخ المخصص:"
+
+msgid "OpenAI Copyediting Model:"
+msgstr "نموذج تحرير OpenAI:"
+
+msgid "Enter custom copyediting model name:"
+msgstr "أدخل اسم نموذج التحرير المخصص:"
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "عرض نماذج OpenAI المتاحة والأسعار"
+
+msgid "Settings Categories"
+msgstr "فئات الإعدادات"
+
+msgid "Recording"
+msgstr "التسجيل"
+
+msgid "Display"
+msgstr "العرض"
+
+msgid "AI Models"
+msgstr "نماذج AI"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Prompt Selection"
+msgstr "اختيار التعليمة"
+
+msgid "Prompt Content"
+msgstr "محتوى التعليمة"
+
+msgid "Prompt Name:"
+msgstr "اسم التعليمة:"
+
+msgid "(Default prompt cannot be edited)"
+msgstr "(لا يمكن تحرير التعليمة الافتراضية)"
+
+msgid "API Key Missing"
+msgstr "مفتاح API مفقود"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "يرجى تعيين مفتاح OpenAI API في config/credentials.json أو إدخاله الآن."
+
+msgid "No Audio Device"
+msgstr "لا يوجد جهاز صوت"
+
+msgid "No audio devices found"
+msgstr "لم يتم العثور على أجهزة صوت"
+
+msgid "Device Error"
+msgstr "خطأ في الجهاز"
+
+msgid "Recording error"
+msgstr "خطأ في التسجيل"
+
+msgid "Retry Failed"
+msgstr "فشلت إعادة المحاولة"
+
+msgid "No previous recording found to retry"
+msgstr "لم يتم العثور على تسجيل سابق لإعادة المحاولة"
+
+msgid "Prompt content cannot be empty"
+msgstr "لا يمكن أن يكون محتوى التعليمة فارغاً"
+
+msgid "Please select a custom folder path"
+msgstr "يرجى اختيار مسار مجلد مخصص"
+
+msgid "Could not create folder: {error}"
+msgstr "تعذر إنشاء المجلد: {error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "تم حفظ إعدادات التكوين بنجاح!"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "هل أنت متأكد من حذف '{name}'؟"
+
+msgid "Prompt Not Found"
+msgstr "لم يتم العثور على التعليمة"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "لم يتم العثور على التعليمة المحددة '{name}'. استخدام التعليمة الافتراضية."
+
+msgid "No History"
+msgstr "لا يوجد سجل"
+
+msgid "There is no history to save."
+msgstr "لا يوجد سجل للحفظ."
+
+msgid "Session history saved successfully to {path}"
+msgstr "تم حفظ سجل الجلسة بنجاح إلى {path}"
+
+msgid "Save Error"
+msgstr "خطأ في الحفظ"
+
+msgid "An error occurred while saving: {error}"
+msgstr "حدث خطأ أثناء الحفظ: {error}"
+
+msgid "API Key Updated"
+msgstr "تم تحديث مفتاح API"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "تم تحديث مفتاح OpenAI API بنجاح."
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "يرجى إدخال مفتاح OpenAI API الجديد أدناه:"
+
+msgid "How to obtain an OpenAI API key"
+msgstr "كيفية الحصول على مفتاح OpenAI API"
+
+msgid "Input Required"
+msgstr "مطلوب إدخال"
+
+msgid "Please enter a valid API key."
+msgstr "يرجى إدخال مفتاح API صالح."
+
+msgid "Transcription Error"
+msgstr "خطأ في النسخ"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "حدث خطأ أثناء النسخ: {error}"
+
+msgid "GPT Processing Error"
+msgstr "خطأ في معالجة GPT"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "حدث خطأ أثناء المعالجة باستخدام GPT: {error}"
+
+msgid "Auto-Copy Error"
+msgstr "خطأ في النسخ التلقائي"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "فشل نسخ النص إلى الحافظة: {error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "فشل النسخ التلقائي للنص: {error}"
+
+msgid "Auto-Paste Error"
+msgstr "خطأ في اللصق التلقائي"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "فشل اللصق التلقائي للنص: {error}"
+
+msgid "Confirm Delete"
+msgstr "تأكيد الحذف"
+
+msgid "No Selection"
+msgstr "لا يوجد اختيار"
+
+msgid "Please select a prompt before saving"
+msgstr "يرجى اختيار تعليمة قبل الحفظ"
+
+msgid "Now using prompt: {name}"
+msgstr "يتم استخدام التعليمة الآن: {name}"
+
+msgid "Please enter a prompt name"
+msgstr "يرجى إدخال اسم التعليمة"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "يجب أن يكون اسم التعليمة 25 حرفاً أو أقل"
+
+msgid "Please enter a system prompt"
+msgstr "يرجى إدخال تعليمة النظام"
+
+msgid "Prompt changes saved successfully"
+msgstr "تم حفظ تغييرات التعليمة بنجاح"
+
+msgid "Folder Does Not Exist"
+msgstr "المجلد غير موجود"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "المجلد '{path}' غير موجود. هل تريد إنشاءه؟"
+
+msgid "Restart Required"
+msgstr "مطلوب إعادة التشغيل"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "تم تغيير إعداد تحجيم HiDPI. يتطلب هذا إعادة التشغيل ليصبح ساري المفعول."
+
+msgid "Would you like to restart the application now?"
+msgstr "هل تريد إعادة تشغيل التطبيق الآن؟"
+
+msgid "Settings Saved"
+msgstr "تم حفظ الإعدادات"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "سيصبح تغيير تحجيم HiDPI ساري المفعول بعد إعادة تشغيل التطبيق."
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "تم حفظ وتطبيق إعدادات التكوين بنجاح!"
+
+msgid "Could not save settings: {error}"
+msgstr "تعذر حفظ الإعدادات: {error}"
+
+msgid "System Tray Unavailable"
+msgstr "شريط المهام غير متاح"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "تعذر إنشاء أيقونة شريط المهام. إغلاق النافذة سينهي التطبيق."
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "لا يمكن أن يكون اسم نموذج النسخ المخصص فارغاً."
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "لا يمكن أن يكون اسم نموذج التحرير المخصص فارغاً."
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "تحويل الكلام إلى نص محرر بالذكاء الاصطناعي"
+
+msgid "Version {version}"
+msgstr "الإصدار {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisper هو أداة برمجية مجانية ومفتوحة المصدر لتحويل الكلام إلى نص محرر، تستخدم الذكاء الاصطناعي لتحويل الصوت المنطوق إلى نص منسوخ ومحرر، ولصقه تلقائياً في تطبيقك النشط."
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "مصمم لتعزيز الإنتاجية، يسرع سير العمل بشكل كبير، مما يتيح ردوداً أسرع على رسائل البريد الإلكتروني أو الرسائل - الكلام عادة أسرع بمرتين إلى ثلاث مرات من الكتابة."
+
+msgid "Key Features"
+msgstr "الميزات الرئيسية"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "كيفية الاستخدام: اضغط Ctrl+Alt+J للتسجيل والتحرير بالذكاء الاصطناعي، أو Ctrl+Alt+Shift+J للنسخ الخام. سيقوم التطبيق تلقائياً بنسخ ولصق النتيجة في تطبيقك النشط."
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "تم التطوير بواسطة Scorchsoft.com | مطورو التطبيقات والذكاء الاصطناعي"
+
+msgid "Cut"
+msgstr "قص"
+
+msgid "Paste"
+msgstr "لصق"
+
+msgid "Select All"
+msgstr "تحديد الكل"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "تحذير: قد يستهلك هذا مساحة قرص كبيرة بمرور الوقت"
+
+msgid "A new version ({version}) is available!"
+msgstr "إصدار جديد ({version}) متاح!"
+
+msgid "Would you like to download it now?"
+msgstr "هل تريد تنزيله الآن؟"
+
+msgid "You are using the latest version."
+msgstr "أنت تستخدم أحدث إصدار."
+
+msgid "Could not check for updates. Please try again later."
+msgstr "تعذر التحقق من التحديثات. يرجى المحاولة مرة أخرى لاحقاً."
