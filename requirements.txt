@@ -5,9 +5,11 @@ openai
 packaging
 Pillow
 pyaudio
+pyautogui
 pyperclip
 pynput
 pystray
 pyttsx3
+pywin32; sys_platform == 'win32'
 requests
 sv_ttk

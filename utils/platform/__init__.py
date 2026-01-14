@@ -46,6 +46,55 @@ def _detect_wsl():
 IS_WSL = _detect_wsl()
 
 
+class _NoOpHotkeyManager:
+    """Fallback hotkey manager when pynput is not available (e.g., Linux without X11)."""
+
+    def __init__(self, parent):
+        self.parent = parent
+        self._paused = False
+        self.shortcuts = {
+            'record_edit': 'ctrl+alt+j',
+            'record_transcribe': 'ctrl+alt+shift+j',
+            'cancel_recording': 'ctrl+alt+x',
+            'cycle_prompt_back': 'alt+left',
+            'cycle_prompt_forward': 'alt+right'
+        }
+
+    def register_hotkeys(self):
+        print("Hotkeys not available (no X11 display)")
+        return False
+
+    def unregister_hotkeys(self):
+        pass
+
+    def verify_hotkeys(self):
+        return False
+
+    def force_hotkey_refresh(self, callback=None):
+        if callback:
+            callback(False)
+        return False
+
+    def pause(self):
+        self._paused = True
+
+    def resume(self):
+        self._paused = False
+
+    def load_shortcuts_from_config(self):
+        pass
+
+    def update_shortcut_displays(self):
+        pass
+
+    def check_keyboard_shortcuts(self):
+        from tkinter import messagebox
+        messagebox.showinfo("Hotkeys Unavailable",
+            "Global hotkeys are not available.\n\n"
+            "On Linux, this requires an X11 display.\n"
+            "You can still use the application via the UI buttons.")
+
+
 def get_hotkey_manager_class():
     """
     Factory function to get the appropriate HotkeyManager class for current OS.
@@ -60,8 +109,13 @@ def get_hotkey_manager_class():
         from .hotkey_macos import MacOSHotkeyManager
         return MacOSHotkeyManager
     else:
-        from .hotkey_linux import LinuxHotkeyManager
-        return LinuxHotkeyManager
+        try:
+            from .hotkey_linux import LinuxHotkeyManager
+            return LinuxHotkeyManager
+        except ImportError as e:
+            # pynput requires X11 on Linux - if not available, use no-op fallback
+            print(f"Warning: Hotkeys disabled - pynput not available: {e}")
+            return _NoOpHotkeyManager
 
 
 def get_system_event_listener_class():

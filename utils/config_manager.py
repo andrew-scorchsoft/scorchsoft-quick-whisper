@@ -56,7 +56,8 @@ class ConfigManager:
         },
         "behavior": {
             "auto_hotkey_refresh": True,
-            "auto_update_check": True
+            "auto_update_check": True,
+            "paste_method": "auto"  # "auto", "sendinput" (Windows), "pynput", "pyautogui"
         }
     }
     
@@ -487,7 +488,15 @@ class ConfigManager:
     @auto_update_check.setter
     def auto_update_check(self, value: bool):
         self._settings["behavior"]["auto_update_check"] = value
-    
+
+    @property
+    def paste_method(self) -> str:
+        return self._settings["behavior"].get("paste_method", "auto")
+
+    @paste_method.setter
+    def paste_method(self, value: str):
+        self._settings["behavior"]["paste_method"] = value
+
     # ========== Credentials Accessors ==========
     
     @property

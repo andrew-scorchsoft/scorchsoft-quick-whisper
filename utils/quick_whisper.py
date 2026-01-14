@@ -16,9 +16,11 @@ from openai import OpenAI
 from utils.config_manager import get_config
 from pathlib import Path
 from audioplayer import AudioPlayer
-from pynput.keyboard import Controller as KeyboardController, Key  # For auto-paste functionality
 import platform
 import time
+
+# Note: pynput and pyautogui are imported lazily in paste methods to avoid
+# X11 connection errors on Linux when display is not available at import time
 
 # Platform-specific imports
 if platform.system() == 'Windows':
@@ -939,24 +941,175 @@ class QuickWhisper(tk.Tk):
             messagebox.showerror("Auto-Copy Error", f"Failed to auto-copy the transcription: {e}")
 
     def auto_paste_text(self, text):
+        """Auto-paste text using the configured paste method."""
         try:
-            # Use pynput keyboard controller for cross-platform paste
-            keyboard_controller = KeyboardController()
+            # Small delay before starting to ensure any previous key events are processed
+            time.sleep(0.05)
 
-            # Use OS-specific keyboard shortcuts
-            if self.is_mac:
-                keyboard_controller.press(Key.cmd)
-                keyboard_controller.press('v')
-                keyboard_controller.release('v')
-                keyboard_controller.release(Key.cmd)
+            # Get configured paste method
+            paste_method = self.config.paste_method
+
+            # Determine effective method based on config and platform
+            if paste_method == "auto":
+                # Auto mode: use SendInput on Windows (most reliable), pynput elsewhere
+                if platform.system() == 'Windows':
+                    paste_method = "sendinput"
+                else:
+                    paste_method = "pynput"
+
+            # Dispatch to the appropriate paste method
+            if paste_method == "sendinput" and platform.system() == 'Windows':
+                self._paste_sendinput()
+            elif paste_method == "win32api" and platform.system() == 'Windows':
+                self._paste_win32api()
+            elif paste_method == "pyautogui":
+                self._paste_pyautogui()
+            elif paste_method == "pynput_legacy":
+                self._paste_pynput_legacy()
             else:
-                keyboard_controller.press(Key.ctrl)
-                keyboard_controller.press('v')
-                keyboard_controller.release('v')
-                keyboard_controller.release(Key.ctrl)
+                # Default to pynput with delays (also handles non-Windows with sendinput selected)
+                self._paste_pynput()
+
+            # Small delay after to ensure paste completes before any other operations
+            time.sleep(0.05)
         except Exception as e:
+            print(f"Auto-paste error: {e}")
             messagebox.showerror("Auto-Paste Error", f"Failed to auto-paste the transcription: {e}")
 
+    def _paste_sendinput(self):
+        """Paste using Windows SendInput API - most reliable on Windows."""
+        # Virtual key codes
+        VK_CONTROL = 0x11
+        VK_V = 0x56
+
+        # Input type for keyboard
+        INPUT_KEYBOARD = 1
+        KEYEVENTF_KEYUP = 0x0002
+
+        # Define the INPUT structure for SendInput
+        class KEYBDINPUT(ctypes.Structure):
+            _fields_ = [
+                ("wVk", wintypes.WORD),
+                ("wScan", wintypes.WORD),
+                ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+            ]
+
+        class INPUT(ctypes.Structure):
+            _fields_ = [
+                ("type", wintypes.DWORD),
+                ("ki", KEYBDINPUT),
+                ("padding", ctypes.c_ubyte * 8)  # Padding to match union size
+            ]
+
+        def make_key_input(vk, flags=0):
+            """Create an INPUT structure for a key event."""
+            inp = INPUT()
+            inp.type = INPUT_KEYBOARD
+            inp.ki.wVk = vk
+            inp.ki.wScan = 0
+            inp.ki.dwFlags = flags
+            inp.ki.time = 0
+            inp.ki.dwExtraInfo = None
+            return inp
+
+        # Create the sequence: Ctrl down, V down, V up, Ctrl up
+        inputs = (INPUT * 4)()
+        inputs[0] = make_key_input(VK_CONTROL)                  # Ctrl down
+        inputs[1] = make_key_input(VK_V)                        # V down
+        inputs[2] = make_key_input(VK_V, KEYEVENTF_KEYUP)       # V up
+        inputs[3] = make_key_input(VK_CONTROL, KEYEVENTF_KEYUP) # Ctrl up
+
+        # Send all inputs at once - this is atomic from Windows' perspective
+        ctypes.windll.user32.SendInput(4, ctypes.byref(inputs), ctypes.sizeof(INPUT))
+
+    def _paste_pynput(self):
+        """Paste using pynput KeyboardController with timing delays."""
+        # Lazy import to avoid X11 connection errors at module load time
+        from pynput.keyboard import Controller as KeyboardController, Key
+        keyboard_controller = KeyboardController()
+
+        # Add delays between key events to give the OS time to register
+        # the modifier key before the character key is pressed.
+        if self.is_mac:
+            keyboard_controller.press(Key.cmd)
+            time.sleep(0.02)  # Give OS time to register Cmd
+            keyboard_controller.press('v')
+            time.sleep(0.02)  # Brief hold
+            keyboard_controller.release('v')
+            time.sleep(0.02)  # Brief pause before releasing modifier
+            keyboard_controller.release(Key.cmd)
+        else:
+            keyboard_controller.press(Key.ctrl)
+            time.sleep(0.02)  # Give OS time to register Ctrl
+            keyboard_controller.press('v')
+            time.sleep(0.02)  # Brief hold
+            keyboard_controller.release('v')
+            time.sleep(0.02)  # Brief pause before releasing modifier
+            keyboard_controller.release(Key.ctrl)
+
+    def _paste_pynput_legacy(self):
+        """Paste using pynput KeyboardController - original method without delays.
+
+        This is the original implementation before timing fixes were added.
+        Some users may find this works better on their systems.
+        """
+        # Lazy import to avoid X11 connection errors at module load time
+        from pynput.keyboard import Controller as KeyboardController, Key
+        keyboard_controller = KeyboardController()
+
+        if self.is_mac:
+            keyboard_controller.press(Key.cmd)
+            keyboard_controller.press('v')
+            keyboard_controller.release('v')
+            keyboard_controller.release(Key.cmd)
+        else:
+            keyboard_controller.press(Key.ctrl)
+            keyboard_controller.press('v')
+            keyboard_controller.release('v')
+            keyboard_controller.release(Key.ctrl)
+
+    def _paste_pyautogui(self):
+        """Paste using pyautogui library - alternative cross-platform method."""
+        # Lazy import to avoid X11 connection errors at module load time
+        import pyautogui
+        pyautogui.PAUSE = 0.02  # Small pause between actions
+        pyautogui.FAILSAFE = False  # Disable failsafe
+
+        # pyautogui.hotkey handles the key timing automatically
+        if self.is_mac:
+            pyautogui.hotkey('command', 'v')
+        else:
+            pyautogui.hotkey('ctrl', 'v')
+
+    def _paste_win32api(self):
+        """Paste using win32api keybd_event - older Windows API method.
+
+        Some applications respond better to keybd_event than SendInput.
+        This uses the pywin32 package.
+        """
+        import win32api
+        import win32con
+
+        # Virtual key codes
+        VK_CONTROL = win32con.VK_CONTROL
+        VK_V = 0x56
+
+        # Press Ctrl
+        win32api.keybd_event(VK_CONTROL, 0, 0, 0)
+        time.sleep(0.02)
+
+        # Press V
+        win32api.keybd_event(VK_V, 0, 0, 0)
+        time.sleep(0.02)
+
+        # Release V
+        win32api.keybd_event(VK_V, 0, win32con.KEYEVENTF_KEYUP, 0)
+        time.sleep(0.02)
+
+        # Release Ctrl
+        win32api.keybd_event(VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
 
     def process_with_gpt_model(self, text):
         try:

@@ -48,6 +48,7 @@ class ConfigDialog:
         self.recording_location_var = tk.StringVar()
         self.custom_location_var = tk.StringVar()
         self.file_handling_var = tk.StringVar()
+        self.paste_method_var = tk.StringVar()
         self.hidpi_mode_var = tk.StringVar()
 
         # Language settings variables
@@ -195,6 +196,9 @@ class ConfigDialog:
         # File handling (default: overwrite)
         self.file_handling_var.set(self.config.file_handling)
 
+        # Paste method (default: auto)
+        self.paste_method_var.set(self.config.paste_method)
+
         # HiDPI mode (default: auto)
         self.hidpi_mode_var.set(self.config.hidpi_mode)
         self.original_hidpi_mode = self.config.hidpi_mode
@@ -317,6 +321,16 @@ class ConfigDialog:
         )
         self.nav_buttons["Language"].pack(fill=tk.X, pady=2)
 
+        self.nav_buttons["Output"] = ttk.Button(
+            self.nav_frame,
+            text=_("Output"),
+            command=lambda: self.switch_category("Output"),
+            width=15,
+            style='Nav.TButton',
+            cursor='hand2'
+        )
+        self.nav_buttons["Output"].pack(fill=tk.X, pady=2)
+
         self.nav_buttons["AI Models"] = ttk.Button(
             self.nav_frame,
             text=_("AI Models"),
@@ -389,6 +403,8 @@ class ConfigDialog:
             self.show_display_settings()
         elif category == "Language":
             self.show_language_settings()
+        elif category == "Output":
+            self.show_output_settings()
         elif category == "AI Models":
             self.show_ai_models_settings()
             
@@ -524,7 +540,7 @@ class ConfigDialog:
             font=get_font('xxs'),
             foreground="#CC6600"
         ).pack(anchor="w")
-        
+
         # Bind radio button changes to update UI state
         self.recording_location_var.trace("w", self.on_location_change)
         
@@ -535,6 +551,92 @@ class ConfigDialog:
         # Enable/disable custom path controls
         self.custom_path_entry.configure(state="normal" if is_custom else "readonly")
         self.browse_button.configure(state="normal" if is_custom else "disabled")
+
+    def show_output_settings(self):
+        """Show the output settings panel."""
+        # Main title
+        title_label = ttk.Label(
+            self.content_frame,
+            text=_("Output Settings"),
+            font=get_font('lg', 'bold')
+        )
+        title_label.pack(anchor="w", pady=(0, 20))
+
+        # Auto-Paste Method Section (Windows only shows all options, others show subset)
+        paste_frame = ttk.LabelFrame(
+            self.content_frame,
+            text=_("Auto-Paste Method"),
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        paste_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            paste_frame,
+            text=_("Choose the keyboard simulation method for auto-paste:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 10))
+
+        ttk.Radiobutton(
+            paste_frame,
+            text=_("Auto (recommended) - Uses best method for your system"),
+            variable=self.paste_method_var,
+            value="auto",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        # Windows-specific options
+        if platform.system() == "Windows":
+            ttk.Radiobutton(
+                paste_frame,
+                text=_("SendInput - Native Windows API (most reliable)"),
+                variable=self.paste_method_var,
+                value="sendinput",
+                style='Dialog.TRadiobutton'
+            ).pack(anchor="w", pady=2)
+
+            ttk.Radiobutton(
+                paste_frame,
+                text=_("win32api - Older Windows API (keybd_event)"),
+                variable=self.paste_method_var,
+                value="win32api",
+                style='Dialog.TRadiobutton'
+            ).pack(anchor="w", pady=2)
+
+        ttk.Radiobutton(
+            paste_frame,
+            text=_("pynput - Cross-platform with timing delays"),
+            variable=self.paste_method_var,
+            value="pynput",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        ttk.Radiobutton(
+            paste_frame,
+            text=_("pynput (legacy) - Original method, no delays"),
+            variable=self.paste_method_var,
+            value="pynput_legacy",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        ttk.Radiobutton(
+            paste_frame,
+            text=_("pyautogui - Alternative automation library"),
+            variable=self.paste_method_var,
+            value="pyautogui",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        # Info note
+        info_frame = ttk.Frame(paste_frame)
+        info_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Label(
+            info_frame,
+            text=_("Try a different method if auto-paste types 'v' instead of pasting."),
+            font=get_font('xxs'),
+            foreground="#909090"
+        ).pack(anchor="w")
 
     def show_display_settings(self):
         """Show the display settings panel."""
@@ -1031,6 +1133,7 @@ class ConfigDialog:
             self.config.recording_location = self.recording_location_var.get()
             self.config.custom_recording_path = self.custom_location_var.get()
             self.config.file_handling = self.file_handling_var.get()
+            self.config.paste_method = self.paste_method_var.get()
             self.config.hidpi_mode = self.hidpi_mode_var.get()
 
             # Save language settings
