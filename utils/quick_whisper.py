@@ -49,7 +49,7 @@ class QuickWhisper(tk.Tk):
         # Hide window during initialization to prevent partial rendering flash
         self.withdraw()
 
-        self.version = "2.1.3"
+        self.version = "2.1.4"
 
         self.is_mac = platform.system() == 'Darwin'
 
