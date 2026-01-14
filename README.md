@@ -7,7 +7,7 @@ QuickWhisper is a user-friendly, voice-to-text transcription app that leverages 
 
 ## Cross-Platform Support
 
-While QuickWhisper was originally developed for Windows, **the codebase has been updated to support Linux and macOS** as well. There is no simple installer available for these platforms yet, but the Python code should run on Linux and macOS if you follow the platform-specific setup instructions below. This is useful for users who want a speech-to-copy-edited-text tool on Linux or Mac and are comfortable running from source or building their own executable.
+While QuickWhisper was originally developed for Windows, **the codebase has been updated to support Linux and macOS** as well. Windows and Linux binaries are currently available via the [GitHub release log](https://github.com/andrew-scorchsoft/scorchsoft-quick-whisper/releases)
 
 ## Features
 
