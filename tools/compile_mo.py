@@ -156,7 +156,7 @@ def compile_po_to_mo(po_path: Path, mo_path: Path) -> bool:
 def main():
     """Compile all .po files in the locale directory."""
     locale_dir = PROJECT_ROOT / "locale"
-    languages = ["en", "fr", "de", "es", "zh_CN", "ar"]
+    languages = ["en", "fr", "de", "es", "zh_CN", "ar", "ja", "ko", "ru", "pt"]
     domain = "quickwhisper"
 
     print("Compiling translation files...")

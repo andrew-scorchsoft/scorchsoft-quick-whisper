@@ -1,0 +1,578 @@
+# Korean translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: Korean <ko@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper by Scorchsoft.com (음성을 편집된 텍스트로)"
+
+msgid "File"
+msgstr "파일"
+
+msgid "Save Session History"
+msgstr "세션 기록 저장"
+
+msgid "Minimize to Tray"
+msgstr "트레이로 최소화"
+
+msgid "Exit"
+msgstr "종료"
+
+msgid "Settings"
+msgstr "설정"
+
+msgid "Change API Key"
+msgstr "API 키 변경"
+
+msgid "Manage Prompts"
+msgstr "프롬프트 관리"
+
+msgid "Configuration"
+msgstr "구성"
+
+msgid "Automatically Check for Updates"
+msgstr "자동으로 업데이트 확인"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "단축키 자동 새로고침 (30초마다)"
+
+msgid "Dark Mode"
+msgstr "다크 모드"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "키보드 단축키 설정"
+
+msgid "Refresh Hotkeys"
+msgstr "단축키 새로고침"
+
+msgid "Actions"
+msgstr "작업"
+
+msgid "Record & Edit"
+msgstr "녹음 및 편집"
+
+msgid "Record & Transcribe"
+msgstr "녹음 및 전사"
+
+msgid "Cancel Recording"
+msgstr "녹음 취소"
+
+msgid "Retry Last Recording"
+msgstr "마지막 녹음 재시도"
+
+msgid "Copy Last Transcript"
+msgstr "마지막 전사 복사"
+
+msgid "Copy Last Edit"
+msgstr "마지막 편집 복사"
+
+msgid "Previous Prompt"
+msgstr "이전 프롬프트"
+
+msgid "Next Prompt"
+msgstr "다음 프롬프트"
+
+msgid "Help"
+msgstr "도움말"
+
+msgid "About Quick Whisper"
+msgstr "Quick Whisper 정보"
+
+msgid "Check for Updates"
+msgstr "업데이트 확인"
+
+msgid "Hide Banner"
+msgstr "배너 숨기기"
+
+msgid "Show Banner"
+msgstr "배너 표시"
+
+msgid "Terms of Use and Licence"
+msgstr "이용 약관 및 라이선스"
+
+msgid "Input Device"
+msgstr "입력 장치"
+
+msgid "Transcription"
+msgstr "전사"
+
+msgid "Copy to clipboard"
+msgstr "클립보드에 복사"
+
+msgid "Auto-paste"
+msgstr "자동 붙여넣기"
+
+msgid "Record + Transcribe"
+msgstr "녹음 + 전사"
+
+msgid "Record + AI Edit"
+msgstr "녹음 + AI 편집"
+
+msgid "Stop and Process"
+msgstr "중지 및 처리"
+
+msgid "Latest entry"
+msgstr "최신 항목"
+
+msgid "Newer"
+msgstr "최신"
+
+msgid "Older"
+msgstr "이전"
+
+msgid "Copy"
+msgstr "복사"
+
+msgid "Copied to clipboard"
+msgstr "클립보드에 복사됨"
+
+msgid "Idle"
+msgstr "대기 중"
+
+msgid "Recording..."
+msgstr "녹음 중..."
+
+msgid "Processing - Transcript..."
+msgstr "처리 중 - 전사..."
+
+msgid "Processing - AI Editing..."
+msgstr "처리 중 - AI 편집..."
+
+msgid "Processing - Audio File..."
+msgstr "처리 중 - 오디오 파일..."
+
+msgid "Success"
+msgstr "성공"
+
+msgid "Error"
+msgstr "오류"
+
+msgid "Error during transcription"
+msgstr "전사 중 오류 발생"
+
+msgid "Configuration Settings"
+msgstr "구성 설정"
+
+msgid "Prompt Management"
+msgstr "프롬프트 관리"
+
+msgid "Create New Prompt"
+msgstr "새 프롬프트 만들기"
+
+msgid "Update Available"
+msgstr "업데이트 가능"
+
+msgid "Update Check"
+msgstr "업데이트 확인"
+
+msgid "Update Check Failed"
+msgstr "업데이트 확인 실패"
+
+msgid "Terms of Use"
+msgstr "이용 약관"
+
+msgid "App Version"
+msgstr "앱 버전"
+
+msgid "Enter New OpenAI API Key"
+msgstr "새 OpenAI API 키 입력"
+
+msgid "Save"
+msgstr "저장"
+
+msgid "Cancel"
+msgstr "취소"
+
+msgid "OK"
+msgstr "확인"
+
+msgid "Close"
+msgstr "닫기"
+
+msgid "Delete"
+msgstr "삭제"
+
+msgid "New Prompt"
+msgstr "새 프롬프트"
+
+msgid "Save Changes"
+msgstr "변경 사항 저장"
+
+msgid "Save Selection and Exit"
+msgstr "선택 저장 후 종료"
+
+msgid "Browse..."
+msgstr "찾아보기..."
+
+msgid "Learn More on Our Website"
+msgstr "웹사이트에서 자세히 알아보기"
+
+msgid "Recording Settings"
+msgstr "녹음 설정"
+
+msgid "Recording Location"
+msgstr "녹음 위치"
+
+msgid "Choose where to save audio recording files:"
+msgstr "오디오 녹음 파일을 저장할 위치를 선택하세요:"
+
+msgid "Alongside application (recommended)"
+msgstr "응용 프로그램과 같은 위치 (권장)"
+
+msgid "In AppData folder"
+msgstr "AppData 폴더에"
+
+msgid "In Application Support folder"
+msgstr "Application Support 폴더에"
+
+msgid "In home config folder"
+msgstr "홈 구성 폴더에"
+
+msgid "Custom folder:"
+msgstr "사용자 지정 폴더:"
+
+msgid "Select Recording Folder"
+msgstr "녹음 폴더 선택"
+
+msgid "File Handling"
+msgstr "파일 처리"
+
+msgid "Choose how to handle recording files:"
+msgstr "녹음 파일 처리 방법을 선택하세요:"
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "매번 같은 파일을 덮어쓰기 (디스크 공간 절약)"
+
+msgid "Save each recording with date/time in filename"
+msgstr "각 녹음을 날짜/시간이 포함된 파일 이름으로 저장"
+
+msgid "Display Settings"
+msgstr "디스플레이 설정"
+
+msgid "HiDPI Scaling"
+msgstr "HiDPI 스케일링"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "HiDPI(고해상도) 스케일링 적용 방법을 선택하세요:"
+
+msgid "Auto-detect (recommended)"
+msgstr "자동 감지 (권장)"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "디스플레이에 따라 적절한 스케일링을 자동으로 감지하고 적용"
+
+msgid "Force enabled"
+msgstr "강제 활성화"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "항상 HiDPI 스케일링 적용 (자동 감지가 제대로 작동하지 않는 경우 사용)"
+
+msgid "Disabled"
+msgstr "비활성화"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "HiDPI 스케일링을 적용하지 않음 (표준 스케일링 사용)"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "참고: HiDPI 스케일링 변경 사항을 적용하려면 재시작이 필요합니다."
+
+msgid "Language Settings"
+msgstr "언어 설정"
+
+msgid "Application Language"
+msgstr "응용 프로그램 언어"
+
+msgid "Choose how the application language is determined:"
+msgstr "응용 프로그램 언어 결정 방법을 선택하세요:"
+
+msgid "Auto-detect from system"
+msgstr "시스템에서 자동 감지"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "운영 체제 설정에서 언어를 자동으로 감지"
+
+msgid "Manual selection"
+msgstr "수동 선택"
+
+msgid "Detected:"
+msgstr "감지됨:"
+
+msgid "Select Language:"
+msgstr "언어 선택:"
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "참고: 언어를 변경하면 인터페이스가 즉시 업데이트됩니다."
+
+msgid "AI Model Settings"
+msgstr "AI 모델 설정"
+
+msgid "Whisper Language Settings"
+msgstr "Whisper 언어 설정"
+
+msgid "Transcription Model:"
+msgstr "전사 모델:"
+
+msgid "Enter custom transcription model name:"
+msgstr "사용자 지정 전사 모델 이름 입력:"
+
+msgid "OpenAI Copyediting Model:"
+msgstr "OpenAI 교정 모델:"
+
+msgid "Enter custom copyediting model name:"
+msgstr "사용자 지정 교정 모델 이름 입력:"
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "사용 가능한 OpenAI 모델 및 가격 보기"
+
+msgid "Settings Categories"
+msgstr "설정 카테고리"
+
+msgid "Recording"
+msgstr "녹음"
+
+msgid "Display"
+msgstr "디스플레이"
+
+msgid "AI Models"
+msgstr "AI 모델"
+
+msgid "Language"
+msgstr "언어"
+
+msgid "Prompt Selection"
+msgstr "프롬프트 선택"
+
+msgid "Prompt Content"
+msgstr "프롬프트 내용"
+
+msgid "Prompt Name:"
+msgstr "프롬프트 이름:"
+
+msgid "(Default prompt cannot be edited)"
+msgstr "(기본 프롬프트는 편집할 수 없습니다)"
+
+msgid "API Key Missing"
+msgstr "API 키 누락"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "config/credentials.json에서 OpenAI API 키를 설정하거나 지금 입력하세요."
+
+msgid "No Audio Device"
+msgstr "오디오 장치 없음"
+
+msgid "No audio devices found"
+msgstr "오디오 장치를 찾을 수 없습니다"
+
+msgid "Device Error"
+msgstr "장치 오류"
+
+msgid "Recording error"
+msgstr "녹음 오류"
+
+msgid "Retry Failed"
+msgstr "재시도 실패"
+
+msgid "No previous recording found to retry"
+msgstr "재시도할 이전 녹음을 찾을 수 없습니다"
+
+msgid "Prompt content cannot be empty"
+msgstr "프롬프트 내용은 비워둘 수 없습니다"
+
+msgid "Please select a custom folder path"
+msgstr "사용자 지정 폴더 경로를 선택하세요"
+
+msgid "Could not create folder: {error}"
+msgstr "폴더를 만들 수 없습니다: {error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "구성 설정이 성공적으로 저장되었습니다!"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "'{name}'을(를) 삭제하시겠습니까?"
+
+msgid "Prompt Not Found"
+msgstr "프롬프트를 찾을 수 없음"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "선택한 프롬프트 '{name}'을(를) 찾을 수 없습니다. 기본 프롬프트를 사용합니다."
+
+msgid "No History"
+msgstr "기록 없음"
+
+msgid "There is no history to save."
+msgstr "저장할 기록이 없습니다."
+
+msgid "Session history saved successfully to {path}"
+msgstr "세션 기록이 {path}에 성공적으로 저장되었습니다"
+
+msgid "Save Error"
+msgstr "저장 오류"
+
+msgid "An error occurred while saving: {error}"
+msgstr "저장 중 오류가 발생했습니다: {error}"
+
+msgid "API Key Updated"
+msgstr "API 키 업데이트됨"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "OpenAI API 키가 성공적으로 업데이트되었습니다."
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "아래에 새 OpenAI API 키를 입력하세요:"
+
+msgid "How to obtain an OpenAI API key"
+msgstr "OpenAI API 키를 얻는 방법"
+
+msgid "Input Required"
+msgstr "입력 필요"
+
+msgid "Please enter a valid API key."
+msgstr "유효한 API 키를 입력하세요."
+
+msgid "Transcription Error"
+msgstr "전사 오류"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "전사 중 오류가 발생했습니다: {error}"
+
+msgid "GPT Processing Error"
+msgstr "GPT 처리 오류"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "GPT 처리 중 오류가 발생했습니다: {error}"
+
+msgid "Auto-Copy Error"
+msgstr "자동 복사 오류"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "전사를 클립보드에 복사하지 못했습니다: {error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "전사를 자동으로 복사하지 못했습니다: {error}"
+
+msgid "Auto-Paste Error"
+msgstr "자동 붙여넣기 오류"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "전사를 자동으로 붙여넣지 못했습니다: {error}"
+
+msgid "Confirm Delete"
+msgstr "삭제 확인"
+
+msgid "No Selection"
+msgstr "선택 없음"
+
+msgid "Please select a prompt before saving"
+msgstr "저장하기 전에 프롬프트를 선택하세요"
+
+msgid "Now using prompt: {name}"
+msgstr "현재 사용 중인 프롬프트: {name}"
+
+msgid "Please enter a prompt name"
+msgstr "프롬프트 이름을 입력하세요"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "프롬프트 이름은 25자 이하여야 합니다"
+
+msgid "Please enter a system prompt"
+msgstr "시스템 프롬프트를 입력하세요"
+
+msgid "Prompt changes saved successfully"
+msgstr "프롬프트 변경 사항이 성공적으로 저장되었습니다"
+
+msgid "Folder Does Not Exist"
+msgstr "폴더가 존재하지 않습니다"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "폴더 '{path}'이(가) 존재하지 않습니다. 생성하시겠습니까?"
+
+msgid "Restart Required"
+msgstr "재시작 필요"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "HiDPI 스케일링 설정이 변경되었습니다. 적용하려면 재시작이 필요합니다."
+
+msgid "Would you like to restart the application now?"
+msgstr "지금 응용 프로그램을 재시작하시겠습니까?"
+
+msgid "Settings Saved"
+msgstr "설정 저장됨"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "HiDPI 스케일링 변경은 응용 프로그램을 재시작한 후 적용됩니다."
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "구성 설정이 성공적으로 저장되고 적용되었습니다!"
+
+msgid "Could not save settings: {error}"
+msgstr "설정을 저장할 수 없습니다: {error}"
+
+msgid "System Tray Unavailable"
+msgstr "시스템 트레이 사용 불가"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "시스템 트레이 아이콘을 만들 수 없습니다. 창을 닫으면 응용 프로그램이 종료됩니다."
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "사용자 지정 전사 모델 이름은 비워둘 수 없습니다."
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "사용자 지정 교정 모델 이름은 비워둘 수 없습니다."
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "AI 기반 음성-편집 텍스트 변환"
+
+msgid "Version {version}"
+msgstr "버전 {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisper는 AI를 사용하여 음성을 편집된 전사로 변환하고 활성 응용 프로그램에 자동으로 붙여넣는 무료 오픈 소스 음성-텍스트 변환 소프트웨어 도구입니다."
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "생산성을 향상시키도록 설계되어 워크플로우를 크게 가속화하여 이메일이나 메시지에 더 빠르게 응답할 수 있습니다. 말하기는 일반적으로 타이핑보다 2~3배 빠릅니다."
+
+msgid "Key Features"
+msgstr "주요 기능"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "사용 방법: Ctrl+Alt+J를 눌러 녹음 및 AI 편집을 하거나 Ctrl+Alt+Shift+J를 눌러 원시 전사를 수행하세요. 앱이 결과를 자동으로 복사하여 활성 응용 프로그램에 붙여넣습니다."
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "개발: Scorchsoft.com | 앱 & AI 개발자"
+
+msgid "Cut"
+msgstr "잘라내기"
+
+msgid "Paste"
+msgstr "붙여넣기"
+
+msgid "Select All"
+msgstr "모두 선택"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "경고: 시간이 지남에 따라 상당한 디스크 공간을 소비할 수 있습니다"
+
+msgid "A new version ({version}) is available!"
+msgstr "새 버전({version})을 사용할 수 있습니다!"
+
+msgid "Would you like to download it now?"
+msgstr "지금 다운로드하시겠습니까?"
+
+msgid "You are using the latest version."
+msgstr "최신 버전을 사용하고 있습니다."
+
+msgid "Could not check for updates. Please try again later."
+msgstr "업데이트를 확인할 수 없습니다. 나중에 다시 시도하세요."
