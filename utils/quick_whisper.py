@@ -947,7 +947,7 @@ class QuickWhisper(tk.Tk):
             time.sleep(0.05)
 
             # Get configured paste method
-            paste_method = self.config.paste_method
+            paste_method = self.config_manager.paste_method
 
             # Determine effective method based on config and platform
             if paste_method == "auto":
