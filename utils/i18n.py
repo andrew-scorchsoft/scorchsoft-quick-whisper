@@ -37,11 +37,15 @@ DOMAIN = "quickwhisper"
 # Supported languages with display names
 SUPPORTED_LANGUAGES: Dict[str, str] = {
     "en": "English",
-    "fr": "Fran\u00e7ais",
+    "fr": "Français",
     "de": "Deutsch",
-    "es": "Espa\u00f1ol",
-    "zh_CN": "\u7b80\u4f53\u4e2d\u6587",
-    "ar": "\u0627\u0644\u0639\u0631\u0628\u064a\u0629",
+    "es": "Español",
+    "zh_CN": "简体中文",
+    "ar": "العربية",
+    "ja": "日本語",
+    "ko": "한국어",
+    "ru": "Русский",
+    "pt": "Português",
 }
 
 # Language code mappings for locale detection
@@ -76,6 +80,20 @@ LANGUAGE_ALIASES: Dict[str, str] = {
     "ar_SA": "ar",
     "ar_EG": "ar",
     "ar_AE": "ar",
+    # Japanese variants
+    "ja_JP": "ja",
+    # Korean variants
+    "ko_KR": "ko",
+    # Russian variants
+    "ru_RU": "ru",
+    "ru_UA": "ru",
+    "ru_BY": "ru",
+    "ru_KZ": "ru",
+    # Portuguese variants
+    "pt_BR": "pt",
+    "pt_PT": "pt",
+    "pt_AO": "pt",
+    "pt_MZ": "pt",
 }
 
 # Current translation state

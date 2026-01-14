@@ -1,0 +1,578 @@
+# Japanese translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: Japanese <ja@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper by Scorchsoft.com (音声から編集済みテキストへ)"
+
+msgid "File"
+msgstr "ファイル"
+
+msgid "Save Session History"
+msgstr "セッション履歴を保存"
+
+msgid "Minimize to Tray"
+msgstr "トレイに最小化"
+
+msgid "Exit"
+msgstr "終了"
+
+msgid "Settings"
+msgstr "設定"
+
+msgid "Change API Key"
+msgstr "APIキーを変更"
+
+msgid "Manage Prompts"
+msgstr "プロンプトを管理"
+
+msgid "Configuration"
+msgstr "設定"
+
+msgid "Automatically Check for Updates"
+msgstr "自動的にアップデートを確認"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "ホットキーを自動更新（30秒ごと）"
+
+msgid "Dark Mode"
+msgstr "ダークモード"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "キーボードショートカット設定"
+
+msgid "Refresh Hotkeys"
+msgstr "ホットキーを更新"
+
+msgid "Actions"
+msgstr "アクション"
+
+msgid "Record & Edit"
+msgstr "録音して編集"
+
+msgid "Record & Transcribe"
+msgstr "録音して文字起こし"
+
+msgid "Cancel Recording"
+msgstr "録音をキャンセル"
+
+msgid "Retry Last Recording"
+msgstr "前回の録音を再試行"
+
+msgid "Copy Last Transcript"
+msgstr "前回の文字起こしをコピー"
+
+msgid "Copy Last Edit"
+msgstr "前回の編集をコピー"
+
+msgid "Previous Prompt"
+msgstr "前のプロンプト"
+
+msgid "Next Prompt"
+msgstr "次のプロンプト"
+
+msgid "Help"
+msgstr "ヘルプ"
+
+msgid "About Quick Whisper"
+msgstr "Quick Whisperについて"
+
+msgid "Check for Updates"
+msgstr "アップデートを確認"
+
+msgid "Hide Banner"
+msgstr "バナーを非表示"
+
+msgid "Show Banner"
+msgstr "バナーを表示"
+
+msgid "Terms of Use and Licence"
+msgstr "利用規約とライセンス"
+
+msgid "Input Device"
+msgstr "入力デバイス"
+
+msgid "Transcription"
+msgstr "文字起こし"
+
+msgid "Copy to clipboard"
+msgstr "クリップボードにコピー"
+
+msgid "Auto-paste"
+msgstr "自動貼り付け"
+
+msgid "Record + Transcribe"
+msgstr "録音 + 文字起こし"
+
+msgid "Record + AI Edit"
+msgstr "録音 + AI編集"
+
+msgid "Stop and Process"
+msgstr "停止して処理"
+
+msgid "Latest entry"
+msgstr "最新のエントリ"
+
+msgid "Newer"
+msgstr "新しい"
+
+msgid "Older"
+msgstr "古い"
+
+msgid "Copy"
+msgstr "コピー"
+
+msgid "Copied to clipboard"
+msgstr "クリップボードにコピーしました"
+
+msgid "Idle"
+msgstr "待機中"
+
+msgid "Recording..."
+msgstr "録音中..."
+
+msgid "Processing - Transcript..."
+msgstr "処理中 - 文字起こし..."
+
+msgid "Processing - AI Editing..."
+msgstr "処理中 - AI編集..."
+
+msgid "Processing - Audio File..."
+msgstr "処理中 - 音声ファイル..."
+
+msgid "Success"
+msgstr "成功"
+
+msgid "Error"
+msgstr "エラー"
+
+msgid "Error during transcription"
+msgstr "文字起こし中にエラーが発生しました"
+
+msgid "Configuration Settings"
+msgstr "設定"
+
+msgid "Prompt Management"
+msgstr "プロンプト管理"
+
+msgid "Create New Prompt"
+msgstr "新しいプロンプトを作成"
+
+msgid "Update Available"
+msgstr "アップデートが利用可能"
+
+msgid "Update Check"
+msgstr "アップデート確認"
+
+msgid "Update Check Failed"
+msgstr "アップデート確認に失敗しました"
+
+msgid "Terms of Use"
+msgstr "利用規約"
+
+msgid "App Version"
+msgstr "アプリバージョン"
+
+msgid "Enter New OpenAI API Key"
+msgstr "新しいOpenAI APIキーを入力"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Delete"
+msgstr "削除"
+
+msgid "New Prompt"
+msgstr "新しいプロンプト"
+
+msgid "Save Changes"
+msgstr "変更を保存"
+
+msgid "Save Selection and Exit"
+msgstr "選択を保存して終了"
+
+msgid "Browse..."
+msgstr "参照..."
+
+msgid "Learn More on Our Website"
+msgstr "ウェブサイトで詳細を見る"
+
+msgid "Recording Settings"
+msgstr "録音設定"
+
+msgid "Recording Location"
+msgstr "録音の保存場所"
+
+msgid "Choose where to save audio recording files:"
+msgstr "音声録音ファイルの保存先を選択："
+
+msgid "Alongside application (recommended)"
+msgstr "アプリケーションと同じ場所（推奨）"
+
+msgid "In AppData folder"
+msgstr "AppDataフォルダ内"
+
+msgid "In Application Support folder"
+msgstr "Application Supportフォルダ内"
+
+msgid "In home config folder"
+msgstr "ホーム設定フォルダ内"
+
+msgid "Custom folder:"
+msgstr "カスタムフォルダ："
+
+msgid "Select Recording Folder"
+msgstr "録音フォルダを選択"
+
+msgid "File Handling"
+msgstr "ファイル処理"
+
+msgid "Choose how to handle recording files:"
+msgstr "録音ファイルの処理方法を選択："
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "毎回同じファイルを上書き（ディスク容量を節約）"
+
+msgid "Save each recording with date/time in filename"
+msgstr "各録音を日時付きファイル名で保存"
+
+msgid "Display Settings"
+msgstr "表示設定"
+
+msgid "HiDPI Scaling"
+msgstr "HiDPIスケーリング"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "HiDPI（高解像度）スケーリングの適用方法を選択："
+
+msgid "Auto-detect (recommended)"
+msgstr "自動検出（推奨）"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "ディスプレイに基づいて適切なスケーリングを自動検出して適用"
+
+msgid "Force enabled"
+msgstr "強制的に有効"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "常にHiDPIスケーリングを適用（自動検出が正しく機能しない場合に使用）"
+
+msgid "Disabled"
+msgstr "無効"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "HiDPIスケーリングを適用しない（標準スケーリングを使用）"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "注：HiDPIスケーリングの変更を有効にするには再起動が必要です。"
+
+msgid "Language Settings"
+msgstr "言語設定"
+
+msgid "Application Language"
+msgstr "アプリケーション言語"
+
+msgid "Choose how the application language is determined:"
+msgstr "アプリケーション言語の決定方法を選択："
+
+msgid "Auto-detect from system"
+msgstr "システムから自動検出"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "オペレーティングシステムの設定から言語を自動検出"
+
+msgid "Manual selection"
+msgstr "手動選択"
+
+msgid "Detected:"
+msgstr "検出："
+
+msgid "Select Language:"
+msgstr "言語を選択："
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "注：言語を変更するとインターフェースが即座に更新されます。"
+
+msgid "AI Model Settings"
+msgstr "AIモデル設定"
+
+msgid "Whisper Language Settings"
+msgstr "Whisper言語設定"
+
+msgid "Transcription Model:"
+msgstr "文字起こしモデル："
+
+msgid "Enter custom transcription model name:"
+msgstr "カスタム文字起こしモデル名を入力："
+
+msgid "OpenAI Copyediting Model:"
+msgstr "OpenAI校正モデル："
+
+msgid "Enter custom copyediting model name:"
+msgstr "カスタム校正モデル名を入力："
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "利用可能なOpenAIモデルと価格を表示"
+
+msgid "Settings Categories"
+msgstr "設定カテゴリ"
+
+msgid "Recording"
+msgstr "録音"
+
+msgid "Display"
+msgstr "表示"
+
+msgid "AI Models"
+msgstr "AIモデル"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Prompt Selection"
+msgstr "プロンプト選択"
+
+msgid "Prompt Content"
+msgstr "プロンプト内容"
+
+msgid "Prompt Name:"
+msgstr "プロンプト名："
+
+msgid "(Default prompt cannot be edited)"
+msgstr "（デフォルトプロンプトは編集できません）"
+
+msgid "API Key Missing"
+msgstr "APIキーがありません"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "config/credentials.jsonでOpenAI APIキーを設定するか、今すぐ入力してください。"
+
+msgid "No Audio Device"
+msgstr "オーディオデバイスがありません"
+
+msgid "No audio devices found"
+msgstr "オーディオデバイスが見つかりません"
+
+msgid "Device Error"
+msgstr "デバイスエラー"
+
+msgid "Recording error"
+msgstr "録音エラー"
+
+msgid "Retry Failed"
+msgstr "再試行に失敗しました"
+
+msgid "No previous recording found to retry"
+msgstr "再試行する以前の録音が見つかりません"
+
+msgid "Prompt content cannot be empty"
+msgstr "プロンプト内容は空にできません"
+
+msgid "Please select a custom folder path"
+msgstr "カスタムフォルダパスを選択してください"
+
+msgid "Could not create folder: {error}"
+msgstr "フォルダを作成できませんでした：{error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "設定が正常に保存されました！"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "「{name}」を削除してもよろしいですか？"
+
+msgid "Prompt Not Found"
+msgstr "プロンプトが見つかりません"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "選択したプロンプト「{name}」が見つかりません。デフォルトプロンプトを使用します。"
+
+msgid "No History"
+msgstr "履歴がありません"
+
+msgid "There is no history to save."
+msgstr "保存する履歴がありません。"
+
+msgid "Session history saved successfully to {path}"
+msgstr "セッション履歴が{path}に正常に保存されました"
+
+msgid "Save Error"
+msgstr "保存エラー"
+
+msgid "An error occurred while saving: {error}"
+msgstr "保存中にエラーが発生しました：{error}"
+
+msgid "API Key Updated"
+msgstr "APIキーが更新されました"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "OpenAI APIキーが正常に更新されました。"
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "新しいOpenAI APIキーを以下に入力してください："
+
+msgid "How to obtain an OpenAI API key"
+msgstr "OpenAI APIキーの取得方法"
+
+msgid "Input Required"
+msgstr "入力が必要です"
+
+msgid "Please enter a valid API key."
+msgstr "有効なAPIキーを入力してください。"
+
+msgid "Transcription Error"
+msgstr "文字起こしエラー"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "文字起こし中にエラーが発生しました：{error}"
+
+msgid "GPT Processing Error"
+msgstr "GPT処理エラー"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "GPT処理中にエラーが発生しました：{error}"
+
+msgid "Auto-Copy Error"
+msgstr "自動コピーエラー"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "文字起こしのクリップボードへのコピーに失敗しました：{error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "文字起こしの自動コピーに失敗しました：{error}"
+
+msgid "Auto-Paste Error"
+msgstr "自動貼り付けエラー"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "文字起こしの自動貼り付けに失敗しました：{error}"
+
+msgid "Confirm Delete"
+msgstr "削除の確認"
+
+msgid "No Selection"
+msgstr "選択されていません"
+
+msgid "Please select a prompt before saving"
+msgstr "保存する前にプロンプトを選択してください"
+
+msgid "Now using prompt: {name}"
+msgstr "現在使用中のプロンプト：{name}"
+
+msgid "Please enter a prompt name"
+msgstr "プロンプト名を入力してください"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "プロンプト名は25文字以下にしてください"
+
+msgid "Please enter a system prompt"
+msgstr "システムプロンプトを入力してください"
+
+msgid "Prompt changes saved successfully"
+msgstr "プロンプトの変更が正常に保存されました"
+
+msgid "Folder Does Not Exist"
+msgstr "フォルダが存在しません"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "フォルダ「{path}」は存在しません。作成しますか？"
+
+msgid "Restart Required"
+msgstr "再起動が必要です"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "HiDPIスケーリング設定が変更されました。有効にするには再起動が必要です。"
+
+msgid "Would you like to restart the application now?"
+msgstr "今すぐアプリケーションを再起動しますか？"
+
+msgid "Settings Saved"
+msgstr "設定が保存されました"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "HiDPIスケーリングの変更はアプリケーションを再起動すると有効になります。"
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "設定が正常に保存され、適用されました！"
+
+msgid "Could not save settings: {error}"
+msgstr "設定を保存できませんでした：{error}"
+
+msgid "System Tray Unavailable"
+msgstr "システムトレイが利用できません"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "システムトレイアイコンを作成できませんでした。ウィンドウを閉じるとアプリケーションが終了します。"
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "カスタム文字起こしモデル名は空にできません。"
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "カスタム校正モデル名は空にできません。"
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "AI搭載の音声から編集済みテキストへの変換"
+
+msgid "Version {version}"
+msgstr "バージョン {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisperは、AIを使用して音声を編集済みの文字起こしに変換し、アクティブなアプリケーションに自動的に貼り付ける、無料でオープンソースの音声からテキストへの変換ツールです。"
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "生産性を向上させるために設計されており、ワークフローを大幅に加速し、メールやメッセージへの迅速な返信を可能にします。話すことは一般的にタイピングの2〜3倍速いです。"
+
+msgid "Key Features"
+msgstr "主な機能"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "使い方：Ctrl+Alt+Jを押して録音とAI編集、またはCtrl+Alt+Shift+Jで生の文字起こしを行います。アプリは結果を自動的にコピーしてアクティブなアプリケーションに貼り付けます。"
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "開発：Scorchsoft.com | アプリ＆AI開発者"
+
+msgid "Cut"
+msgstr "切り取り"
+
+msgid "Paste"
+msgstr "貼り付け"
+
+msgid "Select All"
+msgstr "すべて選択"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "警告：これは時間の経過とともに大量のディスク容量を消費する可能性があります"
+
+msgid "A new version ({version}) is available!"
+msgstr "新しいバージョン（{version}）が利用可能です！"
+
+msgid "Would you like to download it now?"
+msgstr "今すぐダウンロードしますか？"
+
+msgid "You are using the latest version."
+msgstr "最新バージョンを使用しています。"
+
+msgid "Could not check for updates. Please try again later."
+msgstr "アップデートを確認できませんでした。後でもう一度お試しください。"

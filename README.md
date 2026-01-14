@@ -140,6 +140,10 @@ QuickWhisper supports multiple languages for the user interface:
 - **Spanish** (Español)
 - **Chinese Simplified** (简体中文)
 - **Arabic** (العربية)
+- **Japanese** (日本語)
+- **Korean** (한국어)
+- **Portuguese** (Português)
+- **Russian** (Русский)
 
 ### Changing the Language
 

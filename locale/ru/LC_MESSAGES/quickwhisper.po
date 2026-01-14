@@ -1,0 +1,578 @@
+# Russian translations for Quick Whisper
+# Copyright (C) 2024 Scorchsoft
+# This file is distributed under the same license as the Quick Whisper package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: QuickWhisper 2.0\n"
+"Report-Msgid-Bugs-To: support@scorchsoft.com\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
+"Language-Team: Russian <ru@li.org>\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)"
+msgstr "Quick Whisper от Scorchsoft.com (Речь в отредактированный текст)"
+
+msgid "File"
+msgstr "Файл"
+
+msgid "Save Session History"
+msgstr "Сохранить историю сеанса"
+
+msgid "Minimize to Tray"
+msgstr "Свернуть в трей"
+
+msgid "Exit"
+msgstr "Выход"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Change API Key"
+msgstr "Изменить API-ключ"
+
+msgid "Manage Prompts"
+msgstr "Управление промптами"
+
+msgid "Configuration"
+msgstr "Конфигурация"
+
+msgid "Automatically Check for Updates"
+msgstr "Автоматически проверять обновления"
+
+msgid "Auto-Refresh Hotkeys (Every 30s)"
+msgstr "Автообновление горячих клавиш (каждые 30 сек)"
+
+msgid "Dark Mode"
+msgstr "Тёмный режим"
+
+msgid "Keyboard Shortcut Mapping"
+msgstr "Настройка сочетаний клавиш"
+
+msgid "Refresh Hotkeys"
+msgstr "Обновить горячие клавиши"
+
+msgid "Actions"
+msgstr "Действия"
+
+msgid "Record & Edit"
+msgstr "Записать и редактировать"
+
+msgid "Record & Transcribe"
+msgstr "Записать и транскрибировать"
+
+msgid "Cancel Recording"
+msgstr "Отменить запись"
+
+msgid "Retry Last Recording"
+msgstr "Повторить последнюю запись"
+
+msgid "Copy Last Transcript"
+msgstr "Копировать последнюю транскрипцию"
+
+msgid "Copy Last Edit"
+msgstr "Копировать последнее редактирование"
+
+msgid "Previous Prompt"
+msgstr "Предыдущий промпт"
+
+msgid "Next Prompt"
+msgstr "Следующий промпт"
+
+msgid "Help"
+msgstr "Справка"
+
+msgid "About Quick Whisper"
+msgstr "О Quick Whisper"
+
+msgid "Check for Updates"
+msgstr "Проверить обновления"
+
+msgid "Hide Banner"
+msgstr "Скрыть баннер"
+
+msgid "Show Banner"
+msgstr "Показать баннер"
+
+msgid "Terms of Use and Licence"
+msgstr "Условия использования и лицензия"
+
+msgid "Input Device"
+msgstr "Устройство ввода"
+
+msgid "Transcription"
+msgstr "Транскрипция"
+
+msgid "Copy to clipboard"
+msgstr "Копировать в буфер обмена"
+
+msgid "Auto-paste"
+msgstr "Автовставка"
+
+msgid "Record + Transcribe"
+msgstr "Запись + Транскрипция"
+
+msgid "Record + AI Edit"
+msgstr "Запись + AI-редактирование"
+
+msgid "Stop and Process"
+msgstr "Остановить и обработать"
+
+msgid "Latest entry"
+msgstr "Последняя запись"
+
+msgid "Newer"
+msgstr "Новее"
+
+msgid "Older"
+msgstr "Старее"
+
+msgid "Copy"
+msgstr "Копировать"
+
+msgid "Copied to clipboard"
+msgstr "Скопировано в буфер обмена"
+
+msgid "Idle"
+msgstr "Ожидание"
+
+msgid "Recording..."
+msgstr "Запись..."
+
+msgid "Processing - Transcript..."
+msgstr "Обработка - Транскрипция..."
+
+msgid "Processing - AI Editing..."
+msgstr "Обработка - AI-редактирование..."
+
+msgid "Processing - Audio File..."
+msgstr "Обработка - Аудиофайл..."
+
+msgid "Success"
+msgstr "Успешно"
+
+msgid "Error"
+msgstr "Ошибка"
+
+msgid "Error during transcription"
+msgstr "Ошибка при транскрипции"
+
+msgid "Configuration Settings"
+msgstr "Параметры конфигурации"
+
+msgid "Prompt Management"
+msgstr "Управление промптами"
+
+msgid "Create New Prompt"
+msgstr "Создать новый промпт"
+
+msgid "Update Available"
+msgstr "Доступно обновление"
+
+msgid "Update Check"
+msgstr "Проверка обновлений"
+
+msgid "Update Check Failed"
+msgstr "Не удалось проверить обновления"
+
+msgid "Terms of Use"
+msgstr "Условия использования"
+
+msgid "App Version"
+msgstr "Версия приложения"
+
+msgid "Enter New OpenAI API Key"
+msgstr "Введите новый API-ключ OpenAI"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "New Prompt"
+msgstr "Новый промпт"
+
+msgid "Save Changes"
+msgstr "Сохранить изменения"
+
+msgid "Save Selection and Exit"
+msgstr "Сохранить выбор и выйти"
+
+msgid "Browse..."
+msgstr "Обзор..."
+
+msgid "Learn More on Our Website"
+msgstr "Узнать больше на нашем сайте"
+
+msgid "Recording Settings"
+msgstr "Настройки записи"
+
+msgid "Recording Location"
+msgstr "Место сохранения записей"
+
+msgid "Choose where to save audio recording files:"
+msgstr "Выберите место сохранения аудиозаписей:"
+
+msgid "Alongside application (recommended)"
+msgstr "Рядом с приложением (рекомендуется)"
+
+msgid "In AppData folder"
+msgstr "В папке AppData"
+
+msgid "In Application Support folder"
+msgstr "В папке Application Support"
+
+msgid "In home config folder"
+msgstr "В домашней папке конфигурации"
+
+msgid "Custom folder:"
+msgstr "Другая папка:"
+
+msgid "Select Recording Folder"
+msgstr "Выбрать папку для записей"
+
+msgid "File Handling"
+msgstr "Обработка файлов"
+
+msgid "Choose how to handle recording files:"
+msgstr "Выберите способ обработки файлов записей:"
+
+msgid "Overwrite the same file each time (saves disk space)"
+msgstr "Перезаписывать тот же файл (экономит место на диске)"
+
+msgid "Save each recording with date/time in filename"
+msgstr "Сохранять каждую запись с датой/временем в имени файла"
+
+msgid "Display Settings"
+msgstr "Настройки отображения"
+
+msgid "HiDPI Scaling"
+msgstr "Масштабирование HiDPI"
+
+msgid "Choose how HiDPI (high resolution) scaling is applied:"
+msgstr "Выберите способ применения масштабирования HiDPI (высокое разрешение):"
+
+msgid "Auto-detect (recommended)"
+msgstr "Автоопределение (рекомендуется)"
+
+msgid "Automatically detect and apply appropriate scaling based on your display"
+msgstr "Автоматически определять и применять подходящее масштабирование для вашего дисплея"
+
+msgid "Force enabled"
+msgstr "Принудительно включено"
+
+msgid "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
+msgstr "Всегда применять масштабирование HiDPI (используйте, если автоопределение работает некорректно)"
+
+msgid "Disabled"
+msgstr "Отключено"
+
+msgid "Never apply HiDPI scaling (use standard scaling)"
+msgstr "Никогда не применять масштабирование HiDPI (использовать стандартное)"
+
+msgid "Note: Changes to HiDPI scaling require a restart to take effect."
+msgstr "Примечание: Изменения масштабирования HiDPI требуют перезапуска для применения."
+
+msgid "Language Settings"
+msgstr "Настройки языка"
+
+msgid "Application Language"
+msgstr "Язык приложения"
+
+msgid "Choose how the application language is determined:"
+msgstr "Выберите способ определения языка приложения:"
+
+msgid "Auto-detect from system"
+msgstr "Автоопределение из системы"
+
+msgid "Automatically detect language from your operating system settings"
+msgstr "Автоматически определять язык из настроек операционной системы"
+
+msgid "Manual selection"
+msgstr "Ручной выбор"
+
+msgid "Detected:"
+msgstr "Определено:"
+
+msgid "Select Language:"
+msgstr "Выберите язык:"
+
+msgid "Note: Changing the language will update the interface immediately."
+msgstr "Примечание: Изменение языка немедленно обновит интерфейс."
+
+msgid "AI Model Settings"
+msgstr "Настройки AI-моделей"
+
+msgid "Whisper Language Settings"
+msgstr "Настройки языка Whisper"
+
+msgid "Transcription Model:"
+msgstr "Модель транскрипции:"
+
+msgid "Enter custom transcription model name:"
+msgstr "Введите название пользовательской модели транскрипции:"
+
+msgid "OpenAI Copyediting Model:"
+msgstr "Модель редактирования OpenAI:"
+
+msgid "Enter custom copyediting model name:"
+msgstr "Введите название пользовательской модели редактирования:"
+
+msgid "View Available OpenAI Models and Pricing"
+msgstr "Посмотреть доступные модели OpenAI и цены"
+
+msgid "Settings Categories"
+msgstr "Категории настроек"
+
+msgid "Recording"
+msgstr "Запись"
+
+msgid "Display"
+msgstr "Отображение"
+
+msgid "AI Models"
+msgstr "AI-модели"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "Prompt Selection"
+msgstr "Выбор промпта"
+
+msgid "Prompt Content"
+msgstr "Содержимое промпта"
+
+msgid "Prompt Name:"
+msgstr "Название промпта:"
+
+msgid "(Default prompt cannot be edited)"
+msgstr "(Промпт по умолчанию нельзя редактировать)"
+
+msgid "API Key Missing"
+msgstr "API-ключ отсутствует"
+
+msgid "Please set your OpenAI API Key in config/credentials.json or input it now."
+msgstr "Установите API-ключ OpenAI в config/credentials.json или введите его сейчас."
+
+msgid "No Audio Device"
+msgstr "Нет аудиоустройства"
+
+msgid "No audio devices found"
+msgstr "Аудиоустройства не найдены"
+
+msgid "Device Error"
+msgstr "Ошибка устройства"
+
+msgid "Recording error"
+msgstr "Ошибка записи"
+
+msgid "Retry Failed"
+msgstr "Повтор не удался"
+
+msgid "No previous recording found to retry"
+msgstr "Предыдущая запись для повтора не найдена"
+
+msgid "Prompt content cannot be empty"
+msgstr "Содержимое промпта не может быть пустым"
+
+msgid "Please select a custom folder path"
+msgstr "Выберите путь к пользовательской папке"
+
+msgid "Could not create folder: {error}"
+msgstr "Не удалось создать папку: {error}"
+
+msgid "Configuration settings saved successfully!"
+msgstr "Настройки конфигурации успешно сохранены!"
+
+msgid "Are you sure you want to delete '{name}'?"
+msgstr "Вы уверены, что хотите удалить «{name}»?"
+
+msgid "Prompt Not Found"
+msgstr "Промпт не найден"
+
+msgid "Selected prompt '{name}' not found. Using default prompt."
+msgstr "Выбранный промпт «{name}» не найден. Используется промпт по умолчанию."
+
+msgid "No History"
+msgstr "Нет истории"
+
+msgid "There is no history to save."
+msgstr "Нет истории для сохранения."
+
+msgid "Session history saved successfully to {path}"
+msgstr "История сеанса успешно сохранена в {path}"
+
+msgid "Save Error"
+msgstr "Ошибка сохранения"
+
+msgid "An error occurred while saving: {error}"
+msgstr "Произошла ошибка при сохранении: {error}"
+
+msgid "API Key Updated"
+msgstr "API-ключ обновлён"
+
+msgid "The OpenAI API Key has been updated successfully."
+msgstr "API-ключ OpenAI успешно обновлён."
+
+msgid "Please enter your new OpenAI API Key below:"
+msgstr "Введите новый API-ключ OpenAI ниже:"
+
+msgid "How to obtain an OpenAI API key"
+msgstr "Как получить API-ключ OpenAI"
+
+msgid "Input Required"
+msgstr "Требуется ввод"
+
+msgid "Please enter a valid API key."
+msgstr "Введите действительный API-ключ."
+
+msgid "Transcription Error"
+msgstr "Ошибка транскрипции"
+
+msgid "An error occurred while Transcribing: {error}"
+msgstr "Произошла ошибка при транскрипции: {error}"
+
+msgid "GPT Processing Error"
+msgstr "Ошибка обработки GPT"
+
+msgid "An error occurred while processing with GPT: {error}"
+msgstr "Произошла ошибка при обработке GPT: {error}"
+
+msgid "Auto-Copy Error"
+msgstr "Ошибка автокопирования"
+
+msgid "Failed to copy the transcription to clipboard: {error}"
+msgstr "Не удалось скопировать транскрипцию в буфер обмена: {error}"
+
+msgid "Failed to auto-copy the transcription: {error}"
+msgstr "Не удалось автоматически скопировать транскрипцию: {error}"
+
+msgid "Auto-Paste Error"
+msgstr "Ошибка автовставки"
+
+msgid "Failed to auto-paste the transcription: {error}"
+msgstr "Не удалось автоматически вставить транскрипцию: {error}"
+
+msgid "Confirm Delete"
+msgstr "Подтверждение удаления"
+
+msgid "No Selection"
+msgstr "Ничего не выбрано"
+
+msgid "Please select a prompt before saving"
+msgstr "Выберите промпт перед сохранением"
+
+msgid "Now using prompt: {name}"
+msgstr "Сейчас используется промпт: {name}"
+
+msgid "Please enter a prompt name"
+msgstr "Введите название промпта"
+
+msgid "Prompt name must be 25 characters or less"
+msgstr "Название промпта должно быть не более 25 символов"
+
+msgid "Please enter a system prompt"
+msgstr "Введите системный промпт"
+
+msgid "Prompt changes saved successfully"
+msgstr "Изменения промпта успешно сохранены"
+
+msgid "Folder Does Not Exist"
+msgstr "Папка не существует"
+
+msgid "The folder '{path}' does not exist. Would you like to create it?"
+msgstr "Папка «{path}» не существует. Создать её?"
+
+msgid "Restart Required"
+msgstr "Требуется перезапуск"
+
+msgid "The HiDPI scaling setting has been changed. This requires a restart to take effect."
+msgstr "Настройка масштабирования HiDPI была изменена. Для применения требуется перезапуск."
+
+msgid "Would you like to restart the application now?"
+msgstr "Хотите перезапустить приложение сейчас?"
+
+msgid "Settings Saved"
+msgstr "Настройки сохранены"
+
+msgid "The HiDPI scaling change will take effect after you restart the application."
+msgstr "Изменение масштабирования HiDPI вступит в силу после перезапуска приложения."
+
+msgid "Configuration settings saved and applied successfully!"
+msgstr "Настройки конфигурации успешно сохранены и применены!"
+
+msgid "Could not save settings: {error}"
+msgstr "Не удалось сохранить настройки: {error}"
+
+msgid "System Tray Unavailable"
+msgstr "Системный трей недоступен"
+
+msgid "Could not create system tray icon. Closing the window will exit the application."
+msgstr "Не удалось создать значок в системном трее. Закрытие окна завершит работу приложения."
+
+msgid "Custom transcription model name cannot be empty."
+msgstr "Название пользовательской модели транскрипции не может быть пустым."
+
+msgid "Custom copyediting model name cannot be empty."
+msgstr "Название пользовательской модели редактирования не может быть пустым."
+
+msgid "AI-Powered Speech-to-Copy-Edited-Text"
+msgstr "Преобразование речи в отредактированный текст на основе AI"
+
+msgid "Version {version}"
+msgstr "Версия {version}"
+
+msgid "Quick Whisper is a free and open-source speech-to-copy-edited-text software tool that uses AI to convert spoken audio into a copy-edited transcript, automatically pasting it into your active application."
+msgstr "Quick Whisper — это бесплатный инструмент с открытым исходным кодом для преобразования речи в отредактированный текст с использованием AI, который автоматически вставляет результат в активное приложение."
+
+msgid "Designed to enhance productivity, it significantly accelerates workflows, allowing quicker responses to emails or messages—speaking is generally two to three times faster than typing."
+msgstr "Разработан для повышения продуктивности, значительно ускоряет рабочие процессы, позволяя быстрее отвечать на письма и сообщения — говорить обычно в 2-3 раза быстрее, чем печатать."
+
+msgid "Key Features"
+msgstr "Основные возможности"
+
+msgid "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J for raw transcription. The app will automatically copy and paste the result into your active application."
+msgstr "Как использовать: Нажмите Ctrl+Alt+J для записи и AI-редактирования или Ctrl+Alt+Shift+J для простой транскрипции. Приложение автоматически скопирует и вставит результат в активное приложение."
+
+msgid "Developed by Scorchsoft.com | App & AI Developers"
+msgstr "Разработано Scorchsoft.com | Разработчики приложений и AI"
+
+msgid "Cut"
+msgstr "Вырезать"
+
+msgid "Paste"
+msgstr "Вставить"
+
+msgid "Select All"
+msgstr "Выделить всё"
+
+msgid "Warning: This can consume significant disk space over time"
+msgstr "Предупреждение: Со временем это может занять значительное место на диске"
+
+msgid "A new version ({version}) is available!"
+msgstr "Доступна новая версия ({version})!"
+
+msgid "Would you like to download it now?"
+msgstr "Хотите загрузить её сейчас?"
+
+msgid "You are using the latest version."
+msgstr "Вы используете последнюю версию."
+
+msgid "Could not check for updates. Please try again later."
+msgstr "Не удалось проверить обновления. Попробуйте позже."
