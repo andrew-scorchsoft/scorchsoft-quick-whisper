@@ -1972,7 +1972,7 @@ class QuickWhisper(tk.Tk):
         """Initialize and show the system tray icon"""
         # Start the tray icon
         success = self.tray_manager.show_tray()
-        
+
         if not success:
             # If we can't create a tray icon, don't change window closing behavior
             messagebox.showwarning(
@@ -1982,8 +1982,17 @@ class QuickWhisper(tk.Tk):
             # Use normal window closing behavior
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
         else:
-            # Set up close button behavior to minimize to tray instead of exit
+            # Set up close button behavior based on user preference
+            self.update_close_behavior()
+
+    def update_close_behavior(self):
+        """Update window close behavior based on user preference"""
+        if self.config_manager.close_to_tray:
+            # Minimize to tray when X is clicked
             self.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
+        else:
+            # Close the application when X is clicked
+            self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def minimize_to_tray(self):
         """Minimize the application to system tray instead of closing"""

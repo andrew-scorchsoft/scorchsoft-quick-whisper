@@ -57,7 +57,8 @@ class ConfigManager:
         "behavior": {
             "auto_hotkey_refresh": True,
             "auto_update_check": True,
-            "paste_method": "auto"  # "auto", "sendinput" (Windows), "pynput", "pyautogui"
+            "paste_method": "auto",  # "auto", "sendinput" (Windows), "pynput", "pyautogui"
+            "close_to_tray": False  # False = close app on X, True = minimize to tray on X
         }
     }
     
@@ -496,6 +497,15 @@ class ConfigManager:
     @paste_method.setter
     def paste_method(self, value: str):
         self._settings["behavior"]["paste_method"] = value
+
+    @property
+    def close_to_tray(self) -> bool:
+        """If True, clicking X minimizes to tray. If False, clicking X closes the app."""
+        return self._settings["behavior"].get("close_to_tray", False)
+
+    @close_to_tray.setter
+    def close_to_tray(self, value: bool):
+        self._settings["behavior"]["close_to_tray"] = value
 
     # ========== Credentials Accessors ==========
     
