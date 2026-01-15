@@ -39,7 +39,7 @@ from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 from utils.platform import open_url
-from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, SUPPORTED_LANGUAGES
+from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, unregister_refresh_callback, SUPPORTED_LANGUAGES
 
 
 class QuickWhisper(tk.Tk):
@@ -49,7 +49,7 @@ class QuickWhisper(tk.Tk):
         # Hide window during initialization to prevent partial rendering flash
         self.withdraw()
 
-        self.version = "2.1.4"
+        self.version = "2.1.5"
 
         self.is_mac = platform.system() == 'Darwin'
 
@@ -1172,6 +1172,12 @@ class QuickWhisper(tk.Tk):
 
     def on_closing(self):
         """Clean up resources before closing."""
+        # Unregister the language change callback first to prevent errors during cleanup
+        try:
+            unregister_refresh_callback(self._on_language_change)
+        except:
+            pass
+        
         # Save window position for next launch
         self._save_window_position()
 

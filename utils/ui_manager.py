@@ -545,6 +545,22 @@ class StyledPopupMenu:
                 except Exception as e:
                     print(f"[POPUP DEBUG] focus_force() failed: {e}")
 
+    def destroy(self):
+        """Destroy the popup menu and clean up resources."""
+        # Cancel any pending close timer
+        if self._pending_close_id is not None:
+            try:
+                self.parent.after_cancel(self._pending_close_id)
+            except:
+                pass
+            self._pending_close_id = None
+        
+        # Close the popup if open
+        self._close()
+        
+        # Clear item references
+        self.items.clear()
+
 
 class GradientButton(tk.Canvas):
     """Custom button with gradient background (cyan -> blue -> purple like logo)."""
