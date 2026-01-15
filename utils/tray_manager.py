@@ -57,8 +57,8 @@ class TrayManager:
         
         try:
             # Run in a separate thread to not block the main thread
-            # CHANGED: Make this a non-daemon thread so it doesn't terminate prematurely
-            self.icon_thread = threading.Thread(target=self._run_tray, daemon=False)
+            # Use daemon=True so the thread won't prevent the app from exiting
+            self.icon_thread = threading.Thread(target=self._run_tray, daemon=True)
             self.icon_thread.start()
             return True
         except Exception as e:
@@ -78,20 +78,36 @@ class TrayManager:
             
     def stop_tray(self):
         """Stop the system tray icon"""
-        if self.icon and self.is_running:
+        icon_ref = self.icon  # Keep a local reference
+        
+        if icon_ref and self.is_running:
             try:
+                print("Stopping tray icon...")
+                
+                # Mark as not running first to prevent re-entry
+                self.is_running = False
+                
+                # On Windows, set visibility to False before stopping
+                # This is the key step that removes the icon from the tray
+                if platform.system() == "Windows":
+                    try:
+                        icon_ref.visible = False
+                    except Exception as e:
+                        print(f"Error setting icon visibility: {e}")
+                
                 # Stop the icon - this signals the icon.run() loop to exit
-                self.icon.stop()
+                icon_ref.stop()
+                    
             except Exception as e:
                 print(f"Error stopping tray icon: {e}")
 
-        # Wait for the icon thread to finish to ensure proper cleanup
-        # This is important on Windows to prevent the icon from persisting
+        # Wait briefly for the icon thread to finish
+        # Since it's a daemon thread, it will be killed when the main thread exits anyway
         if self.icon_thread and self.icon_thread.is_alive():
             try:
-                self.icon_thread.join(timeout=2.0)  # Wait up to 2 seconds
+                self.icon_thread.join(timeout=1.0)  # Wait up to 1 second
                 if self.icon_thread.is_alive():
-                    print("Warning: Tray icon thread did not stop in time")
+                    print("Tray thread still running, will be terminated on exit")
             except Exception as e:
                 print(f"Error joining tray icon thread: {e}")
 
@@ -99,6 +115,8 @@ class TrayManager:
         self.icon = None
         self.icon_thread = None
         self.is_running = False
+        
+        print("Tray icon stopped")
         
     def _toggle_window(self):
         """Toggle the visibility of the main window"""
