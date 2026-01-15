@@ -362,7 +362,7 @@ class ManagePromptsDialog:
         if messagebox.askyesno(_("Confirm Delete"), _("Are you sure you want to delete '{name}'?").format(name=prompt_name)):
             if prompt_name == self.parent.current_prompt_name:
                 self.parent.current_prompt_name = "Default"
-                self.parent.save_prompt_to_env(self.parent.current_prompt_name)
+                self.parent.save_prompt_to_config(self.parent.current_prompt_name)
                 self.parent.update_model_label()
 
             del self.parent.prompts[prompt_name]
