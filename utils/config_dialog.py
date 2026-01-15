@@ -50,6 +50,7 @@ class ConfigDialog:
         self.file_handling_var = tk.StringVar()
         self.paste_method_var = tk.StringVar()
         self.hidpi_mode_var = tk.StringVar()
+        self.close_to_tray_var = tk.BooleanVar()
 
         # Language settings variables
         self.language_mode_var = tk.StringVar()
@@ -203,6 +204,9 @@ class ConfigDialog:
         self.hidpi_mode_var.set(self.config.hidpi_mode)
         self.original_hidpi_mode = self.config.hidpi_mode
 
+        # Close to tray (default: False - close app on X)
+        self.close_to_tray_var.set(self.config.close_to_tray)
+
         # Language settings
         self.language_mode_var.set(self.config.language_mode)
         self.language_var.set(self.config.language)
@@ -341,6 +345,16 @@ class ConfigDialog:
         )
         self.nav_buttons["AI Models"].pack(fill=tk.X, pady=2)
 
+        self.nav_buttons["Behavior"] = ttk.Button(
+            self.nav_frame,
+            text=_("Behavior"),
+            command=lambda: self.switch_category("Behavior"),
+            width=15,
+            style='Nav.TButton',
+            cursor='hand2'
+        )
+        self.nav_buttons["Behavior"].pack(fill=tk.X, pady=2)
+
         # Highlight current selection
         self.update_navigation_highlight()
         
@@ -407,6 +421,8 @@ class ConfigDialog:
             self.show_output_settings()
         elif category == "AI Models":
             self.show_ai_models_settings()
+        elif category == "Behavior":
+            self.show_behavior_settings()
             
     def update_navigation_highlight(self):
         """Update the visual highlight for the current navigation selection."""
@@ -722,6 +738,64 @@ class ConfigDialog:
             font=get_font('xs'),
             foreground="#CC6600"
         ).pack(anchor="w")
+
+    def show_behavior_settings(self):
+        """Show the behavior settings panel."""
+        # Main title
+        title_label = ttk.Label(
+            self.content_frame,
+            text=_("Behavior Settings"),
+            font=get_font('lg', 'bold')
+        )
+        title_label.pack(anchor="w", pady=(0, 20))
+
+        # Window Close Behavior Section
+        close_frame = ttk.LabelFrame(
+            self.content_frame,
+            text=_("Window Close Behavior"),
+            padding="15",
+            style='Dialog.TLabelframe'
+        )
+        close_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            close_frame,
+            text=_("Choose what happens when you click the X button:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Radio buttons for close behavior
+        ttk.Radiobutton(
+            close_frame,
+            text=_("Close the application"),
+            variable=self.close_to_tray_var,
+            value=False,
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        close_description = ttk.Label(
+            close_frame,
+            text=_("Clicking X will close Quick Whisper completely"),
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        close_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        ttk.Radiobutton(
+            close_frame,
+            text=_("Minimize to system tray"),
+            variable=self.close_to_tray_var,
+            value=True,
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+
+        tray_description = ttk.Label(
+            close_frame,
+            text=_("Clicking X will hide the window to the system tray (use tray icon to restore)"),
+            font=get_font('xxs'),
+            foreground="#888888"
+        )
+        tray_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
 
     def show_language_settings(self):
         """Show the language settings panel."""
@@ -1135,6 +1209,7 @@ class ConfigDialog:
             self.config.file_handling = self.file_handling_var.get()
             self.config.paste_method = self.paste_method_var.get()
             self.config.hidpi_mode = self.hidpi_mode_var.get()
+            self.config.close_to_tray = self.close_to_tray_var.get()
 
             # Save language settings
             self.config.language_mode = self.language_mode_var.get()
@@ -1160,6 +1235,9 @@ class ConfigDialog:
 
             # Update the model label in the UI
             self.parent.update_model_label()
+
+            # Apply close-to-tray setting immediately
+            self.parent.update_close_behavior()
 
             # Apply language change immediately
             new_lang_mode = self.language_mode_var.get()

@@ -2,7 +2,8 @@ from utils.quick_whisper import QuickWhisper
 
 if __name__ == "__main__":
     app = QuickWhisper()
-    app.protocol("WM_DELETE_WINDOW", app.on_closing)
+    # Note: WM_DELETE_WINDOW protocol is set in setup_system_tray()
+    # to minimize to tray (or on_closing if tray unavailable)
     try:
         app.mainloop()
     except KeyboardInterrupt:

@@ -22,8 +22,9 @@ class TrayManager:
             self.icon_image = Image.open(icon_path)
             
             # Create a menu
+            # Note: default=True makes left-click on tray icon trigger this action (Windows)
             menu = Menu(
-                Item('Show/Hide Window', self._toggle_window),
+                Item('Show/Hide Window', self._toggle_window, default=True),
                 Item('Refresh Hotkeys Now', self._refresh_hotkeys),
                 Menu.SEPARATOR,
                 Item('Auto-Refresh Hotkeys (Every 30s)', self._toggle_auto_refresh, checked=lambda item: self.parent.auto_hotkey_refresh.get()),
@@ -79,10 +80,24 @@ class TrayManager:
         """Stop the system tray icon"""
         if self.icon and self.is_running:
             try:
+                # Stop the icon - this signals the icon.run() loop to exit
                 self.icon.stop()
             except Exception as e:
                 print(f"Error stopping tray icon: {e}")
-                
+
+        # Wait for the icon thread to finish to ensure proper cleanup
+        # This is important on Windows to prevent the icon from persisting
+        if self.icon_thread and self.icon_thread.is_alive():
+            try:
+                self.icon_thread.join(timeout=2.0)  # Wait up to 2 seconds
+                if self.icon_thread.is_alive():
+                    print("Warning: Tray icon thread did not stop in time")
+            except Exception as e:
+                print(f"Error joining tray icon thread: {e}")
+
+        # Clear references to help garbage collection
+        self.icon = None
+        self.icon_thread = None
         self.is_running = False
         
     def _toggle_window(self):
