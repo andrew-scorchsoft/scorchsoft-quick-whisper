@@ -394,7 +394,7 @@ class ManagePromptsDialog:
                 self.parent.save_prompts(self.parent.prompts)
 
         # Then save the selection
-        self.parent.save_prompt_to_env(prompt_name)
+        self.parent.save_prompt_to_config(prompt_name)
         self.parent.current_prompt_name = prompt_name
         self.parent.update_model_label()
         self.dialog.destroy()
