@@ -226,6 +226,57 @@ pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._xorg -
 
 This project is licensed under the terms specified in the LICENSE.md file.
 
+## Memory Diagnostics
+
+QuickWhisper logs resource usage to the console every 60 seconds. To use this, run the app from a terminal rather than double-clicking the executable:
+
+```bash
+python quick_whisper.py
+```
+
+### Reading the Logs
+
+Every 60 seconds you will see output like:
+
+```
+============================================================
+[MEMORY DIAG] uptime=5.0min  RSS=142.3MB  delta=+2.1MB  threads=8
+[MEMORY DIAG] gc_objects=45231  gc_counts=(47, 3, 1)
+[MEMORY DIAG] audio: sounds=6  streams_opened=2  streams_closed=2  frames_peak=4800  recordings=2/2
+[MEMORY DIAG] threads: ['MainThread', 'sound_0', 'sound_1', 'pynput-listener', ...]
+============================================================
+```
+
+### What Each Field Means
+
+| Field | Meaning |
+|-------|---------|
+| `RSS` | Total physical memory used by the process (in MB) |
+| `delta` | Change in RSS since the last log entry. Consistently positive = likely leak |
+| `threads` | Number of active threads. Should stay roughly constant |
+| `gc_objects` | Total Python objects tracked by the garbage collector. Steady growth = object leak |
+| `gc_counts` | Pending GC work per generation `(gen0, gen1, gen2)` |
+| `sounds` | Total sound effects played since startup |
+| `streams_opened` / `streams_closed` | PyAudio recording streams. These two numbers should always match |
+| `frames_peak` | Largest audio buffer recorded (in frames). High values expected for long recordings |
+| `recordings` | `started/stopped` count. Should always match |
+
+### Signs of a Memory Leak
+
+- **RSS delta is consistently positive** (e.g. `+2MB`, `+3MB`, `+5MB` every minute) even when idle — something is leaking.
+- **Thread count keeps climbing** — threads are being created but not finishing. Look at the thread names list to see which ones are accumulating.
+- **`streams_opened` > `streams_closed`** — a PyAudio stream was not properly closed after recording.
+- **`recordings` started > stopped** — a recording was started but never completed or cancelled.
+- **`gc_objects` steadily increasing** — Python objects are being created and never freed (circular references or growing collections).
+
+### Warning Messages
+
+You may also see these in the console output:
+
+- `[MEMORY] WARNING: pynput listener thread did not terminate within 5s` — The keyboard hook listener did not shut down cleanly during a hotkey re-registration. If this appears repeatedly, it indicates pynput threads are leaking.
+
+If the memory leak reoccurs, copy the full console output and include it in a bug report.
+
 ## About Scorchsoft
 
 We can deliver your innovative, technically complex project, using the latest web and mobile application development technologies. Scorchsoft develops online portals, applications, web and mobile apps, and AI projects. With over fourteen years experience working with hundreds of small, medium, and large enterprises, in a diverse range of sectors, we'd love to discover how we can apply our expertise to your project.
