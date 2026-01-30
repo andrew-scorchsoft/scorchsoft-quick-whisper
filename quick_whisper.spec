@@ -28,6 +28,8 @@ hidden_imports = [
     # pynput backends
     'pynput.keyboard',
     'pynput.mouse',
+    # pyautogui (lazy imported in paste methods)
+    'pyautogui',
 ]
 
 # Add local utils package imports
@@ -40,6 +42,7 @@ if system == 'Windows':
         'pyttsx3.drivers.sapi5',
         'pynput.keyboard._win32',
         'pynput.mouse._win32',
+        'pyautogui._pyautogui_win',
     ])
 elif system == 'Darwin':
     hidden_imports.extend([
@@ -47,6 +50,7 @@ elif system == 'Darwin':
         'pyttsx3.drivers.nsss',
         'pynput.keyboard._darwin',
         'pynput.mouse._darwin',
+        'pyautogui._pyautogui_osx',
     ])
 else:  # Linux
     hidden_imports.extend([
@@ -54,6 +58,7 @@ else:  # Linux
         'pyttsx3.drivers.espeak',
         'pynput.keyboard._xorg',
         'pynput.mouse._xorg',
+        'pyautogui._pyautogui_x11',
     ])
 
 # Icon handling - different formats per platform
@@ -98,7 +103,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     # Set console=True temporarily to see stdout/stderr when running the EXE
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
