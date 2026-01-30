@@ -18,6 +18,7 @@ from pathlib import Path
 from audioplayer import AudioPlayer
 import platform
 import time
+import gc
 
 # Note: pynput and pyautogui are imported lazily in paste methods to avoid
 # X11 connection errors on Linux when display is not available at import time
@@ -157,6 +158,9 @@ class QuickWhisper(tk.Tk):
         
         # Setup hotkey health checker
         self.setup_hotkey_health_checker()
+
+        # Setup periodic memory diagnostics (logs every 60s to console)
+        self._setup_memory_diagnostics()
         
         # Register hotkeys
         self.hotkey_manager.register_hotkeys()
@@ -893,11 +897,11 @@ class QuickWhisper(tk.Tk):
 
             print("Transcription Complete: The audio has been transcribed and the text has been placed in the input area.")
             # Play stop recording sound
-            threading.Thread(target=lambda: self.play_sound("assets/double-pop-down.wav")).start()
+            self.audio_manager._sound_pool.submit(self.play_sound, "assets/double-pop-down.wav")
 
         except Exception as e:
             # Play failure sound
-            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
+            self.audio_manager._sound_pool.submit(self.play_sound, "assets/wrong-short.wav")
 
             print(f"Transcription error: An error occurred during transcription: {str(e)}")
             self.ui_manager.set_status("Error during transcription", "red")
@@ -1150,7 +1154,7 @@ class QuickWhisper(tk.Tk):
 
         except Exception as e:
             # Play failure sound
-            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
+            self.audio_manager._sound_pool.submit(self.play_sound, "assets/wrong-short.wav")
             messagebox.showerror("GPT Processing Error", f"An error occurred while processing with GPT: {e}")
             return None
         
@@ -1908,6 +1912,103 @@ class QuickWhisper(tk.Tk):
         
         # Start the periodic check
         self.after(self.hotkey_check_interval, check_hotkey_health)
+
+    def _setup_memory_diagnostics(self):
+        """Set up periodic memory and resource diagnostics logged to console.
+
+        Prints a summary every 60 seconds so that if a user experiences growing
+        memory usage, the console output will show which counters are climbing.
+        """
+        self._mem_diag_start = time.time()
+        self._last_mem_mb = 0
+
+        def _get_process_memory_mb():
+            """Get current process RSS in MB, cross-platform."""
+            try:
+                import psutil
+                return psutil.Process().memory_info().rss / (1024 * 1024)
+            except ImportError:
+                pass
+            # Windows fallback without psutil
+            if platform.system() == 'Windows':
+                try:
+                    import ctypes
+                    from ctypes import wintypes
+                    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                        _fields_ = [("cb", wintypes.DWORD),
+                                    ("PageFaultCount", wintypes.DWORD),
+                                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                                    ("WorkingSetSize", ctypes.c_size_t),
+                                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                                    ("PagefileUsage", ctypes.c_size_t),
+                                    ("PeakPagefileUsage", ctypes.c_size_t)]
+                    pmc = PROCESS_MEMORY_COUNTERS()
+                    pmc.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+                    kernel32 = ctypes.windll.kernel32
+                    psapi = ctypes.windll.psapi
+                    handle = kernel32.GetCurrentProcess()
+                    if psapi.GetProcessMemoryInfo(handle, ctypes.byref(pmc), pmc.cb):
+                        return pmc.WorkingSetSize / (1024 * 1024)
+                except Exception:
+                    pass
+            # Unix fallback
+            try:
+                import resource
+                usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                # macOS returns bytes, Linux returns KB
+                if platform.system() == 'Darwin':
+                    return usage / (1024 * 1024)
+                return usage / 1024
+            except ImportError:
+                return -1
+
+        def _log_diagnostics():
+            try:
+                uptime = time.time() - self._mem_diag_start
+                uptime_min = uptime / 60
+
+                mem_mb = _get_process_memory_mb()
+                threads = threading.active_count()
+
+                # Audio diagnostics
+                from utils.audio_manager import get_audio_diagnostics
+                audio = get_audio_diagnostics()
+
+                # Thread details
+                thread_names = [t.name for t in threading.enumerate()]
+
+                # GC stats
+                gc_counts = gc.get_count()
+                gc_objects = len(gc.get_objects())
+
+                # Track memory delta
+                delta = mem_mb - self._last_mem_mb if self._last_mem_mb > 0 else 0
+                self._last_mem_mb = mem_mb
+                delta_str = f"  delta={delta:+.1f}MB" if delta != 0 else ""
+
+                print(f"\n{'='*60}")
+                print(f"[MEMORY DIAG] uptime={uptime_min:.1f}min  RSS={mem_mb:.1f}MB{delta_str}  "
+                      f"threads={threads}")
+                print(f"[MEMORY DIAG] gc_objects={gc_objects}  gc_counts={gc_counts}")
+                print(f"[MEMORY DIAG] audio: sounds={audio['sounds_played']}  "
+                      f"streams_opened={audio['streams_opened']}  "
+                      f"streams_closed={audio['streams_closed']}  "
+                      f"frames_peak={audio['frames_peak']}  "
+                      f"recordings={audio['recordings_started']}/{audio['recordings_stopped']}")
+                print(f"[MEMORY DIAG] threads: {thread_names}")
+                print(f"{'='*60}\n")
+
+            except Exception as e:
+                print(f"[MEMORY DIAG] Error collecting diagnostics: {e}")
+
+            # Schedule next run
+            self.after(60000, _log_diagnostics)
+
+        # First run after 10 seconds (baseline)
+        self.after(10000, _log_diagnostics)
 
     def save_auto_hotkey_refresh(self):
         """Save the auto hotkey refresh setting to settings.json."""

@@ -1,4 +1,5 @@
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import pyaudio
 import wave
 from pathlib import Path
@@ -6,7 +7,23 @@ from tkinter import messagebox
 from audioplayer import AudioPlayer
 import os
 import sys
+import time
 from utils.config_manager import get_config
+
+# Memory diagnostic counters for audio subsystem
+_audio_diag = {
+    'sounds_played': 0,
+    'streams_opened': 0,
+    'streams_closed': 0,
+    'frames_peak': 0,
+    'recordings_started': 0,
+    'recordings_stopped': 0,
+}
+
+def get_audio_diagnostics():
+    """Return a copy of audio diagnostic counters."""
+    return dict(_audio_diag)
+
 
 class AudioManager:
     def __init__(self, parent):
@@ -19,6 +36,8 @@ class AudioManager:
         self.device_index = None
         self.audio_file = None
         self.config = get_config()
+        # Thread pool for sound playback to avoid spawning unbounded threads
+        self._sound_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="sound")
 
     @property
     def recording(self):
@@ -86,8 +105,11 @@ class AudioManager:
         self.parent.ui_manager.update_button_states(recording=True)
         self.parent.ui_manager.set_status("Recording...", "red")
 
+        _audio_diag['recordings_started'] += 1
+        _audio_diag['streams_opened'] += 1
+
         # Play start recording sound
-        threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
+        self._sound_pool.submit(self.play_sound, "assets/pop.wav")
 
         # Start recording in a separate thread
         print("Starting Recording")
@@ -144,10 +166,12 @@ class AudioManager:
         # Reset buttons to normal state - now through ui_manager
         self.parent.ui_manager.update_button_states(recording=False)
 
+        _audio_diag['recordings_stopped'] += 1
+        _audio_diag['streams_closed'] += 1
         self.parent.ui_manager.set_status("Processing - Audio File...", "green")
 
         # Play stop recording sound
-        threading.Thread(target=lambda: self.play_sound("assets/pop-down.wav")).start()
+        self._sound_pool.submit(self.play_sound, "assets/pop-down.wav")
 
         # Ensure tmp folder exists
         tmp_dir = self.parent.tmp_dir
@@ -173,6 +197,10 @@ class AudioManager:
             wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
             wf.setframerate(16000)
             wf.writeframes(b''.join(self.frames))
+
+        # Track peak frame count then release memory
+        _audio_diag['frames_peak'] = max(_audio_diag['frames_peak'], len(self.frames))
+        self.frames = []
 
         return self.audio_file
     
@@ -200,11 +228,16 @@ class AudioManager:
             # Reset buttons back to original state - now through ui_manager
             self.parent.ui_manager.update_button_states(recording=False)
 
+            _audio_diag['streams_closed'] += 1
+
+            # Release recorded frames on cancel
+            self.frames = []
+
             # Reset status
             self.parent.ui_manager.set_status("Idle", "blue")
 
             # Play failure sound
-            threading.Thread(target=lambda: self.play_sound("assets/wrong-short.wav")).start()
+            self._sound_pool.submit(self.play_sound, "assets/wrong-short.wav")
             return True
         return False
     
@@ -231,27 +264,39 @@ class AudioManager:
 
         if last_recording.exists():
             # Play start recording sound
-            threading.Thread(target=lambda: self.play_sound("assets/pop.wav")).start()
+            self._sound_pool.submit(self.play_sound, "assets/pop.wav")
 
             self.audio_file = last_recording
             self.parent.ui_manager.set_status("Retrying transcription...", "orange")
-            
+
             # Re-attempt transcription in a separate thread
-            threading.Thread(target=self.parent.transcribe_audio).start()
+            threading.Thread(target=self.parent.transcribe_audio, daemon=True).start()
             return True
         else:
             messagebox.showerror("Retry Failed", "No previous recording found to retry.")
             return False
     
     def play_sound(self, sound_file):
-        """Play sound with fallback for Mac compatibility"""
+        """Play sound with fallback for Mac compatibility.
+
+        Explicitly closes the AudioPlayer after playback to prevent
+        resource leaks (COM handles on Windows, file descriptors on other platforms).
+        """
+        player = None
         try:
             player = AudioPlayer(self.resource_path(sound_file))
             player.play(block=True)
+            _audio_diag['sounds_played'] += 1
         except Exception as e:
             print(f"Warning: Could not play sound: {e}")
-            # Silently fail if sound doesn't work on Mac
-            pass
+        finally:
+            # Explicitly release the player to free OS-level resources
+            if player is not None:
+                try:
+                    player.close()
+                except Exception:
+                    pass
+                del player
             
     def resource_path(self, relative_path):
         """Get the absolute path to the resource, works for both development and PyInstaller environments."""
@@ -281,4 +326,11 @@ class AudioManager:
             try:
                 self.audio.terminate()
             except Exception as e2:
-                print(f"Error during audio termination: {e2}") 
+                print(f"Error during audio termination: {e2}")
+        # Shutdown the sound thread pool
+        try:
+            self._sound_pool.shutdown(wait=False)
+        except Exception:
+            pass
+        # Release any held frame data
+        self.frames = []

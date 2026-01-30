@@ -110,13 +110,17 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         """Stop the keyboard listener and clear hotkeys."""
         try:
             if self.listener:
-                self.listener.stop()
-                # Wait for listener thread to fully terminate to prevent duplicates
-                try:
-                    self.listener.join(timeout=1.0)
-                except Exception:
-                    pass  # Ignore join errors
+                old_listener = self.listener
                 self.listener = None
+                old_listener.stop()
+                # Wait longer for listener thread to fully terminate to prevent
+                # leaked Windows keyboard hooks (a known source of memory leaks)
+                try:
+                    old_listener.join(timeout=5.0)
+                    if old_listener.is_alive():
+                        print("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
+                except Exception:
+                    pass
 
             with self._lock:
                 self.pressed_keys.clear()
