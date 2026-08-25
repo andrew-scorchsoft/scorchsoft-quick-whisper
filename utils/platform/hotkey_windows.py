@@ -9,7 +9,11 @@ from pynput.keyboard import Key, KeyCode
 import threading
 import time
 
-from .hotkey_base import HotkeyManagerBase
+from .hotkey_base import HotkeyManagerBase, stop_listener_without_blocking
+
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class WindowsHotkeyManager(HotkeyManagerBase):
@@ -68,7 +72,12 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_backward),
                 self._normalize_shortcut(self.shortcuts['cycle_prompt_forward']):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_forward),
+                self._normalize_shortcut(self.shortcuts.get('retry_last', '')):
+                    lambda: self.parent.after(0, self.parent.retry_last_recording),
             }
+            # An unset shortcut normalises to an empty frozenset, which would
+            # otherwise match "no keys pressed". Drop it.
+            self._registered_hotkeys.pop(frozenset(), None)
 
             # Start new listener
             self.listener = keyboard.Listener(
@@ -99,11 +108,11 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 self.pressed_keys.clear()
                 self._key_press_times.clear()
 
-            print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Windows/pynput)")
+            logger.info("Registered %s hotkeys successfully (Windows/pynput)", len(self._registered_hotkeys))
             return True
 
         except Exception as e:
-            print(f"Error registering hotkeys: {e}")
+            logger.error("Error registering hotkeys: %s", e)
             return False
 
     def unregister_hotkeys(self):
@@ -112,24 +121,16 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             if self.listener:
                 old_listener = self.listener
                 self.listener = None
-                old_listener.stop()
-                # Wait longer for listener thread to fully terminate to prevent
-                # leaked Windows keyboard hooks (a known source of memory leaks)
-                try:
-                    old_listener.join(timeout=5.0)
-                    if old_listener.is_alive():
-                        print("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
-                except Exception:
-                    pass
+                stop_listener_without_blocking(old_listener, "Windows")
 
             with self._lock:
                 self.pressed_keys.clear()
                 self._key_press_times.clear()
                 self._registered_hotkeys.clear()
 
-            print("Hotkeys unregistered")
+            logger.info("Hotkeys unregistered")
         except Exception as e:
-            print(f"Error unregistering hotkeys: {e}")
+            logger.error("Error unregistering hotkeys: %s", e)
 
     def verify_hotkeys(self):
         """Verify that the keyboard listener is running and responsive.
@@ -152,11 +153,11 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 return True
 
             if not self._registered_hotkeys:
-                print("HEALTH CHECK: FAIL - No hotkeys registered")
+                logger.info("HEALTH CHECK: FAIL - No hotkeys registered")
                 return False
 
             if not self.listener or not self.listener.is_alive():
-                print("HEALTH CHECK: FAIL - Keyboard listener thread not alive")
+                logger.info("HEALTH CHECK: FAIL - Keyboard listener thread not alive")
                 return False
 
             current_time = time.time()
@@ -193,14 +194,14 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             status_str = ", ".join(status_parts)
             
             if is_healthy:
-                print(f"HEALTH CHECK: OK - {status_str}")
+                logger.info("HEALTH CHECK: OK - %s", status_str)
             else:
-                print(f"HEALTH CHECK: SUSPICIOUS - {status_str}")
+                logger.info("HEALTH CHECK: SUSPICIOUS - %s", status_str)
             
             return is_healthy
 
         except Exception as e:
-            print(f"HEALTH CHECK: ERROR - {e}")
+            logger.error("HEALTH CHECK: ERROR - %s", e)
             return False
 
     def _normalize_shortcut(self, shortcut_str):
@@ -367,7 +368,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                     self._key_press_times[key_name] = current_time
                     self._check_hotkeys()
         except Exception as e:
-            print(f"Error in key press handler: {e}")
+            logger.error("Error in key press handler: %s", e)
 
     def _on_release(self, key):
         """Handle key release events."""
@@ -394,11 +395,11 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                             if non_modifiers:
                                 current_time = time.time()
                                 ages = [round(current_time - self._key_press_times.get(k, current_time), 1) for k in non_modifiers]
-                                print(f"[HOTKEY] Clearing {len(non_modifiers)} stray key(s) on modifier release: {non_modifiers} ages={ages}s")
+                                logger.info("[HOTKEY] Clearing %s stray key(s) on modifier release: %s ages=%ss", len(non_modifiers), non_modifiers, ages)
                                 self.pressed_keys.clear()
                                 self._key_press_times.clear()
         except Exception as e:
-            print(f"Error in key release handler: {e}")
+            logger.error("Error in key release handler: %s", e)
 
     def _cleanup_expired_keys(self, current_time):
         """Remove keys that have been 'pressed' for too long (missed release events).
@@ -414,7 +415,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 expired_ages.append(round(age, 1))
         
         if expired_keys:
-            print(f"[HOTKEY] Expiring {len(expired_keys)} stale key(s): {expired_keys} ages={expired_ages}s")
+            logger.info("[HOTKEY] Expiring %s stale key(s): %s ages=%ss", len(expired_keys), expired_keys, expired_ages)
             for key_name in expired_keys:
                 self.pressed_keys.discard(key_name)
                 self._key_press_times.pop(key_name, None)
@@ -428,7 +429,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         
         # Defensive: if pressed_keys has grown unreasonably large, it's corrupted - clear it
         if len(self.pressed_keys) > 8:
-            print(f"[HOTKEY WARNING] pressed_keys too large ({len(self.pressed_keys)}), clearing: {self.pressed_keys}")
+            logger.warning("[HOTKEY WARNING] pressed_keys too large (%s), clearing: %s", len(self.pressed_keys), self.pressed_keys)
             self.pressed_keys.clear()
             self._key_press_times.clear()
             return
@@ -447,7 +448,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
         # Log if we filtered out stale keys
         if stale_keys:
             stale_ages = [round(current_time - self._key_press_times.get(k, current_time), 2) for k in stale_keys]
-            print(f"[HOTKEY] Ignoring {len(stale_keys)} stale key(s): {stale_keys} ages={stale_ages}s")
+            logger.info("[HOTKEY] Ignoring %s stale key(s): %s ages=%ss", len(stale_keys), stale_keys, stale_ages)
         
         current_keys = frozenset(recent_keys)
         
@@ -457,7 +458,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             # User is pressing multiple modifiers + a key - log this for debugging
             matched = current_keys in self._registered_hotkeys
             if not matched:
-                print(f"[HOTKEY DEBUG] Keys pressed: {current_keys} - no match")
+                logger.info("[HOTKEY DEBUG] Keys pressed: %s - no match", current_keys)
 
         for hotkey_keys, callback in self._registered_hotkeys.items():
             if hotkey_keys == current_keys:
@@ -465,8 +466,8 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                 try:
                     self._hotkey_triggers += 1
                     ages = [round(current_time - self._key_press_times.get(k, current_time), 2) for k in current_keys]
-                    print(f"[HOTKEY] Triggered: {current_keys} pressed_ago={ages}")
+                    logger.info("[HOTKEY] Triggered: %s pressed_ago=%s", current_keys, ages)
                     callback()
                 except Exception as e:
-                    print(f"Error executing hotkey callback: {e}")
+                    logger.error("Error executing hotkey callback: %s", e)
                 break

@@ -37,15 +37,32 @@ from utils.tts_manager import TTSManager
 from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
-from utils.tray_manager import TrayManager
+from utils.tray_manager import TrayManager, tray_supported
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 from utils.platform import open_url
 from utils.app_version import APP_VERSION
 from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, unregister_refresh_callback, SUPPORTED_LANGUAGES
+from utils.app_logging import get_logger, setup_logging
+from utils.paths import (
+    resource_path as _resource_path,
+    get_prompts_path,
+    get_history_path,
+    get_log_dir,
+    get_user_data_dir,
+    get_default_recording_dir,
+    consume_migration_note,
+)
+
+logger = get_logger(__name__)
 
 
 class QuickWhisper(tk.Tk):
     def __init__(self):
+        # Logging first: the packaged build has no console, so anything logged
+        # before this point would be lost entirely.
+        setup_logging()
+        self._install_exception_logging()
+
         super().__init__()
 
         # Hide window during initialization to prevent partial rendering flash
@@ -138,10 +155,16 @@ class QuickWhisper(tk.Tk):
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
-        self.history = []  # Stores up to 50 items of transcription or edited text
+        # Transcription/edit history. Kept to config.history_limit entries and
+        # (optionally) persisted between sessions.
+        self.history = []
         self.history_index = -1  # -1 indicates no history selected yet
-        self.max_history_length = 10000
+        self.max_history_length = self.config_manager.history_limit
+        self.persist_history = self.config_manager.persist_history
+        self._history_path = get_history_path()
+        self.load_history()
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
+        self._rerun_in_progress = False
         
         # Initialize recording directory based on settings
         self.update_recording_directory()
@@ -185,8 +208,9 @@ class QuickWhisper(tk.Tk):
             elif saved_prompt in self.prompts:
                 self.current_prompt_name = saved_prompt
             else:
-                messagebox.showwarning("Prompt Not Found", 
-                    f"Selected prompt '{saved_prompt}' not found. Using default prompt.")
+                messagebox.showwarning(
+                    _("Prompt Not Found"),
+                    _("Selected prompt '{name}' not found. Using default prompt.").format(name=saved_prompt))
                 self.current_prompt_name = "Default"
 
         # After loading the prompt from env, update the model label
@@ -210,13 +234,102 @@ class QuickWhisper(tk.Tk):
         self.update_idletasks()  # Process all pending layout calculations
         self.deiconify()
 
+        # Restore the history view (text area + navigation button states) now
+        # that the widgets exist.
+        if self.history:
+            self.history_index = len(self.history) - 1
+            try:
+                self.ui_manager.update_transcription_text()
+                self.ui_manager.update_navigation_buttons()
+            except Exception as e:
+                logger.warning("Could not restore history view: %s", e)
+
+        # Tell the user once if their configuration was migrated out of the
+        # working directory (see utils/paths.py).
+        self._announce_config_migration()
+
         # Schedule UI update for shortcuts after everything is initialized
         def after_init():
             if hasattr(self, 'hotkey_manager') and self.hotkey_manager:
                 self.hotkey_manager.update_shortcut_displays()
+            self._register_retry_shortcut()
 
         # Delay to ensure UI is fully ready
         self.after(200, after_init)
+
+    def _install_exception_logging(self):
+        """Route unhandled exceptions to the log file.
+
+        In a windowed (no console) build an unhandled exception simply
+        disappears, which makes bug reports impossible to act on. Both the
+        interpreter hook and Tk's own callback hook are redirected here.
+        """
+        previous_hook = sys.excepthook
+
+        def _log_unhandled(exc_type, exc_value, exc_tb):
+            if issubclass(exc_type, KeyboardInterrupt):
+                previous_hook(exc_type, exc_value, exc_tb)
+                return
+            logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_tb))
+            try:
+                previous_hook(exc_type, exc_value, exc_tb)
+            except Exception:
+                pass
+
+        sys.excepthook = _log_unhandled
+
+        # Tk swallows callback errors into its own reporter; send those to the
+        # log too so hotkey/menu callbacks leave a trace.
+        def _report_callback_exception(exc_type, exc_value, exc_tb):
+            logger.error("Unhandled exception in Tk callback",
+                         exc_info=(exc_type, exc_value, exc_tb))
+
+        self.report_callback_exception = _report_callback_exception
+
+    def _announce_config_migration(self):
+        """Log and (once) show any legacy configuration migration note."""
+        note = consume_migration_note()
+        if not note:
+            return
+        logger.info(note)
+
+        def _show():
+            messagebox.showinfo(
+                _("Settings Location Updated"),
+                _("Your Quick Whisper settings were moved so they are found no "
+                  "matter which folder the app is launched from.\n\n"
+                  "New location:\n{location}").format(location=get_prompts_path().parent)
+            )
+
+        # Non-blocking: let the window finish appearing first.
+        self.after(1200, _show)
+
+    def open_log_folder(self):
+        """Open the folder containing the application log files."""
+        log_dir = get_log_dir()
+        logger.info("Opening log folder: %s", log_dir)
+        try:
+            system = platform.system()
+            if system == 'Windows':
+                os.startfile(str(log_dir))  # noqa: S606 - platform API
+            elif system == 'Darwin':
+                import subprocess
+                subprocess.Popen(['open', str(log_dir)])
+            else:
+                # Linux: xdg-open handles file managers; fall back to a file URL
+                # so WSL and unusual desktops still get somewhere useful.
+                import subprocess
+                try:
+                    subprocess.Popen(['xdg-open', str(log_dir)])
+                except (FileNotFoundError, OSError):
+                    if not open_url(log_dir.as_uri()):
+                        raise RuntimeError("no handler available")
+        except Exception as e:
+            logger.warning("Could not open log folder %s: %s", log_dir, e)
+            messagebox.showinfo(
+                _("Log Folder"),
+                _("Could not open the log folder automatically.\n\nIt is here:\n{path}").format(path=log_dir)
+            )
 
     def _apply_hidpi_scaling(self):
         """Apply HiDPI scaling for better display on high-resolution monitors.
@@ -245,11 +358,11 @@ class QuickWhisper(tk.Tk):
         except Exception:
             hidpi_mode = "auto"
 
-        print(f"HiDPI mode setting: {hidpi_mode}")
+        logger.info(f"HiDPI mode setting: {hidpi_mode}")
 
         # Skip scaling if disabled
         if hidpi_mode == "disabled":
-            print("HiDPI scaling disabled by user setting")
+            logger.info("HiDPI scaling disabled by user setting")
             return
 
         if system == 'Windows':
@@ -262,18 +375,18 @@ class QuickWhisper(tk.Tk):
                 screen_height = self.winfo_screenheight()
                 current_scaling = float(self.tk.call('tk', 'scaling'))
 
-                print(f"Windows screen info: {screen_width}x{screen_height}, current Tk scaling: {current_scaling:.2f}")
+                logger.info(f"Windows screen info: {screen_width}x{screen_height}, current Tk scaling: {current_scaling:.2f}")
 
                 # For both "auto" and "enabled" modes, set DPI awareness for sharp rendering
                 try:
                     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI aware
-                    print("Set per-monitor DPI awareness")
+                    logger.info("Set per-monitor DPI awareness")
                 except (AttributeError, OSError):
                     try:
                         ctypes.windll.user32.SetProcessDPIAware()
-                        print("Set system DPI awareness (fallback)")
+                        logger.info("Set system DPI awareness (fallback)")
                     except (AttributeError, OSError):
-                        print("Could not set DPI awareness")
+                        logger.error("Could not set DPI awareness")
 
                 # Get actual system DPI
                 try:
@@ -283,7 +396,7 @@ class QuickWhisper(tk.Tk):
                     dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
                     ctypes.windll.user32.ReleaseDC(0, hdc)
 
-                print(f"Windows detected DPI: {dpi}")
+                logger.info(f"Windows detected DPI: {dpi}")
 
                 if hidpi_mode == "enabled":
                     # User explicitly enabled HiDPI - always apply scaling
@@ -292,7 +405,7 @@ class QuickWhisper(tk.Tk):
 
                     self.tk.call('tk', 'scaling', scale_factor)
                     self.hidpi_scale_factor = scale_factor
-                    print(f"Windows HiDPI enabled: DPI={dpi}, applied {scale_factor:.2f}x scaling")
+                    logger.info(f"Windows HiDPI enabled: DPI={dpi}, applied {scale_factor:.2f}x scaling")
                 else:
                     # Auto mode: Detect if HiDPI is needed based on resolution and DPI
                     scale_factor = None
@@ -301,33 +414,33 @@ class QuickWhisper(tk.Tk):
                     if screen_width >= 3840 or screen_height >= 2160:
                         # 4K display - use 2x scaling
                         scale_factor = 2.0
-                        print(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
+                        logger.info(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
                     elif screen_width >= 2560 or screen_height >= 1440:
                         # QHD/2K display - use 1.5x scaling
                         scale_factor = 1.5
-                        print(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
+                        logger.info(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
                     elif screen_width >= 1920 and dpi > 96:
                         # Full HD with high DPI (Windows scaling applied) - use DPI-based scaling
                         scale_factor = dpi / 96.0
                         scale_factor = max(1.25, min(scale_factor, 2.5))  # At least 1.25x, cap at 2.5x
-                        print(f"Detected Full HD with high DPI ({dpi}), using {scale_factor:.2f}x scaling")
+                        logger.info(f"Detected Full HD with high DPI ({dpi}), using {scale_factor:.2f}x scaling")
                     
                     # Strategy 2: Fall back to DPI-based detection for any high DPI display
                     if scale_factor is None and dpi > 96 * 1.1:  # 10% threshold above 96
                         scale_factor = dpi / 96.0
                         scale_factor = min(scale_factor, 2.5)  # Cap at 2.5x
-                        print(f"Using DPI-based scaling: {scale_factor:.2f}x")
+                        logger.info(f"Using DPI-based scaling: {scale_factor:.2f}x")
                     
                     # Apply scaling if we determined one
                     if scale_factor and scale_factor > 1.0:
                         self.tk.call('tk', 'scaling', scale_factor)
                         self.hidpi_scale_factor = scale_factor
-                        print(f"Windows auto mode: HiDPI scaling applied: {scale_factor:.2f}x")
+                        logger.info(f"Windows auto mode: HiDPI scaling applied: {scale_factor:.2f}x")
                     else:
-                        print("Windows auto mode: No HiDPI scaling needed")
+                        logger.info("Windows auto mode: No HiDPI scaling needed")
 
             except Exception as e:
-                print(f"Could not apply HiDPI scaling on Windows: {e}")
+                logger.error(f"Could not apply HiDPI scaling on Windows: {e}")
 
         elif system == 'Linux':
             # Linux: Multiple strategies for HiDPI detection
@@ -339,7 +452,7 @@ class QuickWhisper(tk.Tk):
                 screen_dpi = self.winfo_fpixels('1i')
                 current_scaling = float(self.tk.call('tk', 'scaling'))
 
-                print(f"Screen info: {screen_width}x{screen_height}, reported DPI: {screen_dpi:.0f}, current Tk scaling: {current_scaling:.2f}")
+                logger.info(f"Screen info: {screen_width}x{screen_height}, reported DPI: {screen_dpi:.0f}, current Tk scaling: {current_scaling:.2f}")
 
                 # If user forced HiDPI mode, use aggressive scaling
                 if hidpi_mode == "enabled":
@@ -350,7 +463,7 @@ class QuickWhisper(tk.Tk):
                         scale_factor = 1.75
                     else:
                         scale_factor = 1.5  # Default forced scaling
-                    print(f"HiDPI forced enabled, using {scale_factor}x scaling")
+                    logger.info(f"HiDPI forced enabled, using {scale_factor}x scaling")
                 else:
                     # Auto-detect mode
                     # Strategy 1: Check environment variables (set by desktop environments)
@@ -358,7 +471,7 @@ class QuickWhisper(tk.Tk):
                     if env_scale:
                         try:
                             scale_factor = float(env_scale)
-                            print(f"Using environment scale factor: {scale_factor}")
+                            logger.info(f"Using environment scale factor: {scale_factor}")
                         except ValueError:
                             pass
 
@@ -368,34 +481,34 @@ class QuickWhisper(tk.Tk):
                         if screen_width >= 3840 or screen_height >= 2160:
                             # 4K display - use 2x scaling
                             scale_factor = 2.0
-                            print(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
+                            logger.info(f"Detected 4K+ display ({screen_width}x{screen_height}), using 2x scaling")
                         elif screen_width >= 2560 or screen_height >= 1440:
                             # QHD/2K display - use 1.5x scaling
                             scale_factor = 1.5
-                            print(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
+                            logger.info(f"Detected QHD+ display ({screen_width}x{screen_height}), using 1.5x scaling")
                         elif screen_width >= 1920 and screen_dpi > 96:
                             # Full HD with high DPI - modest scaling
                             scale_factor = 1.25
-                            print(f"Detected Full HD with high DPI, using 1.25x scaling")
+                            logger.info("Detected Full HD with high DPI, using 1.25x scaling")
 
                     # Strategy 3: Fall back to DPI-based calculation
                     if scale_factor is None and screen_dpi > 96 * 1.1:
                         scale_factor = screen_dpi / 96.0
                         scale_factor = min(scale_factor, 2.5)  # Cap at 2.5x
-                        print(f"Using DPI-based scaling: {scale_factor:.2f}x")
+                        logger.info(f"Using DPI-based scaling: {scale_factor:.2f}x")
 
                 # Apply scaling if we determined one
                 if scale_factor and scale_factor > 1.0:
                     self.tk.call('tk', 'scaling', scale_factor)
                     self.hidpi_scale_factor = scale_factor
-                    print(f"HiDPI scaling applied: {scale_factor:.2f}x")
+                    logger.info(f"HiDPI scaling applied: {scale_factor:.2f}x")
                 elif current_scaling < 1.0:
                     # Ensure minimum scaling of 1.0
                     self.tk.call('tk', 'scaling', 1.0)
-                    print(f"Applied minimum Tk scaling: 1.0 (was {current_scaling:.2f})")
+                    logger.info(f"Applied minimum Tk scaling: 1.0 (was {current_scaling:.2f})")
 
             except Exception as e:
-                print(f"Could not apply HiDPI scaling on Linux: {e}")
+                logger.error(f"Could not apply HiDPI scaling on Linux: {e}")
 
         # macOS generally handles Retina displays automatically
         # No special handling needed
@@ -420,7 +533,7 @@ class QuickWhisper(tk.Tk):
 
         # Load model settings
         self.transcription_model = self.config_manager.transcription_model
-        print(f"Loaded transcription model: '{self.transcription_model}'")
+        logger.info(f"Loaded transcription model: '{self.transcription_model}'")
         
         self.transcription_model_type = self.config_manager.transcription_model_type
         # Determine model type from name if not set
@@ -429,13 +542,13 @@ class QuickWhisper(tk.Tk):
                 self.transcription_model_type = "gpt"
             else:
                 self.transcription_model_type = "whisper"
-        print(f"Loaded model type: '{self.transcription_model_type}'")
+        logger.info(f"Loaded model type: '{self.transcription_model_type}'")
 
         self.ai_model = self.config_manager.ai_model
-        print(f"Loaded AI model: '{self.ai_model}'")
+        logger.info(f"Loaded AI model: '{self.ai_model}'")
 
         self.whisper_language = self.config_manager.whisper_language
-        print(f"Loaded whisper language: '{self.whisper_language}'")
+        logger.info(f"Loaded whisper language: '{self.whisper_language}'")
 
         # Load keyboard shortcuts from config
         self.shortcuts = {
@@ -443,8 +556,73 @@ class QuickWhisper(tk.Tk):
             'record_transcribe': self.config_manager.get_shortcut('record_transcribe'),
             'cancel_recording': self.config_manager.get_shortcut('cancel_recording'),
             'cycle_prompt_back': self.config_manager.get_shortcut('cycle_prompt_back'),
-            'cycle_prompt_forward': self.config_manager.get_shortcut('cycle_prompt_forward')
+            'cycle_prompt_forward': self.config_manager.get_shortcut('cycle_prompt_forward'),
+            'retry_last': self.config_manager.get_shortcut('retry_last') or self.default_retry_shortcut()
         }
+
+    def default_retry_shortcut(self):
+        """Default 'retry last recording' shortcut for this platform.
+
+        Deliberately clear of the five existing shortcuts (record edit/
+        transcribe, cancel, and the two prompt-cycle keys).
+        """
+        return "command+alt+r" if self.is_mac else "ctrl+alt+r"
+
+    def _register_retry_shortcut(self):
+        """Make the retry shortcut visible and usable.
+
+        The global hotkey tables live in utils/platform/hotkey_*.py, which only
+        know about the original five shortcuts. Rather than silently dropping
+        the new one we (a) publish it into the hotkey manager's shortcut map so
+        it appears in - and can be re-bound from - the Keyboard Shortcut Mapping
+        dialog, and (b) bind it locally on the main window so it works whenever
+        Quick Whisper has focus, even if the global hook does not know it.
+        """
+        combo = self.shortcuts.get('retry_last') or self.default_retry_shortcut()
+        try:
+            manager = getattr(self, 'hotkey_manager', None)
+            inner = getattr(manager, 'hotkey_manager', manager)
+            shortcuts = getattr(inner, 'shortcuts', None)
+            if isinstance(shortcuts, dict):
+                shortcuts.setdefault('retry_last', combo)
+        except Exception as e:
+            logger.debug("Could not publish retry shortcut to hotkey manager: %s", e)
+
+        # Local (window-focused) binding as a graceful fallback.
+        binding = self._tk_binding_for_shortcut(combo)
+        if not binding:
+            logger.info("No local Tk binding available for retry shortcut '%s'", combo)
+            return
+        try:
+            self.bind_all(binding, lambda e: self.retry_last_recording())
+            logger.info("Retry shortcut bound locally as %s (%s)", combo, binding)
+        except Exception as e:
+            logger.warning("Could not bind retry shortcut '%s': %s", combo, e)
+
+    @staticmethod
+    def _tk_binding_for_shortcut(combo):
+        """Translate a 'ctrl+alt+r' style shortcut into a Tk binding string.
+
+        Returns None when the combination cannot be represented (in which case
+        the local fallback is simply skipped).
+        """
+        if not combo:
+            return None
+        modifier_map = {
+            'ctrl': 'Control', 'control': 'Control',
+            'alt': 'Alt', 'shift': 'Shift',
+            'win': 'Super', 'super': 'Super', 'command': 'Command', 'cmd': 'Command',
+        }
+        parts = [p.strip().lower() for p in combo.split('+') if p.strip()]
+        modifiers, keys = [], []
+        for part in parts:
+            if part in modifier_map:
+                modifiers.append(modifier_map[part])
+            else:
+                keys.append(part)
+        if len(keys) != 1 or len(keys[0]) != 1:
+            return None
+        return "<" + "-".join(modifiers + [keys[0]]) + ">"
 
     def get_api_key(self):
         """Get the OpenAI API key, prompting if not found."""
@@ -468,7 +646,8 @@ class QuickWhisper(tk.Tk):
             if api_key:
                 self.save_api_key(api_key)
             else:
-                messagebox.showwarning("API Key Missing", "OpenAI API key is required to continue.")
+                messagebox.showwarning(_("API Key Missing"),
+                                       _("OpenAI API key is required to continue."))
                 self.destroy()  # Exit if no key is provided
         return api_key
     
@@ -478,7 +657,12 @@ class QuickWhisper(tk.Tk):
         if new_key:
             self.save_api_key(new_key)
             self.api_key = new_key
-            messagebox.showinfo("API Key Updated", "The OpenAI API Key has been updated successfully.")
+            # Rebuild the client so the new key takes effect immediately
+            # instead of only after a restart.
+            openai.api_key = new_key
+            self.client = OpenAI(api_key=new_key)
+            messagebox.showinfo(_("API Key Updated"),
+                                _("The OpenAI API Key has been updated successfully."))
 
 
     def openai_key_dialog(self):
@@ -491,7 +675,7 @@ class QuickWhisper(tk.Tk):
         THEME_ACCENT_HOVER = "#67e8f9"
 
         dialog = tk.Toplevel(self)
-        dialog.title("Enter New OpenAI API Key")
+        dialog.title(_("Enter New OpenAI API Key"))
 
         # Get window dimensions from theme
         dialog_width, dialog_height = get_window_size('api_key_dialog')
@@ -519,7 +703,7 @@ class QuickWhisper(tk.Tk):
         # Label for instructions
         instruction_label = ttk.Label(
             content_frame,
-            text="Please enter your new OpenAI API Key below:",
+            text=_("Please enter your new OpenAI API Key below:"),
             font=font_xs
         )
         instruction_label.pack(pady=(5, 12))
@@ -535,7 +719,7 @@ class QuickWhisper(tk.Tk):
         bg_color = "#1c1c1c" if self.dark_mode.get() else "#fafafa"
         link_label = tk.Label(
             content_frame,
-            text="How to obtain an OpenAI API key",
+            text=_("How to obtain an OpenAI API key"),
             fg=THEME_ACCENT,
             bg=bg_color,
             cursor="hand2",
@@ -546,17 +730,74 @@ class QuickWhisper(tk.Tk):
         link_label.bind("<Enter>", lambda e: link_label.config(fg=THEME_ACCENT_HOVER))
         link_label.bind("<Leave>", lambda e: link_label.config(fg=THEME_ACCENT))
 
+        # Status line used while the key is being checked against the API.
+        status_label = ttk.Label(content_frame, text="", font=font_xs)
+        status_label.pack(pady=(0, 8))
+
         # Variable to store the API key input
         entered_key = None
 
+        def finish(key):
+            """Accept the key and close the dialog."""
+            nonlocal entered_key
+            entered_key = key
+            if dialog.winfo_exists():
+                dialog.destroy()
+
+        def on_validation_result(key, ok, detail):
+            """Handle the outcome of the background validation (main thread)."""
+            if not dialog.winfo_exists():
+                return
+            status_label.configure(text="")
+            save_button.configure(state=tk.NORMAL)
+
+            if ok:
+                messagebox.showinfo(
+                    _("API Key Valid"),
+                    _("Your OpenAI API key was verified successfully."),
+                    parent=dialog)
+                finish(key)
+                return
+
+            # Let the user save anyway - they may be offline or behind a proxy.
+            if messagebox.askyesno(
+                _("Could Not Verify API Key"),
+                _("The API key could not be verified:\n\n{error}\n\n"
+                  "This can also happen when you are offline or behind a proxy.\n\n"
+                  "Save this key anyway?").format(error=detail),
+                parent=dialog
+            ):
+                finish(key)
+
         # Save action to capture API key input
         def save_and_close():
-            nonlocal entered_key  # Use nonlocal to modify the outer variable
-            entered_key = api_key_entry.get().strip()
-            if entered_key:
-                dialog.destroy()  # Close dialog after saving input
-            else:
-                messagebox.showwarning("Input Required", "Please enter a valid API key.")
+            key = api_key_entry.get().strip()
+            if not key:
+                messagebox.showwarning(_("Input Required"),
+                                       _("Please enter a valid API key."), parent=dialog)
+                return
+
+            # Cheap local sanity check first - an obviously wrong string should
+            # fail instantly rather than after a network round trip.
+            problem = self._api_key_format_problem(key)
+            if problem:
+                if messagebox.askyesno(
+                    _("Key Does Not Look Right"),
+                    _("{problem}\n\nSave it anyway?").format(problem=problem),
+                    parent=dialog
+                ):
+                    finish(key)
+                return
+
+            status_label.configure(text=_("Checking key with OpenAI..."))
+            save_button.configure(state=tk.DISABLED)
+
+            def worker():
+                ok, detail = self._validate_api_key(key)
+                # Back to the main thread for anything touching widgets.
+                self.after(0, lambda: on_validation_result(key, ok, detail))
+
+            threading.Thread(target=worker, daemon=True, name="api-key-check").start()
 
         # Buttons frame for horizontal layout
         buttons_frame = ttk.Frame(content_frame)
@@ -565,11 +806,11 @@ class QuickWhisper(tk.Tk):
         # Get button font from theme
         font_button = get_font('sm')
 
-        save_button = ttk.Button(buttons_frame, text="Save", command=save_and_close, width=12, cursor="hand2")
+        save_button = ttk.Button(buttons_frame, text=_("Save"), command=save_and_close, width=12, cursor="hand2")
         save_button.pack(side=tk.LEFT, padx=(0, 8))
         save_button.configure(style='Dialog.TButton')
 
-        cancel_button = ttk.Button(buttons_frame, text="Cancel", command=dialog.destroy, width=12, cursor="hand2")
+        cancel_button = ttk.Button(buttons_frame, text=_("Cancel"), command=dialog.destroy, width=12, cursor="hand2")
         cancel_button.pack(side=tk.LEFT)
         cancel_button.configure(style='Dialog.TButton')
 
@@ -613,7 +854,7 @@ class QuickWhisper(tk.Tk):
             self.bind_class("TEntry", "<Control-X>", lambda e: (e.widget.event_generate("<<Cut>>"), "break"))
             self.bind_class("TEntry", "<Button-3>", self._show_entry_context_menu)
         except Exception as e:
-            print(f"Error installing text bindings: {e}")
+            logger.error(f"Error installing text bindings: {e}")
 
     def _attach_entry_context_menu(self, entry_widget):
         try:
@@ -621,17 +862,17 @@ class QuickWhisper(tk.Tk):
             entry_widget.bind("<Control-a>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
             entry_widget.bind("<Control-A>", lambda e: (e.widget.selection_range(0, 'end'), "break"))
         except Exception as e:
-            print(f"Error attaching entry context menu: {e}")
+            logger.error(f"Error attaching entry context menu: {e}")
 
     def _show_text_context_menu(self, event):
         widget = event.widget
         menu = Menu(self, tearoff=0)
         try:
-            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
-            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
-            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_command(label=_("Cut"), command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label=_("Copy"), command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label=_("Paste"), command=lambda: widget.event_generate('<<Paste>>'))
             menu.add_separator()
-            menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end-1c"))
+            menu.add_command(label=_("Select All"), command=lambda: widget.tag_add("sel", "1.0", "end-1c"))
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
@@ -640,20 +881,59 @@ class QuickWhisper(tk.Tk):
         widget = event.widget
         menu = Menu(self, tearoff=0)
         try:
-            menu.add_command(label="Cut", command=lambda: widget.event_generate('<<Cut>>'))
-            menu.add_command(label="Copy", command=lambda: widget.event_generate('<<Copy>>'))
-            menu.add_command(label="Paste", command=lambda: widget.event_generate('<<Paste>>'))
+            menu.add_command(label=_("Cut"), command=lambda: widget.event_generate('<<Cut>>'))
+            menu.add_command(label=_("Copy"), command=lambda: widget.event_generate('<<Copy>>'))
+            menu.add_command(label=_("Paste"), command=lambda: widget.event_generate('<<Paste>>'))
             menu.add_separator()
-            menu.add_command(label="Select All", command=lambda: widget.selection_range(0, 'end'))
+            menu.add_command(label=_("Select All"), command=lambda: widget.selection_range(0, 'end'))
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
 
+    @staticmethod
+    def _api_key_format_problem(api_key):
+        """Return a human-readable problem with the key's shape, or None.
+
+        Purely local: catches the common paste mistakes (whitespace, a
+        truncated key, the wrong string entirely) without a network call.
+        """
+        if not api_key:
+            return _("The key is empty.")
+        if any(c.isspace() for c in api_key):
+            return _("The key contains spaces or line breaks, which OpenAI keys never do.")
+        if not api_key.startswith("sk-"):
+            return _("OpenAI API keys start with 'sk-'.")
+        if len(api_key) < 20:
+            return _("The key looks too short to be complete.")
+        return None
+
+    def _validate_api_key(self, api_key):
+        """Check a key against the API with one cheap call.
+
+        Runs on a background thread - it must not touch any widget.
+
+        Returns:
+            Tuple of (ok, detail) where detail describes the failure.
+        """
+        try:
+            client = OpenAI(api_key=api_key, timeout=15.0)
+            client.models.list()
+            logger.info("API key validated successfully")
+            return True, ""
+        except Exception as e:
+            logger.warning("API key validation failed: %s", e)
+            detail = str(e).strip() or e.__class__.__name__
+            # Keep the dialog readable - API errors can be very long.
+            if len(detail) > 300:
+                detail = detail[:300] + "..."
+            return False, detail
+
     def save_api_key(self, api_key):
         """Save the API key to credentials.json."""
         self.config_manager.openai_api_key = api_key
         self.config_manager.save_credentials()
+        logger.info("OpenAI API key saved")
 
     def create_menu(self):
         """Create application menus with translated labels."""
@@ -677,7 +957,11 @@ class QuickWhisper(tk.Tk):
         self.file_menu = StyledPopupMenu(self)
         self.file_menu.add_command(label=_("Save Session History"), command=self.save_session_history)
         self.file_menu.add_separator()
-        self.file_menu.add_command(label=_("Minimize to Tray"), command=self.minimize_to_tray)
+        # Only offer "Minimize to Tray" when there is actually a tray to
+        # minimise into (the popup menu has no disabled state, so the entry is
+        # left out rather than shown greyed).
+        if self._tray_is_available():
+            self.file_menu.add_command(label=_("Minimize to Tray"), command=self.minimize_to_tray)
         self.file_menu.add_command(label=_("Exit"), command=self.on_closing)
 
         # Settings menu - use styled popup menu for modern look
@@ -720,10 +1004,24 @@ class QuickWhisper(tk.Tk):
         )
         self.actions_menu.add_separator()
 
-        # Retry and copy actions group
+        # Retry and re-run actions group
         self.actions_menu.add_command(
             label=_("Retry Last Recording"),
-            command=self.retry_last_recording
+            command=self.retry_last_recording,
+            accelerator=self.shortcuts.get('retry_last', '')
+        )
+        self.actions_menu.add_command(
+            label=_("Retry Last Recording as Transcript"),
+            command=lambda: self.retry_last_recording("transcribe")
+        )
+        self.actions_menu.add_command(
+            label=_("Retry Last Recording as AI Edit"),
+            command=lambda: self.retry_last_recording("edit")
+        )
+        self.actions_menu.add_separator()
+        self.actions_menu.add_command(
+            label=_("Re-run AI Edit on Current Text"),
+            command=self.rerun_ai_edit
         )
         self.actions_menu.add_separator()
 
@@ -758,6 +1056,8 @@ class QuickWhisper(tk.Tk):
         self.help_menu.add_command(label=_("Check for Updates"), command=lambda: self.version_manager.check_for_updates(True))
         self.help_menu.add_command(label=_("Hide Banner") if self.banner_visible else _("Show Banner"), command=self.toggle_banner)
         self.help_menu.add_command(label=_("Terms of Use and Licence"), command=self.show_terms_of_use)
+        self.help_menu.add_separator()
+        self.help_menu.add_command(label=_("Open Log Folder"), command=self.open_log_folder)
 
     def check_keyboard_shortcuts(self):
         """Test keyboard shortcuts and show status."""
@@ -768,18 +1068,24 @@ class QuickWhisper(tk.Tk):
             # Set globally so the app knows when recording stops whether 
             # transcript or edit mode was selected
             self.current_button_mode = mode
-            print(f"\nAbout to start recording. mode = {mode}")
-            
-            # Quick verification of hotkey state before recording
-            # This helps ensure we can actually stop the recording with hotkeys
-            if not self.hotkey_manager.verify_hotkeys():
-                print("WARNING: Hotkeys not functioning correctly. Refreshing before recording...")
-                self.hotkey_manager.force_hotkey_refresh(callback=lambda success: 
-                                                        self.start_recording() if success else None)
-            else:
-                self.start_recording()
+            logger.info("About to start recording. mode = %s", mode)
+
+            # Recording must NEVER be gated on the state of the global hotkeys.
+            # Wayland, X11-less Linux, macOS without Accessibility permission
+            # and a failed Windows hook all leave the hotkeys unregistered -
+            # and a user clicking the button in the window has already said
+            # what they want. Repair the hotkeys opportunistically in the
+            # background instead (fire and forget).
+            try:
+                if not self.hotkey_manager.verify_hotkeys():
+                    logger.warning("Hotkeys not functioning correctly; refreshing in the background")
+                    self.hotkey_manager.force_hotkey_refresh()
+            except Exception as e:
+                logger.warning("Hotkey health check failed: %s", e)
+
+            self.start_recording()
         else:
-            print(f"About to stop recording. mode = {self.current_button_mode}")
+            logger.info("About to stop recording. mode = %s", self.current_button_mode)
             self.stop_recording()
 
     def start_recording(self):
@@ -791,104 +1097,244 @@ class QuickWhisper(tk.Tk):
         """Stop recording and process audio."""
         audio_file = self.audio_manager.stop_recording()
         if audio_file:
-            # Start transcription in a separate thread
-            threading.Thread(target=self.transcribe_audio).start()
+            # Start transcription in a separate thread (daemon so a hung
+            # request can never keep the application alive after close)
+            threading.Thread(target=self.transcribe_audio, daemon=True,
+                             name="transcribe").start()
             
     def cancel_recording(self):
         """Cancel the current recording without processing."""
         self.audio_manager.cancel_recording()
         self.hotkey_manager.update_shortcut_displays()
     
-    def retry_last_recording(self):
-        """Retry processing the last recording."""
-        self.audio_manager.retry_last_recording()
+    def retry_last_recording(self, mode=None):
+        """Retry processing the last recording.
+
+        Args:
+            mode: "edit", "transcribe", or None to reuse whichever mode the
+                  recording was originally made with.
+        """
+        logger.info("Retry last recording requested (mode=%s)", mode or "last used")
+        try:
+            return self.audio_manager.retry_last_recording(mode)
+        except TypeError:
+            # Older AudioManager without mode support - still honour the request
+            # by setting the mode ourselves before retrying.
+            if mode in ("edit", "transcribe"):
+                self.current_button_mode = mode
+            return self.audio_manager.retry_last_recording()
+
+    def rerun_ai_edit(self):
+        """Re-run the AI edit over the text currently in the transcript box.
+
+        Lets the user apply a different prompt to something they have already
+        dictated without having to dictate it again.
+        """
+        if self._rerun_in_progress:
+            logger.info("Re-run AI edit ignored - one is already running")
+            messagebox.showinfo(_("Already Running"),
+                                _("An AI edit is already in progress. Please wait for it to finish."))
+            return
+
+        try:
+            source_text = self.ui_manager.transcription_text.get("1.0", "end-1c").strip()
+        except Exception as e:
+            logger.error("Could not read the transcript box: %s", e, exc_info=True)
+            return
+
+        if not source_text:
+            messagebox.showinfo(_("Nothing to Edit"),
+                                _("There is no text to re-run the AI edit on."))
+            return
+
+        self._rerun_in_progress = True
+        self._set_status(_("Processing - AI Editing..."), "green")
+        logger.info("Re-running AI edit on %d characters using prompt '%s'",
+                    len(source_text), getattr(self, 'current_prompt_name', 'Default'))
+
+        threading.Thread(target=self._rerun_ai_edit_worker, args=(source_text,),
+                         daemon=True, name="rerun-ai-edit").start()
+
+    def _rerun_ai_edit_worker(self, source_text):
+        """Background half of :meth:`rerun_ai_edit`."""
+        try:
+            edited_text = self.process_with_gpt_model(source_text)
+            if edited_text is None:
+                # process_with_gpt_model has already told the user what failed.
+                self._ui_status(_("AI edit failed"), "red")
+                return
+
+            edited_text = edited_text.rstrip()
+            if not edited_text:
+                logger.warning("AI edit returned empty text; leaving the original in place")
+                self._ui_status(_("AI edit returned no text"), "red")
+                return
+
+            self.last_edit = edited_text
+            self.after(0, lambda: self.add_to_history(edited_text))
+
+            # Same auto-copy/auto-paste behaviour as a normal recording.
+            if self.auto_copy.get():
+                self.auto_copy_text(edited_text)
+            if self.auto_paste.get():
+                self.auto_paste_text(edited_text)
+
+            self._ui_status(_("Idle"), "blue")
+            logger.info("Re-run AI edit complete (%d characters)", len(edited_text))
+        except Exception as e:
+            logger.error("Re-run AI edit failed: %s", e, exc_info=True)
+            self._ui_status(_("AI edit failed"), "red")
+            self._show_error_async(_("AI Edit Error"),
+                                   _("An error occurred while re-running the AI edit: {error}").format(error=e))
+        finally:
+            self._rerun_in_progress = False
+
+    def _set_status(self, message, color="blue", pulsing=False):
+        """Set the status text on the main thread.
+
+        ``pulsing`` is passed explicitly so the status dot never has to be
+        decided by matching on (translated) message text.
+        """
+        try:
+            self.ui_manager.set_status(message, color, pulsing=pulsing)
+        except TypeError:
+            # UIManager without the explicit pulsing argument.
+            self.ui_manager.set_status(message, color)
+        except Exception as e:
+            logger.debug("Could not set status '%s': %s", message, e)
+
+    def _ui_status(self, message, color="blue", pulsing=False):
+        """Set the status text from any thread."""
+        try:
+            self.after(0, lambda: self._set_status(message, color, pulsing))
+        except Exception as e:
+            logger.debug("Could not set status '%s': %s", message, e)
+
+    def _show_error_async(self, title, message):
+        """Show an error dialog from any thread without blocking the caller."""
+        try:
+            self.after(0, lambda: messagebox.showerror(title, message))
+        except Exception:
+            logger.error("%s: %s", title, message)
+
+    def _play_sound_async(self, sound_file):
+        """Queue a sound without blocking, tolerating a shut-down sound pool."""
+        try:
+            player = getattr(self.audio_manager, '_play_async', None)
+            if callable(player):
+                player(sound_file)
+            else:
+                self.audio_manager._sound_pool.submit(self.play_sound, sound_file)
+        except Exception as e:
+            logger.debug("Could not play %s: %s", sound_file, e)
+
+    @staticmethod
+    def _extract_transcription_text(transcription):
+        """Pull the text out of whatever shape the transcription API returned.
+
+        ``response_format="text"`` yields a plain string, ``verbose_json`` a
+        model object (older SDKs returned a dict), so all three are handled.
+        """
+        if transcription is None:
+            return ""
+        if isinstance(transcription, str):
+            return transcription
+        if isinstance(transcription, dict):
+            return transcription.get("text", "") or ""
+        text = getattr(transcription, "text", None)
+        if text:
+            return text
+        # Last resort for SDK objects that only expose a dict dump.
+        for dumper in ("model_dump", "to_dict"):
+            fn = getattr(transcription, dumper, None)
+            if callable(fn):
+                try:
+                    return fn().get("text", "") or ""
+                except Exception:
+                    pass
+        return str(transcription)
 
     def transcribe_audio(self):
         file_path = self.audio_manager.audio_file
+        succeeded = False
 
         try:
-            self.ui_manager.set_status("Processing - Transcript...", "green")
+            self._ui_status(_("Processing - Transcript..."), "green")
+
+            if not self.transcription_model or not self.transcription_model.strip():
+                self._show_error_async(
+                    _("Configuration Error"),
+                    _("Transcription model name is empty. Please check your settings.")
+                )
+                raise ValueError("Empty transcription model name")
+
+            if not file_path or not os.path.exists(str(file_path)):
+                self._show_error_async(
+                    _("Transcription Error"),
+                    _("The recording could not be found. Please try recording again.")
+                )
+                raise FileNotFoundError(f"Recording not found: {file_path}")
 
             with open(str(file_path), "rb") as audio_file:
 
-                print(f"Transcription Mode: '{self.transcription_model}' | Type: '{self.transcription_model_type}'")
-                
-                # Different API call based on model type
-                if not self.transcription_model or not self.transcription_model.strip():
-                    messagebox.showerror("Configuration Error", 
-                                        "Transcription model name is empty. Please check your settings.")
-                    raise ValueError("Empty transcription model name")
-                
+                logger.info("Transcription mode: '%s' | type: '%s'",
+                            self.transcription_model, self.transcription_model_type)
+
                 if self.transcription_model_type == "gpt":
-                    # GPT-4o speech-to-text API
-                    print(f"Using GPT API with model: {self.transcription_model}")
-                    try:
-                        transcription = self.client.audio.transcriptions.create(
-                            file=audio_file,
-                            model=self.transcription_model,
-                            language=None if self.whisper_language == "auto" else self.whisper_language,
-                            response_format="text"
-                        )
-                        transcription_text = transcription
-                    except Exception as e:
-                        print(f"Error with GPT transcription: {e}")
-                        raise
+                    # GPT speech-to-text API (returns plain text)
+                    response_format = "text"
                 else:
                     # Traditional Whisper API
-                    print(f"Using Whisper API with model: {self.transcription_model}")
-                    try:
-                        transcription = self.client.audio.transcriptions.create(
-                            file=audio_file,
-                            model=self.transcription_model,
-                            language=None if self.whisper_language == "auto" else self.whisper_language,
-                            response_format="verbose_json"
-                        )
-                        # Retrieve the transcription text correctly
-                        transcription_text = transcription.get("text", "") if isinstance(transcription, dict) else transcription.text
-                    except Exception as e:
-                        print(f"Error with Whisper transcription: {e}")
-                        raise
+                    response_format = "verbose_json"
+
+                try:
+                    transcription = self.client.audio.transcriptions.create(
+                        file=audio_file,
+                        model=self.transcription_model,
+                        language=None if self.whisper_language == "auto" else self.whisper_language,
+                        response_format=response_format
+                    )
+                except Exception as e:
+                    logger.error("Error calling the transcription API (%s): %s",
+                                 self.transcription_model, e, exc_info=True)
+                    raise
+
+                transcription_text = self._extract_transcription_text(transcription)
 
             # Remove any trailing newlines/spaces to avoid moving the caret to a new line on paste
             transcription_text = (transcription_text or "").rstrip()
 
-            self.add_to_history(transcription_text)
+            if not transcription_text:
+                logger.warning("Transcription returned no text")
+                self._ui_status(_("No speech detected"), "red")
+                self._show_error_async(
+                    _("Nothing Transcribed"),
+                    _("No speech was detected in that recording.")
+                )
+                return
+
             self.last_transcription = transcription_text
+            # add_to_history touches widgets, so it must run on the main thread.
+            self.after(0, lambda t=transcription_text: self.add_to_history(t))
 
             # Process transcription with or without GPT as per the checkbox setting
             if self.current_button_mode == "edit":
-                print("AI Editing Transcription")
+                logger.info("AI editing transcription")
+                self._ui_status(_("Processing - AI Editing..."), "green")
 
-                # Helper to update UI safely from this thread
-                def update_transcription_ui(text):
-                    self.ui_manager.transcription_text.delete("1.0", tk.END)
-                    self.ui_manager.transcription_text.insert("1.0", text)
-
-                # set input box to transcription text first, just incase there is a failure
-                # Schedule UI update on main thread (Tkinter is not thread-safe)
-                self.after(0, lambda: update_transcription_ui(transcription_text))
-
-                # Then GPT edit that transcribed text and insert
-                self.ui_manager.set_status("Processing - AI Editing...", "green")
-
-                # AI Edit the transcript
                 edited_text = self.process_with_gpt_model(transcription_text)
-                edited_text = (edited_text or "").rstrip()
-                self.add_to_history(edited_text)
-                self.last_edit = edited_text
-                play_text = edited_text
-
-                # Schedule UI update on main thread (Tkinter is not thread-safe)
-                self.after(0, lambda: update_transcription_ui(play_text))
+                if edited_text is None or not edited_text.strip():
+                    # The edit failed (the user has already been told why) - keep
+                    # the raw transcript rather than pasting nothing.
+                    logger.warning("AI edit produced no text; falling back to the raw transcript")
+                    play_text = transcription_text
+                else:
+                    play_text = edited_text.rstrip()
+                    self.last_edit = play_text
+                    self.after(0, lambda t=play_text: self.add_to_history(t))
             else:
-                print("Outputting Raw Transcription Only")
-                # Schedule UI update on main thread (Tkinter is not thread-safe)
-                def update_transcription_ui(text):
-                    self.ui_manager.transcription_text.delete("1.0", tk.END)
-                    self.ui_manager.transcription_text.insert("1.0", text)
-                self.after(0, lambda: update_transcription_ui(transcription_text))
+                logger.info("Outputting raw transcription only")
                 play_text = transcription_text
-
 
             if self.auto_copy.get():
                 self.auto_copy_text(play_text)
@@ -896,31 +1342,36 @@ class QuickWhisper(tk.Tk):
             if self.auto_paste.get():
                 self.auto_paste_text(play_text)
 
-            print("Transcription Complete: The audio has been transcribed and the text has been placed in the input area.")
-            # Play stop recording sound
-            self.audio_manager._sound_pool.submit(self.play_sound, "assets/double-pop-down.wav")
+            logger.info("Transcription complete (%d characters)", len(play_text))
+            succeeded = True
+            self._play_sound_async("assets/double-pop-down.wav")
 
         except Exception as e:
             # Play failure sound
-            self.audio_manager._sound_pool.submit(self.play_sound, "assets/wrong-short.wav")
+            self._play_sound_async("assets/wrong-short.wav")
 
-            print(f"Transcription error: An error occurred during transcription: {str(e)}")
-            self.ui_manager.set_status("Error during transcription", "red")
+            logger.error("An error occurred during transcription: %s", e, exc_info=True)
+            self._ui_status(_("Error during transcription"), "red")
 
             # Provide a clearer hint for known unsupported/renamed models
-            err_text = str(e)
             known_models = ("gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1")
             if (self.transcription_model or "").strip() not in known_models:
-                messagebox.showerror(
-                    "Transcription Error",
-                    "The selected transcription model may be unsupported. Try 'gpt-transcribe' or 'whisper-1'.\n\n"
-                    "If you entered a custom model, please verify the exact model name supported by the API."
+                self._show_error_async(
+                    _("Transcription Error"),
+                    _("The selected transcription model may be unsupported. Try 'gpt-transcribe' or 'whisper-1'.\n\n"
+                      "If you entered a custom model, please verify the exact model name supported by the API.")
                 )
             else:
-                messagebox.showerror("Transcription Error", f"An error occurred while Transcribing: {e}")
+                self._show_error_async(
+                    _("Transcription Error"),
+                    _("An error occurred while transcribing: {error}").format(error=e)
+                )
 
         finally:
-            self.ui_manager.set_status("Idle", "blue")
+            # Only reset to Idle when things went well - otherwise the error
+            # status the user needs to see would be wiped out immediately.
+            if succeeded:
+                self._ui_status(_("Idle"), "blue")
 
     def copy_last_transcription(self):
         try:
@@ -928,7 +1379,9 @@ class QuickWhisper(tk.Tk):
             pyperclip.copy(self.last_transcription)
 
         except Exception as e:
-            messagebox.showerror("Auto-Copy Error", f"Failed to copy the transcription to clipboard: {e}")
+            logger.error("Failed to copy the transcription to clipboard: %s", e, exc_info=True)
+            messagebox.showerror(_("Auto-Copy Error"),
+                                 _("Failed to copy the transcription to clipboard: {error}").format(error=e))
     
     def copy_last_edit(self):
         try:
@@ -936,7 +1389,9 @@ class QuickWhisper(tk.Tk):
             pyperclip.copy(self.last_edit)
 
         except Exception as e:
-            messagebox.showerror("Auto-Copy Error", f"Failed to copy the last edit to clipboard: {e}")
+            logger.error("Failed to copy the last edit to clipboard: %s", e, exc_info=True)
+            messagebox.showerror(_("Auto-Copy Error"),
+                                 _("Failed to copy the last edit to clipboard: {error}").format(error=e))
         
     def auto_copy_text(self, text):
         try:
@@ -944,7 +1399,9 @@ class QuickWhisper(tk.Tk):
             pyperclip.copy(text)
 
         except Exception as e:
-            messagebox.showerror("Auto-Copy Error", f"Failed to auto-copy the transcription: {e}")
+            logger.error("Failed to auto-copy the transcription: %s", e, exc_info=True)
+            self._show_error_async(_("Auto-Copy Error"),
+                                   _("Failed to auto-copy the transcription: {error}").format(error=e))
 
     def auto_paste_text(self, text):
         """Auto-paste text using the configured paste method."""
@@ -979,8 +1436,9 @@ class QuickWhisper(tk.Tk):
             # Small delay after to ensure paste completes before any other operations
             time.sleep(0.05)
         except Exception as e:
-            print(f"Auto-paste error: {e}")
-            messagebox.showerror("Auto-Paste Error", f"Failed to auto-paste the transcription: {e}")
+            logger.error("Auto-paste error: %s", e, exc_info=True)
+            self._show_error_async(_("Auto-Paste Error"),
+                                   _("Failed to auto-paste the transcription: {error}").format(error=e))
 
     def _paste_sendinput(self):
         """Paste using Windows SendInput API - most reliable on Windows."""
@@ -1125,7 +1583,7 @@ class QuickWhisper(tk.Tk):
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
 
 
-            print(f"About to process with AI Model {self.ai_model}")
+            logger.info(f"About to process with AI Model {self.ai_model}")
 
             if "gpt-5" in self.ai_model:
                 # GPT-5.6 (Sol/Terra/Luna) dropped the "minimal" effort level in favour of
@@ -1159,53 +1617,63 @@ class QuickWhisper(tk.Tk):
 
         except Exception as e:
             # Play failure sound
-            self.audio_manager._sound_pool.submit(self.play_sound, "assets/wrong-short.wav")
-            messagebox.showerror("GPT Processing Error", f"An error occurred while processing with GPT: {e}")
+            self._play_sound_async("assets/wrong-short.wav")
+            logger.error("An error occurred while processing with the AI model: %s", e, exc_info=True)
+            self._show_error_async(
+                _("AI Processing Error"),
+                _("An error occurred while processing with the AI model: {error}").format(error=e))
             return None
         
 
     def resource_path(self, relative_path):
-        """Get the absolute path to the resource, works for both development and PyInstaller environments."""
-        try:
-            base_path = sys._MEIPASS
-        except AttributeError:
-            base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+        """Absolute path to a bundled resource.
 
+        Delegates to utils.paths.resource_path (which handles the PyInstaller
+        _MEIPASS case) so resources no longer depend on the working directory.
+        """
         # Handle icon files differently for Mac
         if self.is_mac and relative_path.endswith('.ico'):
             # Use .png version instead of .ico for Mac
             relative_path = relative_path.replace('.ico', '.png')
 
-        abs_path = os.path.join(base_path, relative_path)
-        return abs_path
+        return str(_resource_path(relative_path))
 
     def on_closing(self):
         """Clean up resources before closing."""
+        logger.info("Shutting down")
+
         # Unregister the language change callback first to prevent errors during cleanup
         try:
             unregister_refresh_callback(self._on_language_change)
-        except:
-            pass
-        
-        # Save window position for next launch
+        except Exception as e:
+            logger.debug("Could not unregister language callback: %s", e)
+
+        # Save window position and history for next launch
         self._save_window_position()
+        try:
+            self.save_history()
+        except Exception as e:
+            logger.warning("Could not save history on close: %s", e)
 
-        # Stop the system tray icon
-        if hasattr(self, 'tray_manager'):
-            self.tray_manager.stop_tray()
-
-        # Stop the system event listener
-        if hasattr(self, 'system_event_listener'):
-            self.system_event_listener.stop_listening()
-
-        # Clean up TTS
-        self.tts_manager.cleanup()
-
-        # Clean up hotkeys
-        self.hotkey_manager.unregister_hotkeys()
-
-        # Clean up audio
-        self.audio_manager.cleanup()
+        # Each manager is cleaned up independently: one that failed to
+        # initialise (or to shut down) must not stop the others being closed.
+        cleanup_steps = (
+            ("tray_manager", "stop_tray"),
+            ("system_event_listener", "stop_listening"),
+            ("tts_manager", "cleanup"),
+            ("hotkey_manager", "unregister_hotkeys"),
+            ("audio_manager", "cleanup"),
+        )
+        for attr, method in cleanup_steps:
+            manager = getattr(self, attr, None)
+            fn = getattr(manager, method, None) if manager is not None else None
+            if not callable(fn):
+                logger.debug("Skipping %s.%s - not available", attr, method)
+                continue
+            try:
+                fn()
+            except Exception as e:
+                logger.warning("Error during %s.%s: %s", attr, method, e)
 
         self.destroy()
 
@@ -1237,14 +1705,16 @@ class QuickWhisper(tk.Tk):
                     saved_x < virtual_left + virtual_width - min_visible and
                     saved_y > virtual_top - window_height + min_visible and
                     saved_y < virtual_top + virtual_height - min_visible):
-                    print(f"Restoring window position to ({saved_x}, {saved_y})")
+                    logger.info(f"Restoring window position to ({saved_x}, {saved_y})")
                     return saved_x, saved_y
                 else:
-                    print(f"Saved window position ({saved_x}, {saved_y}) is off virtual screen "
-                          f"(bounds: {virtual_left},{virtual_top} to {virtual_left + virtual_width},{virtual_top + virtual_height}), "
-                          f"using default")
+                    logger.info(
+                        "Saved window position (%s, %s) is off virtual screen "
+                        "(bounds: %s,%s to %s,%s), using default",
+                        saved_x, saved_y, virtual_left, virtual_top,
+                        virtual_left + virtual_width, virtual_top + virtual_height)
         except Exception as e:
-            print(f"Error loading saved window position: {e}")
+            logger.error(f"Error loading saved window position: {e}")
 
         # Fall back to centering - but on multi-monitor setups, try to stay on the left/primary monitor
         # If screen is very wide (suggesting multi-monitor), center on left half
@@ -1304,13 +1774,13 @@ class QuickWhisper(tk.Tk):
                     vroot_height = self.winfo_vrootheight()
                     if vroot_width > 0 and vroot_height > 0:
                         return 0, 0, vroot_width, vroot_height
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not read virtual root dimensions: %s", e)
                 # Fallback to standard screen dimensions
                 return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
                 
         except Exception as e:
-            print(f"Error getting virtual screen bounds: {e}")
+            logger.error(f"Error getting virtual screen bounds: {e}")
             # Fallback to basic screen dimensions
             return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
 
@@ -1328,7 +1798,7 @@ class QuickWhisper(tk.Tk):
                     self.config_manager.window_y = y
                     self.config_manager.save_settings()
         except Exception as e:
-            print(f"Error saving window position: {e}")
+            logger.error(f"Error saving window position: {e}")
 
     def play_sound(self, sound_file):
         """Play sound using audio manager."""
@@ -1337,7 +1807,7 @@ class QuickWhisper(tk.Tk):
     def show_terms_of_use(self):
         # Create a new window to display the terms of use
         instruction_window = tk.Toplevel(self)
-        instruction_window.title("Terms of Use")
+        instruction_window.title(_("Terms of Use"))
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('about_dialog')
@@ -1353,13 +1823,16 @@ class QuickWhisper(tk.Tk):
             with open(license_path, "r", encoding="utf-8") as file:
                 license_content = file.read()
         except FileNotFoundError:
-            license_content = "License file not found. Please ensure the LICENSE.md file exists in the application directory."
+            logger.warning("License file not found at %s", license_path)
+            license_content = _("License file not found. Please ensure the LICENSE.md file exists in the application directory.")
         except PermissionError:
-            license_content = "Permission denied. Please ensure the script has read access to LICENSE.md."
+            logger.warning("Permission denied reading %s", license_path)
+            license_content = _("Permission denied. Please ensure the script has read access to LICENSE.md.")
         except UnicodeDecodeError as e:
-            license_content = f"Error reading license file due to encoding issue: {e}"
+            license_content = _("Error reading license file due to encoding issue: {error}").format(error=e)
         except Exception as e:
-            license_content = f"An unexpected error occurred while reading the license file: {e}"
+            logger.error("Error reading license file %s: %s", license_path, e, exc_info=True)
+            license_content = _("An unexpected error occurred while reading the license file: {error}").format(error=e)
 
         # Create a frame to contain the text widget and scrollbar
         frame = ttk.Frame(instruction_window)
@@ -1379,11 +1852,11 @@ class QuickWhisper(tk.Tk):
         text_widget.config(yscrollcommand=scrollbar.set)
 
         # Add a button to close the window
-        ttk.Button(instruction_window, text="Close", command=instruction_window.destroy).pack(pady=(10, 0))
+        ttk.Button(instruction_window, text=_("Close"), command=instruction_window.destroy).pack(pady=(10, 0))
 
     def show_version(self):
         instruction_window = tk.Toplevel(self)
-        instruction_window.title("App Version")
+        instruction_window.title(_("App Version"))
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('tos_dialog')
@@ -1391,12 +1864,12 @@ class QuickWhisper(tk.Tk):
         position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
         instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
         
-        instructions = f"""Version {self.version}\n\n App by Scorchsoft.com"""
+        instructions = _("Version {version}").format(version=self.version) + "\n\n" + _("App by Scorchsoft.com")
         
         tk.Label(instruction_window, text=instructions, justify=tk.LEFT, wraplength=280).pack(padx=10, pady=10)
         
         # Add a button to close the window
-        ttk.Button(instruction_window, text="Close", command=instruction_window.destroy).pack(pady=(10, 0))
+        ttk.Button(instruction_window, text=_("Close"), command=instruction_window.destroy).pack(pady=(10, 0))
 
     def show_about(self):
         """Show the About Quick Whisper dialog with information about the app."""
@@ -1428,7 +1901,7 @@ class QuickWhisper(tk.Tk):
             text_muted = "#777777"
         
         dialog = tk.Toplevel(self)
-        dialog.title("About Quick Whisper")
+        dialog.title(_("About Quick Whisper"))
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('about_dialog')
@@ -1469,7 +1942,7 @@ class QuickWhisper(tk.Tk):
         # Title
         title_label = tk.Label(
             content,
-            text="Quick Whisper",
+            text=_("Quick Whisper"),
             font=get_font('xl', 'bold'),
             fg=text_primary,
             bg=bg_primary
@@ -1479,7 +1952,7 @@ class QuickWhisper(tk.Tk):
         # Subtitle/tagline
         tagline_label = tk.Label(
             content,
-            text="AI-Powered Speech-to-Copy-Edited-Text",
+            text=_("AI-Powered Speech-to-Copy-Edited-Text"),
             font=get_font('md'),
             fg=theme.ACCENT_PRIMARY,
             bg=bg_primary
@@ -1489,7 +1962,7 @@ class QuickWhisper(tk.Tk):
         # Version
         version_label = tk.Label(
             content,
-            text=f"Version {self.version}",
+            text=_("Version {version}").format(version=self.version),
             font=get_font('xs'),
             fg=text_muted,
             bg=bg_primary
@@ -1500,7 +1973,7 @@ class QuickWhisper(tk.Tk):
         desc_frame = tk.Frame(content, bg=bg_secondary, padx=16, pady=16)
         desc_frame.pack(fill=tk.X, pady=(0, 20))
         
-        description = (
+        description = _(
             "Quick Whisper is a free and open-source speech-to-copy-edited-text "
             "software tool that uses AI to convert spoken audio into a copy-edited "
             "transcript, automatically pasting it into your active application.\n\n"
@@ -1524,7 +1997,7 @@ class QuickWhisper(tk.Tk):
         # Features section
         features_label = tk.Label(
             content,
-            text="Key Features",
+            text=_("Key Features"),
             font=get_font('md', 'bold'),
             fg=text_primary,
             bg=bg_primary
@@ -1561,11 +2034,12 @@ class QuickWhisper(tk.Tk):
         usage_frame = tk.Frame(content, bg=bg_tertiary, padx=16, pady=12)
         usage_frame.pack(fill=tk.X, pady=(0, 16))
         
-        usage_text = (
-            "How to use: Press Ctrl+Alt+J to record and AI-edit, or Ctrl+Alt+Shift+J "
-            "for raw transcription. The app will automatically copy and paste "
-            "the result into your active application."
-        )
+        usage_text = _(
+            "How to use: Press {edit_shortcut} to record and AI-edit, or "
+            "{transcribe_shortcut} for raw transcription. The app will automatically "
+            "copy and paste the result into your active application."
+        ).format(edit_shortcut=self.shortcuts.get('record_edit', 'Ctrl+Alt+J'),
+                 transcribe_shortcut=self.shortcuts.get('record_transcribe', 'Ctrl+Alt+Shift+J'))
         
         usage_label = tk.Label(
             usage_frame,
@@ -1604,7 +2078,7 @@ class QuickWhisper(tk.Tk):
 
         learn_more_btn = ctk.CTkButton(
             button_frame,
-            text="Learn More on Our Website",
+            text=_("Learn More on Our Website"),
             corner_radius=corner_radius,
             height=button_height,
             width=320,
@@ -1620,7 +2094,7 @@ class QuickWhisper(tk.Tk):
         # Close button
         close_btn = ctk.CTkButton(
             button_frame,
-            text="Close",
+            text=_("Close"),
             corner_radius=corner_radius,
             height=button_height,
             width=140,
@@ -1638,7 +2112,7 @@ class QuickWhisper(tk.Tk):
         link_hover = theme.GRADIENT_HOVER_START if is_dark else theme.GRADIENT_HOVER_END
         credit_label = tk.Label(
             content,
-            text="Developed by Scorchsoft.com | App & AI Developers",
+            text=_("Developed by Scorchsoft.com | App & AI Developers"),
             font=get_font('xs', 'underline'),
             fg=link_color,
             bg=bg_primary,
@@ -1650,43 +2124,124 @@ class QuickWhisper(tk.Tk):
         credit_label.bind("<Leave>", lambda e: credit_label.config(fg=link_color))
 
     def add_to_history(self, text):
-        # Append new text to the end of the list
-        self.history.append(text)
+        """Append an entry to the history, trimming and persisting it."""
+        if text is None:
+            return
 
-        # Enforce max history length by removing the oldest element if necessary
-        if len(self.history) > self.max_history_length:
-            self.history.pop(0)  # Removes the oldest (first) item in the array
+        # Repeating the same text (e.g. a re-run that produced an identical
+        # edit) would just add a duplicate page to flick through.
+        if self.history and self.history[-1] == text:
+            self.history_index = len(self.history) - 1
+        else:
+            self.history.append(text)
 
-        # Update the index to the last entry (most recent)
-        self.history_index = len(self.history) - 1
+            # Enforce max history length by removing the oldest entries.
+            limit = max(1, int(self.max_history_length or 1))
+            if len(self.history) > limit:
+                del self.history[:len(self.history) - limit]
+
+            # Update the index to the last entry (most recent)
+            self.history_index = len(self.history) - 1
+
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
-        
+        self.save_history()
+
+    def _clamp_history_index(self):
+        """Keep the history index inside the bounds of the history list."""
+        if not self.history:
+            self.history_index = -1
+            return
+        self.history_index = max(0, min(self.history_index, len(self.history) - 1))
+
     def navigate_right(self):
         self.history_index -= 1
+        self._clamp_history_index()
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
 
     def navigate_left(self):
         self.history_index += 1
+        self._clamp_history_index()
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
 
     def go_to_first_page(self):
         self.history_index = len(self.history) - 1  # Set to most recent
+        self._clamp_history_index()
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
+
+    def load_history(self):
+        """Restore the transcription history saved by a previous session.
+
+        A corrupt or unreadable file must never stop the app starting, so any
+        problem simply results in an empty history.
+        """
+        self.history = []
+        self.history_index = -1
+
+        if not self.persist_history:
+            logger.info("History persistence disabled; starting with an empty history")
+            return
+
+        path = self._history_path
+        if not path.exists():
+            logger.info("No saved history at %s", path)
+            return
+
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            logger.warning("Could not read history file %s (%s); starting empty", path, e)
+            return
+
+        # Accept both the plain list format and a wrapped {"entries": [...]}.
+        if isinstance(data, dict):
+            data = data.get("entries", [])
+        if not isinstance(data, list):
+            logger.warning("History file %s has an unexpected format; starting empty", path)
+            return
+
+        entries = [item for item in data if isinstance(item, str)]
+        limit = max(1, int(self.max_history_length or 1))
+        self.history = entries[-limit:]
+        self.history_index = len(self.history) - 1
+        logger.info("Restored %d history entries from %s", len(self.history), path)
+
+    def save_history(self):
+        """Persist the history, writing atomically so it can never be truncated."""
+        if not self.persist_history:
+            return
+
+        path = self._history_path
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, path)
+        except Exception as e:
+            logger.warning("Could not save history to %s: %s", path, e)
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
     
     def save_session_history(self):
         if not self.history:
-            messagebox.showinfo("No History", "There is no history to save.")
+            messagebox.showinfo(_("No History"), _("There is no history to save."))
             return
 
         # Open a file save dialog
         file_path = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON Files", "*.json")],
-            title="Save Session History"
+            title=_("Save Session History")
         )
 
         if not file_path:
@@ -1698,10 +2253,14 @@ class QuickWhisper(tk.Tk):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(self.history, f, indent=4, ensure_ascii=False)
 
-            messagebox.showinfo("Success", f"Session history saved successfully to {file_path}")
+            logger.info("Session history saved to %s", file_path)
+            messagebox.showinfo(_("Success"),
+                                _("Session history saved successfully to {path}").format(path=file_path))
         except Exception as e:
             # Handle errors during the save process
-            messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
+            logger.error("Error saving session history to %s: %s", file_path, e, exc_info=True)
+            messagebox.showerror(_("Save Error"),
+                                 _("An error occurred while saving: {error}").format(error=e))
 
     def update_model_label(self):
         """Update the model label to include the prompt name and language setting."""
@@ -1712,26 +2271,39 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.toggle_banner()
 
     def load_prompts(self):
-        """Load custom prompts from JSON file."""
-        prompts_file = Path("config") / "prompts.json"
+        """Load custom prompts from JSON file.
+
+        Resolved through utils.paths so the prompts are found regardless of the
+        directory the application was launched from.
+        """
+        prompts_file = get_prompts_path()
         if prompts_file.exists():
             try:
                 with open(prompts_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    loaded = json.load(f)
+                if not isinstance(loaded, dict):
+                    logger.warning("Prompts file %s is not a JSON object; ignoring", prompts_file)
+                    return {}
+                logger.info("Loaded %d custom prompt(s) from %s", len(loaded), prompts_file)
+                return loaded
             except Exception as e:
-                print(f"Error loading prompts: {e}")
+                logger.error("Error loading prompts from %s: %s", prompts_file, e, exc_info=True)
+        else:
+            logger.info("No custom prompts file at %s", prompts_file)
         return {}
 
     def save_prompts(self, prompts):
         """Save custom prompts to JSON file."""
-        prompts_file = Path("config") / "prompts.json"
+        prompts_file = get_prompts_path()
         try:
             # Ensure config directory exists
             prompts_file.parent.mkdir(parents=True, exist_ok=True)
             with open(prompts_file, 'w', encoding='utf-8') as f:
                 json.dump(prompts, f, indent=4)
+            logger.info("Saved %d prompt(s) to %s", len(prompts), prompts_file)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save prompts: {e}")
+            logger.error("Failed to save prompts to %s: %s", prompts_file, e, exc_info=True)
+            messagebox.showerror(_("Error"), _("Failed to save prompts: {error}").format(error=e))
 
     def save_prompt_to_config(self, prompt_name):
         """Save selected prompt to settings.json."""
@@ -1752,7 +2324,7 @@ class QuickWhisper(tk.Tk):
             with open(default_prompt_path, 'r', encoding='utf-8') as f:
                 self.default_system_prompt = f.read()
         except Exception as e:
-            print(f"Error loading default prompt: {e}")
+            logger.error(f"Error loading default prompt: {e}")
             # Fallback to a basic prompt if file can't be loaded
             self.default_system_prompt = "You are an expert Copy Editor. When provided with text, provide a cleaned-up copy-edited version of that text in response."
             
@@ -1768,7 +2340,7 @@ class QuickWhisper(tk.Tk):
         if not self.was_minimized:
             self.was_minimized = True
             self._minimize_timestamp = time.time()
-            print("Window minimized - hotkeys may become unresponsive")
+            logger.warning("Window minimized - hotkeys may become unresponsive")
 
     def _handle_restore(self, event):
         """Handle window restore from minimized state.
@@ -1779,7 +2351,7 @@ class QuickWhisper(tk.Tk):
         if self.was_minimized:
             self.was_minimized = False
             minimize_duration = time.time() - getattr(self, '_minimize_timestamp', time.time())
-            print(f"Window restored after {minimize_duration:.0f}s minimized - refreshing hotkeys")
+            logger.info(f"Window restored after {minimize_duration:.0f}s minimized - refreshing hotkeys")
             
             # Reset the activity timestamp on the hotkey manager
             # This prevents false "stale listener" detection right after restore
@@ -1905,12 +2477,12 @@ class QuickWhisper(tk.Tk):
                     self._hotkey_check_failures = 0
                 
                 if should_refresh:
-                    print(f"[REFRESH] Reason: {refresh_reason}")
+                    logger.info(f"[REFRESH] Reason: {refresh_reason}")
                     self.hotkey_manager.force_hotkey_refresh()
                     self._last_hotkey_refresh = time.time()
                     self._hotkey_check_failures = 0
             else:
-                print("Hotkey health check skipped - auto refresh disabled")
+                logger.warning("Hotkey health check skipped - auto refresh disabled")
                 
             # Schedule next check (always 5 seconds)
             self.after(self.hotkey_check_interval, check_hotkey_health)
@@ -1994,20 +2566,18 @@ class QuickWhisper(tk.Tk):
                 self._last_mem_mb = mem_mb
                 delta_str = f"  delta={delta:+.1f}MB" if delta != 0 else ""
 
-                print(f"\n{'='*60}")
-                print(f"[MEMORY DIAG] uptime={uptime_min:.1f}min  RSS={mem_mb:.1f}MB{delta_str}  "
-                      f"threads={threads}")
-                print(f"[MEMORY DIAG] gc_objects={gc_objects}  gc_counts={gc_counts}")
-                print(f"[MEMORY DIAG] audio: sounds={audio['sounds_played']}  "
-                      f"streams_opened={audio['streams_opened']}  "
-                      f"streams_closed={audio['streams_closed']}  "
-                      f"frames_peak={audio['frames_peak']}  "
-                      f"recordings={audio['recordings_started']}/{audio['recordings_stopped']}")
-                print(f"[MEMORY DIAG] threads: {thread_names}")
-                print(f"{'='*60}\n")
+                logger.debug("[MEMORY DIAG] uptime=%.1fmin  RSS=%.1fMB%s  threads=%s",
+                             uptime_min, mem_mb, delta_str, threads)
+                logger.debug("[MEMORY DIAG] gc_objects=%s  gc_counts=%s", gc_objects, gc_counts)
+                logger.debug("[MEMORY DIAG] audio: sounds=%s  streams_opened=%s  "
+                             "streams_closed=%s  frames_peak=%s  recordings=%s/%s",
+                             audio['sounds_played'], audio['streams_opened'],
+                             audio['streams_closed'], audio['frames_peak'],
+                             audio['recordings_started'], audio['recordings_stopped'])
+                logger.debug("[MEMORY DIAG] threads: %s", thread_names)
 
             except Exception as e:
-                print(f"[MEMORY DIAG] Error collecting diagnostics: {e}")
+                logger.error(f"[MEMORY DIAG] Error collecting diagnostics: {e}")
 
             # Schedule next run
             self.after(60000, _log_diagnostics)
@@ -2019,7 +2589,7 @@ class QuickWhisper(tk.Tk):
         """Save the auto hotkey refresh setting to settings.json."""
         self.config_manager.auto_hotkey_refresh = self.auto_hotkey_refresh.get()
         self.config_manager.save_settings()
-        print(f"Auto hotkey refresh setting saved: {self.auto_hotkey_refresh.get()}")
+        logger.info(f"Auto hotkey refresh setting saved: {self.auto_hotkey_refresh.get()}")
 
     def toggle_dark_mode(self):
         """Toggle between dark and light mode and save the setting."""
@@ -2027,7 +2597,7 @@ class QuickWhisper(tk.Tk):
         self.config_manager.dark_mode = is_dark
         self.config_manager.save_settings()
         self.ui_manager.apply_theme(is_dark)
-        print(f"Dark mode setting saved: {is_dark}")
+        logger.info(f"Dark mode setting saved: {is_dark}")
 
     def _on_language_change(self):
         """Handle runtime language change by rebuilding menus and refreshing UI."""
@@ -2064,7 +2634,7 @@ class QuickWhisper(tk.Tk):
         self.config_manager.language = lang_code
         self.config_manager.save_settings()
 
-        print(f"Language changed to: {lang_code}")
+        logger.info(f"Language changed to: {lang_code}")
 
     def restart_application(self):
         """Restart the application to apply settings that require a restart."""
@@ -2081,21 +2651,53 @@ class QuickWhisper(tk.Tk):
         subprocess.Popen([python, script])
 
     def setup_system_tray(self):
-        """Initialize and show the system tray icon"""
-        # Start the tray icon
+        """Initialize and show the system tray icon.
+
+        A missing tray (common on minimal Linux desktops) must not greet the
+        user with a modal before they have even seen the window: it is logged
+        and shown in the status line instead, and the close button falls back
+        to closing the application.
+        """
+        # Ask the manager whether a tray backend exists before trying to use
+        # one - show_tray() has side effects, so it is not a good predicate.
+        if not self._tray_is_available():
+            logger.warning("System tray unavailable on this system; "
+                           "closing the window will exit the application")
+            self.tray_available = False
+            self.protocol("WM_DELETE_WINDOW", self.on_closing)
+            self._set_status(_("System tray unavailable"), "orange")
+            # Leave the message up briefly, then return to the normal status.
+            self.after(6000, lambda: self._set_status(_("Idle"), "blue"))
+            return
+
         success = self.tray_manager.show_tray()
+        self.tray_available = bool(success)
 
         if not success:
-            # If we can't create a tray icon, don't change window closing behavior
-            messagebox.showwarning(
-                _("System Tray Unavailable"),
-                _("Could not create system tray icon. Closing the window will exit the application.")
-            )
-            # Use normal window closing behavior
+            # Backend exists but the icon could not be created - same
+            # non-blocking treatment.
+            logger.warning("Could not create the system tray icon; "
+                           "closing the window will exit the application")
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
+            self._set_status(_("System tray unavailable"), "orange")
+            self.after(6000, lambda: self._set_status(_("Idle"), "blue"))
         else:
             # Set up close button behavior based on user preference
             self.update_close_behavior()
+
+    def _tray_is_available(self):
+        """True when a system tray backend can be used on this machine."""
+        manager = getattr(self, 'tray_manager', None)
+        if manager is not None:
+            try:
+                return bool(manager.available)
+            except Exception as e:
+                logger.debug("Could not query tray availability: %s", e)
+        try:
+            return bool(tray_supported())
+        except Exception as e:
+            logger.debug("Could not determine tray support: %s", e)
+            return False
 
     def update_close_behavior(self):
         """Update window close behavior based on user preference"""
@@ -2116,25 +2718,25 @@ class QuickWhisper(tk.Tk):
         recording_location = self.config_manager.recording_location
         
         if recording_location == "appdata":
-            # Use OS-appropriate app data directory
-            if platform.system() == "Windows":
-                appdata_dir = Path(os.getenv("APPDATA", os.path.expanduser("~"))) / "QuickWhisper"
-            elif platform.system() == "Darwin":  # macOS
-                appdata_dir = Path.home() / "Library" / "Application Support" / "QuickWhisper"
-            else:  # Linux and other Unix-like systems
-                appdata_dir = Path.home() / ".config" / "QuickWhisper"
-            self.tmp_dir = appdata_dir
+            # Per-user data directory (utils.paths knows the OS conventions).
+            self.tmp_dir = get_user_data_dir()
         elif recording_location == "custom":
             custom_path = self.config_manager.custom_recording_path
             if custom_path and os.path.exists(custom_path):
                 self.tmp_dir = Path(custom_path)
             else:
                 # Fallback to alongside if custom path is invalid
-                print(f"Warning: Custom recording path '{custom_path}' does not exist. Falling back to 'alongside' option.")
-                self.tmp_dir = Path.cwd() / "tmp"
-        else:  # Default: alongside
-            self.tmp_dir = Path.cwd() / "tmp"
-        
+                logger.warning("Custom recording path '%s' does not exist. Falling back to 'alongside'.",
+                               custom_path)
+                self.tmp_dir = get_default_recording_dir()
+        else:  # Default: alongside the application (not the working directory)
+            self.tmp_dir = get_default_recording_dir()
+
         # Ensure the directory exists
-        self.tmp_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Recording directory set to: {self.tmp_dir}")
+        try:
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.error("Could not create recording directory %s: %s", self.tmp_dir, e, exc_info=True)
+            self.tmp_dir = get_default_recording_dir()
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Recording directory set to: %s", self.tmp_dir)

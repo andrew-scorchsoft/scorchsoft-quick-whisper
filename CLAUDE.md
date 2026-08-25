@@ -62,6 +62,8 @@ brew install portaudio
 | `TTSManager` | Text-to-speech for prompt name announcements |
 | `TrayManager` | System tray icon via `pystray` |
 | `VersionUpdateManager` | GitHub release checking |
+| `paths` | Central path resolution (config, prompts, logs, recordings) - anchored to the app, never the working directory |
+| `app_logging` | Rotating log file + console logging; `get_logger(__name__)` in every module |
 | `SystemEventListener` | Session lock/unlock detection for hotkey refresh |
 
 ### Platform-Specific Module (`utils/platform/`)
@@ -82,13 +84,15 @@ Factory functions: `get_hotkey_manager_class()`, `get_system_event_listener_clas
 **Windows/Linux:**
 - `Ctrl+Alt+J` - Record + AI Edit
 - `Ctrl+Alt+Shift+J` - Record + Transcribe only
-- `Win+X` - Cancel recording
+- `Ctrl+Alt+X` - Cancel recording
+- `Ctrl+Alt+R` - Retry last recording
 - `Alt+Left/Right` - Cycle through prompts
 
 **macOS:**
 - `Cmd+Alt+J` - Record + AI Edit
 - `Cmd+Alt+Shift+J` - Record + Transcribe only
 - `Cmd+X` - Cancel recording
+- `Cmd+Alt+R` - Retry last recording
 - `Cmd+[/]` - Cycle through prompts
 
 ### Theming (`utils/theme/`)
@@ -151,6 +155,13 @@ The app uses Python's standard `gettext` module for translations.
 - `es` - Spanish
 - `zh_CN` - Chinese (Simplified)
 - `ar` - Arabic
+- `ja` - Japanese
+- `ko` - Korean
+- `ru` - Russian
+- `pt` - Portuguese
+
+`utils.i18n.SUPPORTED_LANGUAGES` is the single source of truth; `tools/i18n_tools.py`
+derives its language list from it.
 
 **Usage:**
 ```python
@@ -163,7 +174,7 @@ label = _("Save Changes")
 msg = _n("1 file", "{n} files", count).format(n=count)
 
 # Change language at runtime (triggers UI refresh)
-set_language("manual", "fr")
+set_language("fr")
 ```
 
 **Key Functions:**
@@ -172,7 +183,7 @@ set_language("manual", "fr")
 | `_(text)` | Translate a string |
 | `_n(singular, plural, n)` | Translate with plural forms |
 | `init_i18n(mode, lang)` | Initialize i18n at startup |
-| `set_language(mode, lang)` | Change language and refresh UI |
+| `set_language(lang_code, refresh_ui=True)` | Change language and refresh UI |
 | `register_refresh_callback(fn)` | Register callback for language changes |
 | `get_available_languages()` | Get languages with compiled .mo files |
 
@@ -182,6 +193,10 @@ set_language("manual", "fr")
 3. Run `python3 tools/i18n_tools.py update` to merge into existing `.po` files
 4. Translate the new strings in each `.po` file
 5. Run `python3 tools/compile_mo.py` to compile `.mo` files
+
+Entries `msgmerge` marks `#, fuzzy` are guesses from a similar string and are
+frequently wrong. `compile_mo.py` excludes them (matching gettext's own
+`msgfmt`), so they fall back to English until a translator confirms them.
 
 **Runtime Language Switching:**
 Language changes take effect immediately without restart. The i18n module uses a callback registry to notify UI components when the language changes - menus are rebuilt and the UIManager's `refresh_translations()` method updates widget text.

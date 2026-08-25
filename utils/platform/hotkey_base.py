@@ -13,8 +13,109 @@ import threading
 import time
 
 from utils.config_manager import get_config
+from utils.i18n import _
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from . import CURRENT_PLATFORM
+
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
+
+# Tk reports key presses as keysyms, while pynput reports its own key names.
+# The two vocabularies disagree (Tk "return" vs pynput "enter", Tk "Prior" vs
+# pynput "pageup"), so a shortcut captured in the dialog could be stored in a
+# form the listener would never match - the shortcut simply never fired. Both
+# sides now normalise through this one table.
+KEYSYM_TO_CANONICAL = {
+    'return': 'enter', 'kp_enter': 'enter',
+    'prior': 'pageup', 'next': 'pagedown',
+    'bracketleft': '[', 'bracketright': ']',
+    'minus': '-', 'equal': '=', 'comma': ',', 'period': '.',
+    'slash': '/', 'backslash': '\\', 'semicolon': ';', 'apostrophe': "'",
+    'grave': '`', 'space': 'space', 'tab': 'tab', 'escape': 'escape',
+    'backspace': 'backspace', 'delete': 'delete', 'insert': 'insert',
+    'home': 'home', 'end': 'end',
+    'left': 'left', 'right': 'right', 'up': 'up', 'down': 'down',
+}
+
+# Shifted digits arrive as their punctuation keysym ("exclam" for Shift+1), which
+# the old capture handler dropped entirely - leaving a bare modifier shortcut.
+SHIFTED_DIGIT_KEYSYMS = {
+    'exclam': '1', 'at': '2', 'numbersign': '3', 'dollar': '4', 'percent': '5',
+    'asciicircum': '6', 'ampersand': '7', 'asterisk': '8', 'parenleft': '9',
+    'parenright': '0',
+}
+
+MODIFIER_NAMES = ('ctrl', 'alt', 'shift', 'win', 'command')
+
+# How long the calling (main) thread will wait for a listener to die before
+# handing the rest of the wait to a background thread.
+LISTENER_JOIN_TIMEOUT = 0.25
+LISTENER_BACKGROUND_TIMEOUT = 10.0
+
+
+def stop_listener_without_blocking(listener, platform_label):
+    """Stop a pynput listener without freezing the Tk main thread.
+
+    On X11 the listener does not notice stop() until it next receives an X
+    event, so joining it with a 5 second timeout ran the full 5 seconds on an
+    idle keyboard - every time. Since unregister_hotkeys() is always called
+    from the main thread, that froze the window whenever the user opened
+    Settings or Manage Prompts, refreshed hotkeys, restored from minimised, or
+    closed the app.
+
+    The thread does terminate, just later, so wait briefly here and let a
+    short-lived daemon thread do the rest and report a genuine leak.
+    """
+    if listener is None:
+        return
+    try:
+        listener.stop()
+    except Exception as e:
+        logger.debug("Error stopping %s listener: %s", platform_label, e)
+
+    try:
+        listener.join(timeout=LISTENER_JOIN_TIMEOUT)
+    except Exception:
+        return
+
+    if not listener.is_alive():
+        return
+
+    def _finish_join():
+        try:
+            listener.join(timeout=LISTENER_BACKGROUND_TIMEOUT)
+            if listener.is_alive():
+                logger.warning(
+                    "[MEMORY] %s listener thread still alive after %.0fs - potential leak",
+                    platform_label, LISTENER_BACKGROUND_TIMEOUT)
+            else:
+                logger.debug("%s listener thread terminated in background", platform_label)
+        except Exception as e:
+            logger.debug("Background join of %s listener failed: %s", platform_label, e)
+
+    threading.Thread(target=_finish_join, daemon=True,
+                     name=f"HotkeyListenerJoin-{platform_label}").start()
+
+
+def canonical_key_name(keysym, is_mac=False):
+    """Normalise a Tk keysym to the name the pynput listener will produce.
+
+    Returns None when the keysym is not a usable shortcut key.
+    """
+    key = (keysym or '').lower()
+    if not key:
+        return None
+    if key in KEYSYM_TO_CANONICAL:
+        return KEYSYM_TO_CANONICAL[key]
+    if key in SHIFTED_DIGIT_KEYSYMS:
+        return SHIFTED_DIGIT_KEYSYMS[key]
+    if len(key) == 1:
+        return key
+    if key.startswith('f') and key[1:].isdigit() and 1 <= int(key[1:]) <= 24:
+        return key
+    return None
 
 
 class HotkeyManagerBase(ABC):
@@ -28,6 +129,15 @@ class HotkeyManagerBase(ABC):
     def __init__(self, parent):
         self.parent = parent
         self._paused = False
+        # Four independent callers can trigger a refresh (the 5s health check,
+        # the tray thread, the system-event listener and toggle_recording), and
+        # the old code unregistered immediately then re-registered 100ms later.
+        # Overlapping refreshes caused duplicate re-registration and a spurious
+        # failure dialog. One in flight at a time, cancellable on pause.
+        self._refresh_in_flight = False
+        self._pending_refresh_id = None
+        # The failure dialog is shown once, not once per refresh attempt.
+        self._refresh_failure_reported = False
         self.config = get_config()
         self.is_mac = CURRENT_PLATFORM == 'macos'
 
@@ -45,7 +155,8 @@ class HotkeyManagerBase(ABC):
                 'record_transcribe': 'command+alt+shift+j',
                 'cancel_recording': 'command+x',
                 'cycle_prompt_back': 'command+[',
-                'cycle_prompt_forward': 'command+]'
+                'cycle_prompt_forward': 'command+]',
+                'retry_last': 'command+alt+r'
             }
         else:
             # Windows and Linux use the same defaults
@@ -54,18 +165,18 @@ class HotkeyManagerBase(ABC):
                 'record_transcribe': 'ctrl+alt+shift+j',
                 'cancel_recording': 'ctrl+alt+x',
                 'cycle_prompt_back': 'alt+left',
-                'cycle_prompt_forward': 'alt+right'
+                'cycle_prompt_forward': 'alt+right',
+                'retry_last': 'ctrl+alt+r'
             }
 
     def load_shortcuts_from_config(self):
         """Load keyboard shortcuts from config file."""
+        # Iterate the defaults rather than a second hand-maintained list, so
+        # adding a shortcut in one place is enough.
         defaults = self._get_default_shortcuts()
         self.shortcuts = {
-            'record_edit': self.config.get_shortcut('record_edit') or defaults['record_edit'],
-            'record_transcribe': self.config.get_shortcut('record_transcribe') or defaults['record_transcribe'],
-            'cancel_recording': self.config.get_shortcut('cancel_recording') or defaults['cancel_recording'],
-            'cycle_prompt_back': self.config.get_shortcut('cycle_prompt_back') or defaults['cycle_prompt_back'],
-            'cycle_prompt_forward': self.config.get_shortcut('cycle_prompt_forward') or defaults['cycle_prompt_forward']
+            name: (self.config.get_shortcut(name) or default)
+            for name, default in defaults.items()
         }
 
     @abstractmethod
@@ -103,63 +214,108 @@ class HotkeyManagerBase(ABC):
         Returns:
             bool: True if refresh started successfully.
         """
-        print("Forcing hotkey refresh")
+        logger.info("Forcing hotkey refresh")
         try:
             if self._paused:
-                print("Hotkeys are paused; skipping refresh")
+                logger.warning("Hotkeys are paused; skipping refresh")
                 if callback:
                     callback(True)
                 return True
+
+            if self._refresh_in_flight:
+                logger.debug("Hotkey refresh already in flight; skipping")
+                if callback:
+                    callback(True)
+                return True
+
+            self._refresh_in_flight = True
 
             # Unregister all hotkeys
             self.unregister_hotkeys()
 
             # Schedule re-registration
             def _after_refresh():
-                success = self.register_hotkeys()
-                if success:
-                    print("Hotkey refresh completed successfully")
-                    if callback:
-                        callback(True)
-                else:
-                    print("Failed to register hotkeys")
-                    if callback:
-                        callback(False)
-                    messagebox.showerror("Hotkey Error",
-                        "Failed to re-register hotkeys. Try closing and reopening the application.")
+                self._pending_refresh_id = None
+                try:
+                    # The user may have opened a modal (which pauses hotkeys) in
+                    # the window between unregister and here. That is not a
+                    # failure - resume() will re-register.
+                    if self._paused:
+                        logger.debug("Hotkeys paused during refresh; deferring to resume()")
+                        if callback:
+                            callback(True)
+                        return
 
-            self.parent.after(100, _after_refresh)
+                    success = self.register_hotkeys()
+                    if success:
+                        logger.info("Hotkey refresh completed successfully")
+                        self._refresh_failure_reported = False
+                        if callback:
+                            callback(True)
+                    else:
+                        logger.error("Failed to register hotkeys")
+                        if callback:
+                            callback(False)
+                        self._report_refresh_failure()
+                finally:
+                    self._refresh_in_flight = False
+
+            self._pending_refresh_id = self.parent.after(100, _after_refresh)
             return True
 
         except Exception as e:
-            print(f"Error during hotkey refresh: {e}")
+            self._refresh_in_flight = False
+            logger.error("Error during hotkey refresh: %s", e)
             if callback:
                 callback(False)
-            messagebox.showerror("Hotkey Error",
-                "Failed to refresh hotkeys. Try closing and reopening the application.")
+            self._report_refresh_failure()
             return False
+
+    def _report_refresh_failure(self):
+        """Tell the user hotkeys are down - once, not once per retry.
+
+        The health checker retries every few seconds, so a modal here used to
+        stack dialogs from inside its own nested event loop and trap the user.
+        """
+        if self._refresh_failure_reported:
+            return
+        self._refresh_failure_reported = True
+        try:
+            self.parent.ui_manager.set_status(
+                _("Global shortcuts unavailable - buttons still work"), "orange")
+        except Exception:
+            logger.warning("Could not surface hotkey failure in the status bar")
 
     def pause(self):
         """Temporarily disable all hotkeys."""
         try:
-            print("Pausing hotkeys...")
+            logger.info("Pausing hotkeys...")
             self._paused = True
+            # Drop any refresh scheduled before the pause, so it cannot
+            # re-register behind a modal that deliberately disabled hotkeys.
+            if self._pending_refresh_id is not None:
+                try:
+                    self.parent.after_cancel(self._pending_refresh_id)
+                except Exception:
+                    pass
+                self._pending_refresh_id = None
+                self._refresh_in_flight = False
             self.unregister_hotkeys()
-            print("Hotkeys paused")
+            logger.info("Hotkeys paused")
         except Exception as e:
-            print(f"Error while pausing hotkeys: {e}")
+            logger.error("Error while pausing hotkeys: %s", e)
 
     def resume(self):
         """Re-enable hotkeys after a pause."""
         try:
             if not self._paused:
                 return
-            print("Resuming hotkeys...")
+            logger.info("Resuming hotkeys...")
             self._paused = False
             self.register_hotkeys()
-            print("Hotkeys resumed")
+            logger.info("Hotkeys resumed")
         except Exception as e:
-            print(f"Error while resuming hotkeys: {e}")
+            logger.error("Error while resuming hotkeys: %s", e)
 
     def save_shortcut_to_config(self, shortcut_name, key_combination):
         """Save a keyboard shortcut to settings.json."""
@@ -181,20 +337,23 @@ class HotkeyManagerBase(ABC):
             )
         else:
             self.parent.ui_manager.record_button_edit.configure(
-                text=f"Record + AI Edit ({self.shortcuts['record_edit']})"
+                text=_("Record + AI Edit ({shortcut})").format(
+                    shortcut=self.shortcuts['record_edit'])
             )
             self.parent.ui_manager.record_button_transcribe.configure(
-                text=f"Record + Transcript ({self.shortcuts['record_transcribe']})"
+                text=_("Record + Transcribe ({shortcut})").format(
+                    shortcut=self.shortcuts['record_transcribe'])
             )
 
+        # The menu label used to be located by searching for the English string
+        # "Cancel Recording", which never matched in a translated UI. The menus
+        # own their own labels and accelerators, so just ask them to refresh.
         try:
-            for menu in self.parent.menubar.winfo_children():
-                if "Cancel Recording" in menu.entrycget(0, 'label'):
-                    menu.entryconfigure(0,
-                        label=f"Cancel Recording ({self.shortcuts['cancel_recording']})"
-                    )
+            refresh = getattr(self.parent, 'refresh_menu_accelerators', None)
+            if callable(refresh):
+                refresh()
         except Exception:
-            pass  # Menu may not exist yet
+            logger.debug("Could not refresh menu accelerators", exc_info=True)
 
     def format_shortcut(self, keys):
         """Format a set of keys into a shortcut string with consistent ordering."""
@@ -271,7 +430,20 @@ class HotkeyManagerBase(ABC):
     def check_keyboard_shortcuts(self):
         """Open the keyboard shortcuts dialog for viewing and editing."""
         shortcut_window = tk.Toplevel(self.parent)
-        shortcut_window.title("Keyboard Shortcuts")
+        shortcut_window.title(_("Keyboard Shortcuts"))
+
+        # Every other modal pauses hotkeys; this one did not, so pressing the
+        # current Ctrl+Alt+J while assigning a new shortcut both captured the
+        # keystroke and started a recording.
+        self.pause()
+
+        def _on_dialog_close():
+            try:
+                self.resume()
+            finally:
+                shortcut_window.destroy()
+
+        shortcut_window.protocol("WM_DELETE_WINDOW", _on_dialog_close)
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('hotkey_dialog')
@@ -392,7 +564,7 @@ class HotkeyManagerBase(ABC):
             hover_color="#444444",
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
-            command=shortcut_window.destroy
+            command=_on_dialog_close
         )
         close_button.pack(pady=(get_spacing('sm'), 0))
 
@@ -409,6 +581,14 @@ class HotkeyManagerBase(ABC):
         def on_key_press(event):
             key = event.keysym.lower()
 
+            if key == 'escape':
+                # Escape cancels rather than being captured as a shortcut.
+                pressed_keys.clear()
+                currently_pressed.clear()
+                button.config(text=_("Edit"))
+                _end_capture()
+                return "break"
+
             modifier_map = {
                 'control_l': 'ctrl', 'control_r': 'ctrl',
                 'alt_l': 'alt', 'alt_r': 'alt',
@@ -422,18 +602,13 @@ class HotkeyManagerBase(ABC):
             if key in modifier_map:
                 currently_pressed.add(modifier_map[key])
             else:
-                valid_keys = ('left', 'right', 'up', 'down', 'space', 'tab', 'return',
-                             'backspace', 'delete', 'escape', 'home', 'end', 'pageup',
-                             'pagedown', 'insert', 'bracketleft', 'bracketright',
-                             'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9',
-                             'f10', 'f11', 'f12')
-                if len(key) == 1 or key in valid_keys:
-                    # Map bracket keys
-                    if key == 'bracketleft':
-                        key = '['
-                    elif key == 'bracketright':
-                        key = ']'
-                    currently_pressed.add(key)
+                # Normalise through the shared table so what we store is what
+                # the pynput listener will actually produce.
+                canonical = canonical_key_name(key, self.is_mac)
+                if canonical:
+                    currently_pressed.add(canonical)
+                else:
+                    logger.debug("Ignoring unmapped keysym during capture: %s", key)
 
             pressed_keys.clear()
             pressed_keys.update(currently_pressed)
@@ -477,11 +652,23 @@ class HotkeyManagerBase(ABC):
                 try:
                     new_shortcut = self.format_shortcut(pressed_keys)
 
-                    has_modifier = any(mod in pressed_keys for mod in ('ctrl', 'alt', 'shift', 'win', 'command'))
-                    if not has_modifier:
-                        messagebox.showerror("Error",
-                            "Please include at least one modifier key (Ctrl, Alt, Shift, Win/Cmd)")
-                        button.config(text="Edit")
+                    # A modifier alone is not a shortcut. The old check only
+                    # asked whether *any* key was a modifier, so tapping Ctrl by
+                    # itself saved "ctrl" as a global hotkey - after which every
+                    # Ctrl press anywhere toggled recording.
+                    modifiers = [k for k in pressed_keys if k in MODIFIER_NAMES]
+                    regular = [k for k in pressed_keys if k not in MODIFIER_NAMES]
+
+                    if not modifiers:
+                        messagebox.showerror(_("Invalid Shortcut"),
+                            _("Please include at least one modifier key (Ctrl, Alt, Shift, Win/Cmd)."))
+                        button.config(text=_("Edit"))
+                        return
+
+                    if len(regular) != 1:
+                        messagebox.showerror(_("Invalid Shortcut"),
+                            _("Please press one modifier key plus exactly one other key."))
+                        button.config(text=_("Edit"))
                         return
 
                     for name, shortcut in self.shortcuts.items():
@@ -511,6 +698,21 @@ class HotkeyManagerBase(ABC):
                 finally:
                     pressed_keys.clear()
                     currently_pressed.clear()
+                    _end_capture()
+
+        def _end_capture():
+            """Detach the capture bindings once we are done with them.
+
+            Previously nothing unbound them, so after editing one shortcut any
+            later chord typed in the dialog silently reassigned the same one.
+            """
+            try:
+                shortcut_window.unbind('<KeyPress>')
+                shortcut_window.unbind('<KeyRelease>')
+            except Exception:
+                pass
+
+        self._end_shortcut_capture = _end_capture
 
         shortcut_window.unbind('<KeyPress>')
         shortcut_window.unbind('<KeyRelease>')

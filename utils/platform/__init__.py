@@ -8,6 +8,10 @@ import platform
 import subprocess
 import webbrowser
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_platform():
     """
@@ -50,8 +54,10 @@ class _NoOpHotkeyManager:
     """Fallback hotkey manager when pynput is not available (e.g., Linux without X11)."""
 
     def __init__(self, parent):
+        from utils.config_manager import get_config
         self.parent = parent
         self._paused = False
+        self.config = get_config()
         self.shortcuts = {
             'record_edit': 'ctrl+alt+j',
             'record_transcribe': 'ctrl+alt+shift+j',
@@ -61,7 +67,7 @@ class _NoOpHotkeyManager:
         }
 
     def register_hotkeys(self):
-        print("Hotkeys not available (no X11 display)")
+        logger.info("Hotkeys not available (no X11 display)")
         return False
 
     def unregister_hotkeys(self):
@@ -82,17 +88,48 @@ class _NoOpHotkeyManager:
         self._paused = False
 
     def load_shortcuts_from_config(self):
-        pass
+        """Mirror the configured shortcuts so the UI can still display them."""
+        try:
+            for name in list(self.shortcuts):
+                configured = self.config.get_shortcut(name)
+                if configured:
+                    self.shortcuts[name] = configured
+        except Exception:
+            pass
 
     def update_shortcut_displays(self):
         pass
 
+    # The real managers expose these; without them this class is a trap for the
+    # next caller that reaches for one on the no-hotkey path.
+    def _get_default_shortcuts(self):
+        return dict(self.shortcuts)
+
+    def format_shortcut(self, keys):
+        modifier_order = ['ctrl', 'alt', 'shift', 'win', 'command']
+        modifiers = [k for k in keys if k in modifier_order]
+        regular = [k for k in keys if k not in modifier_order]
+        return "+".join(sorted(modifiers, key=modifier_order.index) + sorted(regular))
+
+    def save_shortcut_to_config(self, shortcut_name, key_combination):
+        combo = key_combination if isinstance(key_combination, str) else self.format_shortcut(key_combination)
+        try:
+            self.config.set_shortcut(shortcut_name, combo)
+            self.config.save_settings()
+        except Exception:
+            logger.warning("Could not save shortcut %s with no hotkey backend", shortcut_name)
+        self.shortcuts[shortcut_name] = combo
+
+    def reset_shortcuts_to_default(self, shortcuts_window=None):
+        self.shortcuts = self._get_default_shortcuts()
+
     def check_keyboard_shortcuts(self):
         from tkinter import messagebox
-        messagebox.showinfo("Hotkeys Unavailable",
-            "Global hotkeys are not available.\n\n"
-            "On Linux, this requires an X11 display.\n"
-            "You can still use the application via the UI buttons.")
+        from utils.i18n import _
+        messagebox.showinfo(_("Hotkeys Unavailable"),
+            _("Global hotkeys are not available.\n\n"
+              "On Linux, this requires an X11 display.\n"
+              "You can still use the application via the UI buttons."))
 
 
 def get_hotkey_manager_class():
@@ -114,7 +151,7 @@ def get_hotkey_manager_class():
             return LinuxHotkeyManager
         except ImportError as e:
             # pynput requires X11 on Linux - if not available, use no-op fallback
-            print(f"Warning: Hotkeys disabled - pynput not available: {e}")
+            logger.warning("Warning: Hotkeys disabled - pynput not available: %s", e)
             return _NoOpHotkeyManager
 
 
@@ -157,12 +194,12 @@ def open_url(url):
             )
             return True
         except (subprocess.SubprocessError, FileNotFoundError) as e:
-            print(f"Failed to open URL via WSL interop: {e}")
+            logger.error("Failed to open URL via WSL interop: %s", e)
             return False
     else:
         try:
             webbrowser.open(url)
             return True
         except Exception as e:
-            print(f"Failed to open URL: {e}")
+            logger.error("Failed to open URL: %s", e)
             return False

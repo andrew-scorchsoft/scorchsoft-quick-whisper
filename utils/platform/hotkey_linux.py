@@ -9,7 +9,11 @@ from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 import threading
 
-from .hotkey_base import HotkeyManagerBase
+from .hotkey_base import HotkeyManagerBase, stop_listener_without_blocking
+
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def is_wayland():
@@ -48,8 +52,8 @@ class LinuxHotkeyManager(HotkeyManagerBase):
             # Check for Wayland and warn user
             if is_wayland() and not self._wayland_warning_shown:
                 self._wayland_warning_shown = True
-                print("WARNING: Running under Wayland. Global hotkeys may have limited functionality.")
-                print("For best hotkey support, consider using X11 or Xwayland.")
+                logger.warning("WARNING: Running under Wayland. Global hotkeys may have limited functionality.")
+                logger.info("For best hotkey support, consider using X11 or Xwayland.")
                 # Schedule warning dialog on main thread
                 self.parent.after(1000, self._show_wayland_warning)
 
@@ -68,7 +72,12 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_backward),
                 self._normalize_shortcut(self.shortcuts['cycle_prompt_forward']):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_forward),
+                self._normalize_shortcut(self.shortcuts.get('retry_last', '')):
+                    lambda: self.parent.after(0, self.parent.retry_last_recording),
             }
+            # An unset shortcut normalises to an empty frozenset, which would
+            # otherwise match "no keys pressed". Drop it.
+            self._registered_hotkeys.pop(frozenset(), None)
 
             # Start new listener
             self.listener = keyboard.Listener(
@@ -77,14 +86,14 @@ class LinuxHotkeyManager(HotkeyManagerBase):
             )
             self.listener.start()
 
-            print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (Linux/pynput)")
+            logger.info("Registered %s hotkeys successfully (Linux/pynput)", len(self._registered_hotkeys))
             return True
 
         except Exception as e:
-            print(f"Error registering hotkeys: {e}")
+            logger.error("Error registering hotkeys: %s", e)
             # Check for common Linux issues
             if "Xlib" in str(e) or "display" in str(e).lower():
-                print("This may be a display server issue. Ensure X11 is running or DISPLAY is set.")
+                logger.info("This may be a display server issue. Ensure X11 is running or DISPLAY is set.")
             return False
 
     def _show_wayland_warning(self):
@@ -110,21 +119,15 @@ class LinuxHotkeyManager(HotkeyManagerBase):
             if self.listener:
                 old_listener = self.listener
                 self.listener = None
-                old_listener.stop()
-                try:
-                    old_listener.join(timeout=5.0)
-                    if old_listener.is_alive():
-                        print("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
-                except Exception:
-                    pass
+                stop_listener_without_blocking(old_listener, "Linux")
 
             with self._lock:
                 self.pressed_keys.clear()
                 self._registered_hotkeys.clear()
 
-            print("Hotkeys unregistered")
+            logger.info("Hotkeys unregistered")
         except Exception as e:
-            print(f"Error unregistering hotkeys: {e}")
+            logger.error("Error unregistering hotkeys: %s", e)
 
     def verify_hotkeys(self):
         """Verify that the keyboard listener is running."""
@@ -133,18 +136,18 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 return True
 
             if not self._registered_hotkeys:
-                print("No hotkeys registered")
+                logger.info("No hotkeys registered")
                 return False
 
             if not self.listener or not self.listener.is_alive():
-                print("Keyboard listener not alive")
+                logger.info("Keyboard listener not alive")
                 return False
 
-            print("Hotkey verification passed - listener is active")
+            logger.info("Hotkey verification passed - listener is active")
             return True
 
         except Exception as e:
-            print(f"Error verifying hotkeys: {e}")
+            logger.error("Error verifying hotkeys: %s", e)
             return False
 
     def _normalize_shortcut(self, shortcut_str):
@@ -167,7 +170,11 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 keys.add('alt')
             elif part == 'shift':
                 keys.add('shift')
-            elif part in ('win', 'windows', 'super', 'meta'):
+            elif part in ('win', 'windows', 'super', 'meta', 'cmd', 'command'):
+                # 'cmd'/'command' matter because a settings.json copied from a
+                # Mac (or shared between machines) stores 'command+[', which
+                # previously normalised to a literal 'command' key and could
+                # never match the 'super' the listener reports.
                 keys.add('super')
             elif part == 'left':
                 keys.add('left')
@@ -237,7 +244,7 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                     self.pressed_keys.add(key_name)
                     self._check_hotkeys()
         except Exception as e:
-            print(f"Error in key press handler: {e}")
+            logger.error("Error in key press handler: %s", e)
 
     def _on_release(self, key):
         """Handle key release events."""
@@ -247,7 +254,7 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 with self._lock:
                     self.pressed_keys.discard(key_name)
         except Exception as e:
-            print(f"Error in key release handler: {e}")
+            logger.error("Error in key release handler: %s", e)
 
     def _check_hotkeys(self):
         """Check if currently pressed keys match any registered hotkey."""
@@ -259,5 +266,5 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 try:
                     callback()
                 except Exception as e:
-                    print(f"Error executing hotkey callback: {e}")
+                    logger.error("Error executing hotkey callback: %s", e)
                 break

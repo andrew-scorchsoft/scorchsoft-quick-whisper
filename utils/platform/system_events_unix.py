@@ -15,6 +15,10 @@ the lack of native event detection.
 """
 from .system_events_base import SystemEventListenerBase
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class UnixSystemEventListener(SystemEventListenerBase):
     """
@@ -30,7 +34,7 @@ class UnixSystemEventListener(SystemEventListenerBase):
     def __init__(self, parent):
         super().__init__(parent)
         # Don't start any listener - rely on health checker
-        print("System event listener initialized (Unix fallback - using health checker)")
+        logger.info("System event listener initialized (Unix fallback - using health checker)")
 
     def start_listening(self):
         """
@@ -40,7 +44,7 @@ class UnixSystemEventListener(SystemEventListenerBase):
         health checker instead of native event detection.
         """
         self.is_running = True
-        print("System event listener: Unix platforms use periodic health checker")
+        logger.info("System event listener: Unix platforms use periodic health checker")
 
     def stop_listening(self):
         """Stop the listener (no-op on Unix)."""

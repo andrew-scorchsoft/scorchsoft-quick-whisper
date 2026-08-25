@@ -11,6 +11,11 @@ import threading
 import platform
 import shutil
 
+from utils.app_logging import get_logger
+from utils.i18n import _
+
+logger = get_logger(__name__)
+
 # Only import pyttsx3 when needed to avoid import errors if TTS dependencies missing
 _pyttsx3 = None
 
@@ -22,8 +27,8 @@ def _get_pyttsx3():
         try:
             import pyttsx3
             _pyttsx3 = pyttsx3
-        except ImportError as e:
-            print(f"pyttsx3 import error: {e}")
+        except Exception as e:
+            logger.warning("pyttsx3 not available: %s", e)
             _pyttsx3 = False
     return _pyttsx3 if _pyttsx3 else None
 
@@ -54,6 +59,8 @@ class TTSManager:
         self.speech_should_stop = threading.Event()
         self._tts_available = True
         self._warned_about_missing_tts = False
+        self._unavailable_reason = None
+        self._closing = False
         self.init_tts_engine()
 
     def init_tts_engine(self):
@@ -61,12 +68,16 @@ class TTSManager:
         try:
             # Check Linux espeak availability first
             if platform.system() == 'Linux' and not _check_linux_tts_available():
-                if not self._warned_about_missing_tts:
-                    self._warned_about_missing_tts = True
-                    print("TTS Warning: espeak not found on Linux.")
-                    print("To enable TTS, install espeak: sudo apt install espeak")
-                    # Schedule warning dialog on main thread
-                    self.parent.after(2000, self._show_espeak_warning)
+                # Log only. Prompt-name speech is a minor convenience, so a
+                # missing espeak must never interrupt startup with a modal
+                # dialog - the user is told (once) only if they actually use
+                # a feature that needs speech.
+                logger.info("TTS unavailable: espeak/espeak-ng not found on Linux "
+                            "(install with: sudo apt install espeak)")
+                self._unavailable_reason = _(
+                    "Text-to-speech (prompt announcements) requires espeak. "
+                    "Install it with: sudo apt install espeak"
+                )
                 self._tts_available = False
                 return
 
@@ -79,7 +90,11 @@ class TTSManager:
 
             pyttsx3 = _get_pyttsx3()
             if not pyttsx3:
-                print("TTS Warning: pyttsx3 not available")
+                logger.info("TTS unavailable: pyttsx3 could not be imported")
+                self._unavailable_reason = _(
+                    "Text-to-speech is unavailable because its speech engine "
+                    "could not be loaded."
+                )
                 self._tts_available = False
                 return
 
@@ -97,31 +112,59 @@ class TTSManager:
                 self.tts_engine.setProperty('rate', 160)
 
             self._tts_available = True
-            print(f"TTS engine initialized successfully on {system}")
+            self._unavailable_reason = None
+            logger.info("TTS engine initialized successfully on %s", system)
 
         except Exception as e:
-            print(f"TTS initialization error: {e}")
+            logger.warning("TTS initialization failed: %s", e)
             self.tts_engine = None
             self._tts_available = False
-
-    def _show_espeak_warning(self):
-        """Show a warning dialog about missing espeak on Linux."""
-        try:
-            from tkinter import messagebox
-            messagebox.showinfo(
-                "TTS Not Available",
-                "Text-to-speech (prompt announcements) requires espeak.\n\n"
-                "To enable TTS, install espeak:\n"
-                "  sudo apt install espeak\n\n"
-                "The application will function normally without TTS."
+            self._unavailable_reason = _(
+                "Text-to-speech could not be started on this system."
             )
+
+    @property
+    def is_available(self):
+        """True when speech can actually be produced."""
+        return bool(self._tts_available)
+
+    @property
+    def unavailable_reason(self):
+        """A translated explanation of why TTS is off, or None."""
+        return self._unavailable_reason
+
+    def _notice_unavailable(self):
+        """Tell the user once, without blocking, that speech is unavailable.
+
+        This is only reached when the user triggers something that would have
+        spoken, so it never fires during startup.
+        """
+        if self._warned_about_missing_tts:
+            return
+        self._warned_about_missing_tts = True
+
+        reason = self._unavailable_reason or _("Text-to-speech is unavailable.")
+        logger.info("TTS requested but unavailable: %s", reason)
+
+        # Surface it in the status line if the UI is up - never a modal dialog.
+        try:
+            ui = getattr(self.parent, 'ui_manager', None)
+            if ui is not None and hasattr(ui, 'set_status'):
+                self.parent.after(0, lambda: ui.set_status(reason, "orange"))
         except Exception:
-            pass  # Ignore dialog errors
+            pass  # A status update must never break speech handling
 
     def speak_text(self, text):
         """Speak the given text using the TTS engine."""
+        # Never start new speech once the app is shutting down - a speech
+        # thread that outlives the app can keep the process alive on some
+        # drivers.
+        if self._closing:
+            return
+
         # Check if TTS is available
         if not self._tts_available:
+            self._notice_unavailable()
             return
 
         # Signal any existing speech to stop
@@ -178,11 +221,13 @@ class TTSManager:
                                 pass  # Ignore errors when stopping
 
             except Exception as e:
-                print(f"TTS error: {e}")
+                logger.warning("TTS playback error: %s", e)
                 self.init_tts_engine()
 
     def cleanup(self):
         """Clean up resources before closing."""
+        self._closing = True
+
         # Signal any speech to stop
         self.speech_should_stop.set()
 
@@ -190,11 +235,16 @@ class TTSManager:
         if self.current_speech_thread and self.current_speech_thread.is_alive():
             self.current_speech_thread.join(0.2)
 
-        # Clean up TTS engine
+        # Clean up TTS engine. Use a bounded wait for the lock: if a speech
+        # thread is wedged inside the driver we must still be able to close.
         if self.tts_engine:
-            with self.tts_lock:
+            acquired = self.tts_lock.acquire(timeout=1.0)
+            try:
                 try:
                     self.tts_engine.stop()
-                    self.tts_engine = None
                 except Exception:
                     pass  # Ignore errors during cleanup
+                self.tts_engine = None
+            finally:
+                if acquired:
+                    self.tts_lock.release()
