@@ -40,6 +40,7 @@ from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 from utils.platform import open_url
+from utils.app_version import APP_VERSION
 from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, unregister_refresh_callback, SUPPORTED_LANGUAGES
 
 
@@ -50,7 +51,7 @@ class QuickWhisper(tk.Tk):
         # Hide window during initialization to prevent partial rendering flash
         self.withdraw()
 
-        self.version = "2.2.1"
+        self.version = APP_VERSION
 
         self.is_mac = platform.system() == 'Darwin'
 

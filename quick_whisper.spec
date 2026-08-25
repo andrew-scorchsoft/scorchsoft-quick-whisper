@@ -15,6 +15,36 @@ SPEC_ROOT = os.path.abspath(SPECPATH)
 if SPEC_ROOT not in sys.path:
     sys.path.insert(0, SPEC_ROOT)
 
+from utils.app_version import APP_VERSION
+
+
+def _platform_tag():
+    machine = platform.machine().lower()
+    if machine in ("amd64", "x86_64"):
+        arch = "x86_64"
+    elif machine in ("arm64", "aarch64"):
+        arch = "arm64"
+    elif machine in ("i386", "i686", "x86"):
+        arch = "x86"
+    else:
+        arch = machine or "unknown"
+
+    if system == "Windows":
+        os_name = "windows"
+    elif system == "Darwin":
+        os_name = "macos"
+    else:
+        os_name = "linux"
+    return f"{os_name}-{arch}"
+
+
+# tools/build.py sets QW_CONSOLE=1 for the diagnostic build.
+# Default is the windowed release executable.
+console = os.environ.get("QW_CONSOLE", "0") == "1"
+exe_name = f"quick_whisper-{APP_VERSION}-{_platform_tag()}"
+if console:
+    exe_name += "-console_enabled"
+
 # Collect all submodules from the local utils package
 utils_imports = collect_submodules('utils')
 # Explicitly add utils.quick_whisper in case collect_submodules misses it
@@ -95,15 +125,14 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='quick_whisper',
+    name=exe_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    # Set console=True temporarily to see stdout/stderr when running the EXE
-    console=False,
+    console=console,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

@@ -193,29 +193,21 @@ To create a standalone executable, first ensure you have your virtual environmen
 pip install --no-cache-dir pyinstaller
 ```
 
-**Using spec file (recommended for all platforms):**
+**Build (recommended for all platforms):**
+
 ```bash
-python -m PyInstaller quick_whisper.spec
+python tools/build.py              # windowed release build
+python tools/build.py --console    # console-enabled diagnostic build
 ```
 
-The spec file automatically detects your platform and includes the appropriate hidden imports.
+Output is written to `dist/` using the same version as the app (from `utils/app_version.py`):
 
-**Platform-specific manual builds:**
-
-*Windows (no console window):*
-```bash
-python -m PyInstaller --onefile --windowed --add-data "assets;assets" --icon="assets/icon.ico" --hidden-import pystray._win32 --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --hidden-import pynput.keyboard._win32 quick_whisper.py
+```
+dist/quick_whisper-2.2.1-windows-x86_64.exe
+dist/quick_whisper-2.2.1-windows-x86_64-console_enabled.exe
 ```
 
-*macOS:*
-```bash
-pyinstaller --onefile --windowed --add-data "assets:assets" --hidden-import pystray._darwin --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.nsss --hidden-import pynput.keyboard._darwin quick_whisper.py
-```
-
-*Linux:*
-```bash
-pyinstaller --onefile --add-data "assets:assets" --hidden-import pystray._xorg --hidden-import PIL._tkinter_finder --hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.espeak --hidden-import pynput.keyboard._xorg quick_whisper.py
-```
+The spec file detects your platform, includes the right hidden imports, and names the file `quick_whisper-{version}-{os}-{arch}` (plus `-console_enabled` for the diagnostic build).
 
 **Linux prerequisites:**
 - Install espeak for TTS: `sudo apt install espeak`

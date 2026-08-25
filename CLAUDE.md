@@ -24,7 +24,8 @@ pip install -r requirements.txt
 python quick_whisper.py
 
 # Build standalone executable (PyInstaller)
-pyinstaller quick_whisper.spec
+python tools/build.py              # windowed release build
+python tools/build.py --console    # console-enabled diagnostic build
 ```
 
 ### Platform Prerequisites
