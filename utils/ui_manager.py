@@ -1,14 +1,17 @@
 import tkinter as tk
 from tkinter import ttk
+import tkinter.font as tkfont
 import customtkinter as ctk
 from PIL import Image, ImageTk, ImageDraw
 import platform
 import ctypes
 import time
+import math
 import sv_ttk
 import pyperclip
 
 from utils.tooltip import ToolTip
+from utils.app_logging import get_logger
 from utils.config_manager import get_config
 from utils.platform import open_url
 from utils.i18n import _, _n
@@ -24,6 +27,8 @@ from utils.theme import (
     get_switch_size,
     get_text_area_height,
 )
+
+logger = get_logger(__name__)
 
 
 def get_system_font():
@@ -159,7 +164,7 @@ def set_dark_title_bar(window):
             ctypes.byref(value), ctypes.sizeof(value)
         )
     except Exception as e:
-        print(f"Could not set dark title bar: {e}")
+        logger.warning("Could not set dark title bar: %s", e)
 
 
 class StyledPopupMenu:
@@ -188,6 +193,17 @@ class StyledPopupMenu:
         """Add a separator line to the menu."""
         self.items.append(('separator', None, None, None, None))
     
+    def index(self, index_or_label):
+        """Return an entry index by label or "end" (tk.Menu compatibility)."""
+        if index_or_label in ("end", tk.END, "last"):
+            return len(self.items) - 1 if self.items else None
+        if isinstance(index_or_label, str):
+            for i, item in enumerate(self.items):
+                if item[1] == index_or_label:
+                    return i
+            return None
+        return index_or_label
+
     def entryconfig(self, index_or_label, **kwargs):
         """Configure a menu entry by index or label (for compatibility)."""
         # Find the item by label if string is passed
@@ -208,7 +224,8 @@ class StyledPopupMenu:
         
     def tk_popup(self, x, y):
         """Show the popup menu at the specified coordinates."""
-        print(f"[POPUP DEBUG] tk_popup called, menu={self._menu_name}, is_open={self._is_open}, time_since_close={time.time() - self._close_time:.3f}")
+        logger.debug("tk_popup called, menu=%s, is_open=%s, time_since_close=%.3f",
+                     self._menu_name, self._is_open, time.time() - self._close_time)
 
         # Cancel any pending close timer from previous popup
         if self._pending_close_id is not None:
@@ -221,15 +238,15 @@ class StyledPopupMenu:
         # Toggle behavior: if menu was just closed (within 300ms), don't reopen
         # This handles the case where user clicks the same menu button to close it
         if time.time() - self._close_time < 0.3:
-            print("[POPUP DEBUG] Skipping open - too soon after close (toggle)")
+            logger.debug("Skipping menu open - too soon after close (toggle)")
             return
 
         if self._is_open:
-            print("[POPUP DEBUG] Already open, closing")
+            logger.debug("Menu already open, closing")
             self._close()
             return  # Just close, don't reopen
 
-        print("[POPUP DEBUG] Opening popup")
+        logger.debug("Opening popup menu %s", self._menu_name)
         self._is_open = True
         
         # Create popup window
@@ -333,7 +350,7 @@ class StyledPopupMenu:
                 if y + popup_height > screen_height:
                     y = screen_height - popup_height - 5
         except Exception as e:
-            print(f"Error getting screen dimensions: {e}")
+            logger.warning("Error getting screen dimensions: %s", e)
             # Fallback: don't adjust position
         
         self.popup.geometry(f"+{x}+{y}")
@@ -354,7 +371,7 @@ class StyledPopupMenu:
             # With grab_set(), clicks outside the popup are still sent to the popup
             # but with screen coordinates we can detect if they're outside bounds
             def on_any_click(e):
-                print(f"[POPUP DEBUG] on_any_click called, is_open={self._is_open}, popup={self.popup}")
+                logger.debug("Popup click, is_open=%s", self._is_open)
                 if self.popup and self._is_open:
                     # Get click coordinates relative to screen
                     click_x = e.x_root
@@ -362,18 +379,20 @@ class StyledPopupMenu:
                     # Check if click is outside popup bounds
                     inside = (self._popup_x <= click_x <= self._popup_x + self._popup_width and
                               self._popup_y <= click_y <= self._popup_y + self._popup_height)
-                    print(f"[POPUP DEBUG] click=({click_x},{click_y}), popup=({self._popup_x},{self._popup_y},{self._popup_width},{self._popup_height}), inside={inside}")
+                    logger.debug("click=(%s,%s), popup=(%s,%s,%s,%s), inside=%s",
+                                 click_x, click_y, self._popup_x, self._popup_y,
+                                 self._popup_width, self._popup_height, inside)
                     if not inside:
-                        print("[POPUP DEBUG] Closing popup (click outside)")
+                        logger.debug("Closing popup (click outside)")
                         self._close()
                         return "break"  # Consume the event
 
             # Use local grab to capture clicks
             try:
                 self.popup.grab_set()
-                print("[POPUP DEBUG] grab_set() succeeded")
+                logger.debug("Popup grab_set() succeeded")
             except Exception as e:
-                print(f"[POPUP DEBUG] grab_set() failed: {e}")
+                logger.debug("Popup grab_set() failed: %s", e)
 
             # Bind click handler to popup - this catches all clicks due to grab
             self.popup.bind('<Button-1>', on_any_click)
@@ -510,7 +529,7 @@ class StyledPopupMenu:
     
     def _close(self):
         """Close the popup menu."""
-        print(f"[POPUP DEBUG] _close called, is_open={self._is_open}, popup={self.popup}")
+        logger.debug("Popup _close called, is_open=%s", self._is_open)
         # Clear the pending close timer reference
         self._pending_close_id = None
 
@@ -518,21 +537,21 @@ class StyledPopupMenu:
             self._is_open = False
             # Record close time for toggle detection
             self._close_time = time.time()
-            print(f"[POPUP DEBUG] Set _close_time to {self._close_time}")
+            logger.debug("Set popup _close_time to %s", self._close_time)
 
             # Release grab on Linux before destroying
             if platform.system() == "Linux":
                 try:
                     self.popup.grab_release()
-                    print("[POPUP DEBUG] grab_release() succeeded")
+                    logger.debug("Popup grab_release() succeeded")
                 except Exception as e:
-                    print(f"[POPUP DEBUG] grab_release() failed: {e}")
+                    logger.debug("Popup grab_release() failed: %s", e)
 
             try:
                 self.popup.destroy()
-                print("[POPUP DEBUG] popup.destroy() succeeded")
+                logger.debug("popup.destroy() succeeded")
             except Exception as e:
-                print(f"[POPUP DEBUG] popup.destroy() failed: {e}")
+                logger.debug("popup.destroy() failed: %s", e)
             self.popup = None
 
             # On Linux, explicitly restore focus to main window after grab release
@@ -541,9 +560,9 @@ class StyledPopupMenu:
                 try:
                     root = self.parent.winfo_toplevel()
                     root.focus_force()
-                    print("[POPUP DEBUG] focus_force() on root succeeded")
+                    logger.debug("focus_force() on root succeeded")
                 except Exception as e:
-                    print(f"[POPUP DEBUG] focus_force() failed: {e}")
+                    logger.debug("focus_force() failed: %s", e)
 
     def destroy(self):
         """Destroy the popup menu and clean up resources."""
@@ -871,6 +890,14 @@ class GradientButton(tk.Canvas):
 
 
 class UIManager:
+    # Sentinel shown when no input device is available. NOT translated: it is
+    # also used as a value comparison in AudioManager.start_recording().
+    NO_DEVICES_LABEL = "No audio devices found"
+
+    # Number of blocks in the input level meter. Kept compact so the status
+    # row still fits the status text and the model label on a narrow window.
+    METER_SEGMENTS = 12
+
     def __init__(self, parent):
         self.parent = parent
         self.banner_visible = True
@@ -897,6 +924,40 @@ class UIManager:
         self.shortcut_label_left = None
         self.shortcut_label_right = None
         self.device_combo = None
+        self.device_refresh_link = None
+        self.level_meter = None
+        self.elapsed_label = None
+        self.recording_readout = None
+        self.button_rerun = None
+
+        # Live recording readout state (QW-13b)
+        self._level_after_id = None      # pending after() id for the poll loop
+        self._level_monitoring = False
+        self._meter_level = 0.0          # displayed level (0..1, smoothed)
+        self._meter_peak = 0.0           # peak-hold marker (0..1)
+        self._peak_hold_ticks = 0
+        self._limit_state = None         # None | 'warning' | 'critical'
+        self._level_meter_enabled = True
+
+        # Status pulse state (QW-18a)
+        self._pulse_after_id = None
+        self._pulse_active = False
+        self._pulse_state = True
+
+        # Device list state (QW-07)
+        self._has_audio_devices = False
+        self._device_trace_registered = False
+        self._suppress_device_trace = False
+
+        # Re-run AI edit affordance (QW-08b)
+        self._rerun_disabled = True
+
+        # Model label elision state
+        self.status_row = None
+        self.status_left = None
+        self._model_label_full = ""
+        self._model_fit_after_id = None
+        self._status_min_width = 0
         
     def _setup_styles(self):
         """Configure ttk styles for Sun Valley theme customization."""
@@ -1006,31 +1067,43 @@ class UIManager:
         # INPUT DEVICE
         # ─────────────────────────────────────────────────────────────────────
         
-        self.device_label = ttk.Label(content, text=_("Input Device"), style="Section.TLabel")
-        self.device_label.pack(anchor="w", pady=(0, 10))
+        device_header = ttk.Frame(content)
+        device_header.pack(fill=tk.X, pady=(0, 10))
 
-        devices = self.parent.audio_manager.get_input_devices()
+        self.device_label = ttk.Label(device_header, text=_("Input Device"), style="Section.TLabel")
+        self.device_label.pack(side=tk.LEFT)
+
+        # Small icon-link to re-scan devices without restarting (QW-07)
+        self.device_refresh_link = ttk.Label(
+            device_header, text=f"\u21bb  {_('Refresh')}",
+            style="Copy.TLabel", cursor="hand2",
+            foreground=self.theme.TEXT_SECONDARY
+        )
+        self.device_refresh_link.pack(side=tk.RIGHT, pady=(4, 0))
+        self.device_refresh_link.bind("<Button-1>", lambda e: self.refresh_device_list(notify=True))
+        ToolTip(self.device_refresh_link, _("Re-scan for input devices"))
+
+        devices = self._enumerate_devices()
         self._has_audio_devices = bool(devices)
 
         if not devices:
             # No audio devices found - show warning but continue with UI
             # This allows the app to run for UI testing on systems without audio
-            devices = {"No audio devices found": -1}
-            self.parent.selected_device.set("No audio devices found")
-            print("Warning: No input audio devices found. Recording will not work.")
+            devices = {self.NO_DEVICES_LABEL: -1}
+            self._set_device_selection(self.NO_DEVICES_LABEL)
+            logger.warning("No input audio devices found. Recording will not work.")
         else:
-            config = get_config()
-            saved_device = config.selected_input_device
+            saved_device = get_config().selected_input_device
             if saved_device and saved_device in devices:
-                self.parent.selected_device.set(saved_device)
+                self._set_device_selection(saved_device)
             else:
-                self.parent.selected_device.set(list(devices.keys())[0])
+                self._set_device_selection(list(devices.keys())[0])
 
-            def on_device_change(*args):
-                config.selected_input_device = self.parent.selected_device.get()
-                config.save_settings()
-
-            self.parent.selected_device.trace_add("write", on_device_change)
+        # Registered exactly once; refreshes set the variable with the trace
+        # suppressed so they never overwrite the saved device setting.
+        if not self._device_trace_registered:
+            self.parent.selected_device.trace_add("write", self._on_device_change)
+            self._device_trace_registered = True
 
         # Device dropdown - ttk.Combobox with Sun Valley styling
         self.device_combo = ttk.Combobox(
@@ -1076,9 +1149,19 @@ class UIManager:
         self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
 
-        # Separator and copy - with padding to align baselines with arrows
+        # Separator, re-run and copy - with padding to align baselines with arrows
         separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
+
+        # Re-run the AI edit against the text currently in the box (QW-08b)
+        self.button_rerun = ttk.Label(
+            nav_frame, text=f"  \u21ba {_('AI Edit')}", style="Copy.TLabel", cursor=""
+        )
+        self.button_rerun.pack(side=tk.LEFT, pady=(8, 0))
+        self.button_rerun.bind("<Button-1>", lambda e: self._rerun_ai_edit())
+
+        separator_label2 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
+        separator_label2.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
 
         # Copy button - more top padding since smaller font (to ai: don't remove the space before "Copy")
         self.button_copy = ttk.Label(nav_frame, text=f"  {_('Copy')}", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
@@ -1086,12 +1169,14 @@ class UIManager:
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
         
         # Set initial disabled state (muted color)
+        self.update_rerun_state()
         self._update_nav_button_appearance()
         
-        ToolTip(self.button_first_page, "Latest entry")
-        ToolTip(self.button_arrow_left, "Newer")
-        ToolTip(self.button_arrow_right, "Older")
-        ToolTip(self.button_copy, "Copy to clipboard")
+        ToolTip(self.button_first_page, _("Latest entry"))
+        ToolTip(self.button_arrow_left, _("Newer"))
+        ToolTip(self.button_arrow_right, _("Older"))
+        ToolTip(self.button_rerun, _("Re-run the AI edit on the text above"))
+        ToolTip(self.button_copy, _("Copy to clipboard"))
         
         # Text area - tk.Text with border, padding, and rounded appearance
         text_frame = ttk.Frame(content)
@@ -1138,7 +1223,7 @@ class UIManager:
         self.transcription_text.bind("<Button-3>", self._show_text_context_menu)
         
         # Bind events that might change content to update scrollbar visibility
-        self.transcription_text.bind("<KeyRelease>", lambda e: self.parent.after(10, update_scrollbar_visibility))
+        self.transcription_text.bind("<KeyRelease>", lambda e: self.parent.after(10, self._on_text_changed))
         self.transcription_text.bind("<<Paste>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
         self.transcription_text.bind("<<Cut>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
         self.transcription_text.bind("<Configure>", lambda e: self.parent.after(10, update_scrollbar_visibility))
@@ -1152,23 +1237,65 @@ class UIManager:
         
         status_row = ttk.Frame(content)
         status_row.pack(fill=tk.X, pady=(0, 14))
+        self.status_row = status_row
         
+        # Grid (not pack) so a long model label gives way to the live readout
+        # when the window is narrow, instead of clipping the meter and clock.
+        status_row.columnconfigure(0, weight=0)
+        status_row.columnconfigure(1, weight=1)
+
         status_left = ttk.Frame(status_row)
-        status_left.pack(side=tk.LEFT)
+        status_left.grid(row=0, column=0, sticky="w")
+        self.status_left = status_left
         
         self.status_dot = ttk.Label(status_left, text="●", font=get_font('status_dot'))
         self.status_dot.pack(side=tk.LEFT, padx=(0, 6))
         
         self.status_label = ttk.Label(status_left, text=_("Idle"), style="Status.TLabel")
         self.status_label.pack(side=tk.LEFT)
+
+        # ── Live recording readout (QW-13b) ──────────────────────────────────
+        # Always packed, so starting/stopping a recording never reflows the row.
+        # At idle the meter shows an empty trough and the clock shows 0:00 in
+        # muted text, which is exactly the "no audio is arriving" signal.
+        self._level_meter_enabled = get_config().show_level_meter
+
+        self.recording_readout = ttk.Frame(status_left)
+        if self._level_meter_enabled:
+            self.recording_readout.pack(side=tk.LEFT, padx=(get_spacing('sm'), 0))
+
+        seg_w, gap, meter_h, meter_w = self._meter_metrics()
+        self.level_meter = tk.Canvas(
+            self.recording_readout,
+            width=meter_w, height=meter_h,
+            highlightthickness=0, bd=0, takefocus=0,
+            bg=self._surface_color(is_dark)
+        )
+        self.level_meter.pack(side=tk.LEFT, pady=(2, 0))
+        ToolTip(self.level_meter, _("Microphone input level"))
+
+        # Fixed width so the clock ticking from 0:09 to 0:10 cannot shift layout
+        self.elapsed_label = ttk.Label(
+            status_left, text="0:00", style="Status.TLabel",
+            width=5, anchor="w", foreground=self.theme.TEXT_MUTED
+        )
+        if self._level_meter_enabled:
+            self.elapsed_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), 0))
+
+        self._draw_meter()
         
         # Model info - smaller font
         self.model_label = ttk.Label(
             status_row,
             text=f"{self.parent.transcription_model} · {self.parent.ai_model}",
-            style="Small.TLabel"
+            style="Small.TLabel",
+            anchor="e"
         )
-        self.model_label.pack(side=tk.RIGHT)
+        self.model_label.grid(row=0, column=1, sticky="ew", padx=(get_spacing('sm'), 0))
+        self._model_label_full = str(self.model_label.cget('text'))
+        self._reserve_status_width()
+        status_row.bind("<Configure>", lambda e: self._schedule_model_label_fit())
+        self._schedule_model_label_fit()
         
         # ─────────────────────────────────────────────────────────────────────
         # OPTIONS - Toggle switches (Sun Valley style)
@@ -1261,8 +1388,10 @@ class UIManager:
         self.shortcut_label_right = None
         
         # Add tooltips to buttons
-        ToolTip(self.record_button_transcribe, f"Record and transcribe audio ({shortcut_transcribe})")
-        ToolTip(self.record_button_edit, f"Record and AI-edit transcription ({shortcut_edit})")
+        ToolTip(self.record_button_transcribe,
+                _("Record and transcribe audio ({shortcut})").format(shortcut=shortcut_transcribe))
+        ToolTip(self.record_button_edit,
+                _("Record and AI-edit transcription ({shortcut})").format(shortcut=shortcut_edit))
         
         # ─────────────────────────────────────────────────────────────────────
         # BANNER
@@ -1277,14 +1406,15 @@ class UIManager:
             banner_path = self.parent.resource_path("assets/banner-00-560.png")
             banner_img = Image.open(banner_path)
             self.banner_height = banner_img.height + 10
-            print(f"Banner image height: {banner_img.height}, total banner_height: {self.banner_height}")
+            logger.debug("Banner image height: %s, total banner_height: %s",
+                         banner_img.height, self.banner_height)
             self.banner_photo = ImageTk.PhotoImage(banner_img)
             
             self.banner_label = ttk.Label(self.banner_frame, image=self.banner_photo, cursor="hand2")
             self.banner_label.pack(pady=(4, 6))
             self.banner_label.bind("<Button-1>", lambda e: self.open_scorchsoft())
         except Exception as e:
-            print(f"Banner load error: {e}")
+            logger.warning("Banner load error: %s", e)
             self.banner_height = 260
         
         self.hide_banner_link = ttk.Label(
@@ -1376,9 +1506,82 @@ class UIManager:
     def update_model_label(self):
         lang = "Auto" if self.parent.whisper_language == "auto" else self.parent.whisper_language.upper()
         model_type = "GPT" if self.parent.transcription_model_type == "gpt" else "Whisper"
-        self.model_label.configure(
-            text=f"{self.parent.transcription_model} ({model_type}, {lang}) · {self.parent.ai_model} · {self.parent.current_prompt_name}"
+        self._model_label_full = (
+            f"{self.parent.transcription_model} ({model_type}, {lang}) · "
+            f"{self.parent.ai_model} · {self.parent.current_prompt_name}"
         )
+        self.model_label.configure(text=self._model_label_full)
+        self._schedule_model_label_fit()
+
+    def _reserve_status_width(self):
+        """Reserve room for the longest status message plus the live readout.
+
+        Without this the row reflows when the status text grows ("Idle" ->
+        "Recording...") and the meter is briefly clipped out of the row.
+        """
+        if not self._widget_alive(self.status_row):
+            return
+        try:
+            font = tkfont.Font(font=get_font('xs'))
+            # Only the recording state has to be reflow-free: that is when the
+            # meter and clock are live. Longer processing messages simply push
+            # the (secondary) model label, which elides to fit.
+            text_width = font.measure(_("Recording..."))
+            elapsed_width = font.measure("00:00")
+        except Exception:
+            logger.debug("Could not measure status fonts", exc_info=True)
+            return
+
+        _seg_w, _gap, _height, meter_width = self._meter_metrics()
+        dot_width = get_font_size('status_dot') + get_spacing('sm')
+        readout = (meter_width + elapsed_width + get_spacing('sm') * 2) if self._level_meter_enabled else 0
+        self._status_min_width = dot_width + text_width + readout + get_spacing('md')
+        self.status_row.columnconfigure(0, minsize=self._status_min_width)
+
+    def _schedule_model_label_fit(self):
+        """Debounced re-fit of the model label (also on resize)."""
+        if self._model_fit_after_id is not None:
+            self._cancel_after(self._model_fit_after_id)
+        self._model_fit_after_id = self._after(60, self._fit_model_label)
+
+    def _fit_model_label(self):
+        """Shorten the model label so it can never squeeze the live readout.
+
+        The status row is narrow; the recording level meter and clock are the
+        part that must stay readable, so the (secondary) model information is
+        the thing that gives way.
+        """
+        self._model_fit_after_id = None
+        if not self._widget_alive(self.model_label) or not self._widget_alive(self.status_row):
+            return
+        full = self._model_label_full or str(self.model_label.cget('text'))
+        row_width = self.status_row.winfo_width()
+        if row_width <= 1:
+            # Not laid out yet - try again shortly, keeping the full text.
+            self.model_label.configure(text=full)
+            self._model_fit_after_id = self._after(200, self._fit_model_label)
+            return
+
+        left_width = self.status_left.winfo_reqwidth() if self._widget_alive(self.status_left) else 0
+        left_width = max(left_width, self._status_min_width)
+        available = row_width - left_width - get_spacing('md')
+        available = max(available, 40)
+
+        try:
+            font = tkfont.Font(font=get_font('xxs'))
+        except Exception:
+            self.model_label.configure(text=full)
+            return
+
+        if font.measure(full) <= available:
+            self.model_label.configure(text=full)
+            return
+
+        ellipsis = "…"
+        text = full
+        while text and font.measure(text + ellipsis) > available:
+            text = text[:-1]
+        self.model_label.configure(text=(text + ellipsis) if text else ellipsis)
         
     def _update_nav_button_appearance(self):
         """Update navigation button colors based on disabled state and theme."""
@@ -1412,6 +1615,17 @@ class UIManager:
         # Update Copy button color for current theme
         if hasattr(self, 'button_copy') and self.button_copy:
             self.button_copy.configure(foreground=copy_color)
+
+        # Re-run AI edit link mirrors the nav arrows' enabled/disabled styling
+        if self._widget_alive(self.button_rerun):
+            self.button_rerun.configure(
+                foreground=disabled_color if self._rerun_disabled else copy_color,
+                cursor="" if self._rerun_disabled else "hand2"
+            )
+
+        # Device refresh link is always actionable
+        if self._widget_alive(self.device_refresh_link):
+            self.device_refresh_link.configure(foreground=copy_color)
     
     def update_navigation_buttons(self):
         # Update disabled states
@@ -1434,9 +1648,378 @@ class UIManager:
             self.transcription_text.delete("1.0", tk.END)
             self.transcription_text.insert("1.0", self.parent.history[self.parent.history_index])
             # Update scrollbar visibility after content change
-            self.parent.after(10, self._update_scrollbar_visibility)
+            self._after(10, self._update_scrollbar_visibility)
+        self.update_rerun_state()
             
-    def set_status(self, message, color="blue"):
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # SMALL HELPERS
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _widget_alive(self, widget):
+        """True if the widget still exists (False during/after shutdown)."""
+        if widget is None:
+            return False
+        try:
+            return bool(widget.winfo_exists())
+        except Exception:
+            return False
+
+    def _after(self, delay, callback):
+        """Schedule a callback, returning None if the window has gone away."""
+        if not self._widget_alive(self.parent):
+            return None
+        try:
+            return self.parent.after(delay, callback)
+        except Exception:
+            return None
+
+    def _cancel_after(self, after_id):
+        """Cancel a pending after() callback, ignoring an already-fired id."""
+        if after_id is None:
+            return
+        try:
+            self.parent.after_cancel(after_id)
+        except Exception:
+            pass
+
+    def _surface_color(self, is_dark=None):
+        """Background colour matching the themed window surface."""
+        if is_dark is None:
+            is_dark = get_config().dark_mode
+        return "#1c1c1c" if is_dark else "#fafafa"
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # INPUT LEVEL METER + ELAPSED TIMER (QW-13b)
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _meter_metrics(self):
+        """Segment width, gap, height and total width for the level meter."""
+        unit = max(2, get_spacing('xs'))
+        seg_w = unit
+        gap = max(1, unit // 2)
+        height = get_font_size('status_dot')
+        width = self.METER_SEGMENTS * (seg_w + gap) - gap
+        return seg_w, gap, height, width
+
+    def _meter_colors(self, is_dark=None):
+        """(off, green, amber, red) segment colours for the current theme."""
+        if is_dark is None:
+            is_dark = get_config().dark_mode
+        if is_dark:
+            return "#4a4a4a", "#3fb950", "#e3b341", "#f85149"
+        return "#a9b0b8", "#177e3a", "#a86800", "#c5202c"
+
+    @staticmethod
+    def _level_to_fraction(level):
+        """Map a 0..1 input level onto the meter's 0..1 fill fraction.
+
+        AudioManager already applies a dB curve (a -60 dBFS floor), so this
+        only adds a mild gamma: enough that quiet speech visibly moves the
+        meter, without a second compression that would peg it near full.
+        """
+        if level <= 0.0:
+            return 0.0
+        return max(0.0, min(1.0, math.pow(min(level, 1.0), 0.75)))
+
+    def _draw_meter(self):
+        """Repaint the segmented meter from the current smoothed level."""
+        if not self._widget_alive(self.level_meter):
+            return
+        seg_w, gap, height, _width = self._meter_metrics()
+        off, green, amber, red = self._meter_colors()
+
+        self.level_meter.delete("all")
+        lit = self._meter_level * self.METER_SEGMENTS
+        peak_index = -1
+        if self._meter_peak > 0.0:
+            peak_index = min(self.METER_SEGMENTS - 1,
+                             int(self._meter_peak * self.METER_SEGMENTS))
+
+        for i in range(self.METER_SEGMENTS):
+            position = (i + 0.5) / self.METER_SEGMENTS
+            if position < 0.65:
+                on_color = green
+            elif position < 0.85:
+                on_color = amber
+            else:
+                on_color = red
+            # A limit warning tints the whole bar so it reads at a glance
+            if self._limit_state == 'critical':
+                on_color = red
+            elif self._limit_state == 'warning':
+                on_color = amber
+
+            if i < lit or i == peak_index:
+                color = on_color
+            else:
+                color = off
+
+            x0 = i * (seg_w + gap)
+            self.level_meter.create_rectangle(
+                x0, 1, x0 + seg_w, height - 1,
+                fill=color, outline=""
+            )
+
+    def set_level(self, value):
+        """Render a 0.0-1.0 input level (fast attack, slow decay, peak hold)."""
+        try:
+            level = float(value)
+        except (TypeError, ValueError):
+            level = 0.0
+        level = max(0.0, min(1.0, level))
+
+        target = self._level_to_fraction(level)
+        if target >= self._meter_level:
+            self._meter_level = target                       # instant attack
+        else:
+            self._meter_level += (target - self._meter_level) * 0.35  # decay
+
+        if self._meter_level > self._meter_peak:
+            self._meter_peak = self._meter_level
+            self._peak_hold_ticks = 8                        # ~0.8s hold
+        elif self._peak_hold_ticks > 0:
+            self._peak_hold_ticks -= 1
+        else:
+            self._meter_peak = max(self._meter_level, self._meter_peak - 0.03)
+
+        self._draw_meter()
+
+    def set_elapsed(self, seconds):
+        """Render elapsed recording time as M:SS, amber/red near the limit."""
+        if not self._widget_alive(self.elapsed_label):
+            return
+        try:
+            total = max(0.0, float(seconds))
+        except (TypeError, ValueError):
+            total = 0.0
+        minutes, secs = divmod(int(total), 60)
+
+        state = self._limit_state
+        if state is None:
+            state = self._limit_state_from_elapsed(total)
+            self._limit_state = state
+
+        if state == 'critical':
+            color = self.theme.RECORDING_TEXT
+        elif state == 'warning':
+            color = self.theme.STATUS_PROCESSING
+        elif self._level_monitoring:
+            color = self.theme.TEXT_TERTIARY
+        else:
+            color = self.theme.TEXT_MUTED
+
+        self.elapsed_label.configure(text=f"{minutes}:{secs:02d}", foreground=color)
+
+    def _limit_state_from_elapsed(self, seconds):
+        """Derive a limit-warning state from the configured maximum length."""
+        if not self._level_monitoring:
+            return None
+        try:
+            max_minutes = int(getattr(get_config(), 'max_recording_minutes', 0) or 0)
+        except Exception:
+            max_minutes = 0
+        if max_minutes <= 0:
+            return None
+        limit = max_minutes * 60.0
+        if seconds >= limit * 0.95:
+            return 'critical'
+        if seconds >= limit * 0.8:
+            return 'warning'
+        return None
+
+    def _read_limit_state(self, audio_manager):
+        """Read an optional limit-warning flag from the audio manager.
+
+        Agent A may expose this; read defensively so we work without it.
+        """
+        for name in ('limit_state', 'limit_warning_active', 'limit_warning',
+                     'approaching_limit'):
+            value = getattr(audio_manager, name, None)
+            if callable(value):
+                try:
+                    value = value()
+                except Exception:
+                    value = None
+            if isinstance(value, str):
+                value = value.lower()
+                if value in ('warning', 'critical'):
+                    return value
+                continue
+            if value:
+                return 'warning'
+        return None
+
+    def start_level_monitor(self):
+        """Begin polling the audio manager for level and elapsed time."""
+        if not self._level_meter_enabled or not self._widget_alive(self.level_meter):
+            return
+        self._cancel_after(self._level_after_id)
+        self._level_after_id = None
+        self._level_monitoring = True
+        self._meter_level = 0.0
+        self._meter_peak = 0.0
+        self._peak_hold_ticks = 0
+        self._limit_state = None
+        self.set_elapsed(0.0)
+        self._draw_meter()
+        self._poll_level()
+
+    def stop_level_monitor(self):
+        """Stop polling and reset the readout to its idle state."""
+        self._level_monitoring = False
+        self._cancel_after(self._level_after_id)
+        self._level_after_id = None
+        self._meter_level = 0.0
+        self._meter_peak = 0.0
+        self._peak_hold_ticks = 0
+        self._limit_state = None
+        self._draw_meter()
+        self.set_elapsed(0.0)
+
+    def _poll_level(self):
+        """Poll the audio manager every 100ms (polling, never callbacks)."""
+        self._level_after_id = None
+        if not self._level_monitoring or not self._widget_alive(self.level_meter):
+            return
+
+        level = 0.0
+        elapsed = 0.0
+        audio_manager = getattr(self.parent, 'audio_manager', None)
+        if audio_manager is not None:
+            try:
+                level = float(getattr(audio_manager, 'current_level', 0.0) or 0.0)
+            except (TypeError, ValueError):
+                level = 0.0
+            getter = getattr(audio_manager, 'get_elapsed_seconds', None)
+            if callable(getter):
+                try:
+                    elapsed = float(getter() or 0.0)
+                except Exception:
+                    elapsed = 0.0
+            self._limit_state = self._read_limit_state(audio_manager)
+
+        self.set_level(level)
+        self.set_elapsed(elapsed)
+
+        self._level_after_id = self._after(100, self._poll_level)
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # INPUT DEVICES (QW-07)
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _enumerate_devices(self):
+        """Return {name: index} of input devices, or {} if enumeration fails."""
+        try:
+            return self.parent.audio_manager.get_input_devices() or {}
+        except Exception:
+            logger.error("Failed to enumerate input devices", exc_info=True)
+            return {}
+
+    def _set_device_selection(self, name):
+        """Set the selected-device variable without persisting it."""
+        self._suppress_device_trace = True
+        try:
+            self.parent.selected_device.set(name)
+        finally:
+            self._suppress_device_trace = False
+
+    def _on_device_change(self, *args):
+        """Persist the device the user picked from the dropdown."""
+        if self._suppress_device_trace:
+            return
+        name = self.parent.selected_device.get()
+        if not name or name == self.NO_DEVICES_LABEL:
+            return
+        try:
+            config = get_config()
+            config.selected_input_device = name
+            config.save_settings()
+        except Exception:
+            logger.error("Failed to save selected input device", exc_info=True)
+
+    def refresh_device_list(self, notify=False):
+        """Re-enumerate input devices and repopulate the combobox.
+
+        Keeps the current selection when the device is still present. Never
+        writes to the saved setting: a device that disappeared temporarily
+        should still be restored when it comes back.
+        """
+        if not self._widget_alive(self.device_combo):
+            return False
+
+        devices = self._enumerate_devices()
+        current = self.parent.selected_device.get()
+
+        if not devices:
+            self._has_audio_devices = False
+            self.device_combo.configure(
+                values=[self.NO_DEVICES_LABEL], state="disabled"
+            )
+            self._set_device_selection(self.NO_DEVICES_LABEL)
+            logger.warning("Device refresh found no input devices")
+            if notify:
+                self._show_toast(_("No input devices found"),
+                                 anchor=self.device_refresh_link)
+            return False
+
+        self._has_audio_devices = True
+        names = list(devices.keys())
+        # Re-enable the combobox if we were previously in the no-device state
+        self.device_combo.configure(values=names, state="readonly")
+
+        if current in devices:
+            target = current
+        else:
+            saved = get_config().selected_input_device
+            target = saved if saved in devices else names[0]
+        if target != current:
+            self._set_device_selection(target)
+
+        logger.info("Device refresh found %d input device(s); selection=%s",
+                    len(names), self.parent.selected_device.get())
+        if notify:
+            self._show_toast(
+                _n("{n} input device", "{n} input devices", len(names)).format(n=len(names)),
+                anchor=self.device_refresh_link
+            )
+        return True
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # RE-RUN AI EDIT (QW-08b)
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _on_text_changed(self):
+        """React to manual edits in the transcription box."""
+        if callable(getattr(self, '_update_scrollbar_visibility', None)):
+            self._update_scrollbar_visibility()
+        self.update_rerun_state()
+
+    def update_rerun_state(self):
+        """Enable the re-run link only when there is text to re-edit."""
+        if not self._widget_alive(self.button_rerun):
+            return
+        has_text = False
+        if self._widget_alive(self.transcription_text):
+            has_text = bool(self.transcription_text.get("1.0", "end-1c").strip())
+        available = hasattr(self.parent, 'rerun_ai_edit')
+        self._rerun_disabled = not (has_text and available)
+        self._update_nav_button_appearance()
+
+    def _rerun_ai_edit(self):
+        """Ask the app to re-run the AI edit on the current text."""
+        if self._rerun_disabled:
+            return
+        handler = getattr(self.parent, 'rerun_ai_edit', None)
+        if not callable(handler):
+            logger.warning("rerun_ai_edit is not available on the parent")
+            return
+        try:
+            handler()
+        except Exception:
+            logger.error("Re-run AI edit failed", exc_info=True)
+
+    def set_status(self, message, color="blue", pulsing=None):
         color_map = {
             "blue": (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY),
             "green": (self.theme.STATUS_SUCCESS, self.theme.STATUS_SUCCESS),
@@ -1444,32 +2027,62 @@ class UIManager:
             "orange": (self.theme.STATUS_PROCESSING, self.theme.STATUS_PROCESSING)
         }
         dot_color, text_color = color_map.get(color, (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY))
-        
+
+        # Decide whether the dot should pulse from explicit state, never from
+        # the message text - that comparison fails in every non-English locale
+        # (QW-18a). Callers that have not been updated yet fall back to the
+        # recording flag on the audio manager, which is language independent.
+        if pulsing is None:
+            pulsing = bool(getattr(getattr(self.parent, 'audio_manager', None),
+                                   'recording', False))
+
         # TTK labels use configure with foreground
         self.status_label.configure(text=message, foreground=text_color)
         self.status_dot.configure(foreground=dot_color)
-        
-        if "Recording" in message:
-            self._pulse_recording()
-    
+        # The status text changes width; keep the model label out of the way.
+        self._schedule_model_label_fit()
+
+        if pulsing:
+            self._start_pulse()
+            if not self._level_monitoring:
+                self.start_level_monitor()
+        else:
+            self._stop_pulse()
+            if self._level_monitoring:
+                self.stop_level_monitor()
+
+    def _start_pulse(self):
+        """Start (or keep) the recording dot pulsing - never stacks loops."""
+        if self._pulse_active:
+            return
+        self._pulse_active = True
+        self._pulse_state = True
+        self._pulse_recording()
+
+    def _stop_pulse(self):
+        """Stop the pulse loop and cancel any pending tick."""
+        self._pulse_active = False
+        self._cancel_after(self._pulse_after_id)
+        self._pulse_after_id = None
+
     def _pulse_recording(self):
-        if not hasattr(self, '_pulse_state'):
-            self._pulse_state = True
-        if "Recording" in str(self.status_label.cget("text")):
-            self._pulse_state = not self._pulse_state
-            self.status_dot.configure(
-                foreground=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_MUTED
-            )
-            self.parent.after(500, self._pulse_recording)
+        self._pulse_after_id = None
+        if not self._pulse_active or not self._widget_alive(self.status_dot):
+            return
+        self._pulse_state = not self._pulse_state
+        self.status_dot.configure(
+            foreground=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_MUTED
+        )
+        self._pulse_after_id = self._after(500, self._pulse_recording)
 
     def _copy_transcription(self):
         """Copy the entire transcription text to clipboard."""
         text = self.transcription_text.get("1.0", "end-1c")
         if text.strip():
             pyperclip.copy(text)
-            self._show_toast("Copied to clipboard")
-    
-    def _show_toast(self, message, duration=1500):
+            self._show_toast(_("Copied to clipboard"))
+
+    def _show_toast(self, message, duration=1500, anchor=None):
         """Show a toast notification that fades away."""
         # Create toast window
         toast = tk.Toplevel(self.parent)
@@ -1498,27 +2111,37 @@ class UIManager:
         toast_width = toast.winfo_reqwidth()
         toast_height = toast.winfo_reqheight()
         
-        # Get copy button position
-        btn_x = self.button_copy.winfo_rootx()
-        btn_y = self.button_copy.winfo_rooty()
-        btn_height = self.button_copy.winfo_height()
-        
-        # Position below the copy button
-        x = btn_x - toast_width // 2 + self.button_copy.winfo_width() // 2
+        # Position below the anchor widget (the Copy link by default)
+        if anchor is None or not self._widget_alive(anchor):
+            anchor = self.button_copy
+
+        btn_x = anchor.winfo_rootx()
+        btn_y = anchor.winfo_rooty()
+        btn_height = anchor.winfo_height()
+
+        x = btn_x - toast_width // 2 + anchor.winfo_width() // 2
         y = btn_y + btn_height + 8
-        
+
         toast.geometry(f"+{x}+{y}")
-        
-        # Fade out and destroy after duration
+
+        # Fade out and destroy after duration. Every step re-checks that the
+        # toast (and the app) still exist, so shutdown cannot raise here.
         def fade_out(alpha=1.0):
+            if not self._widget_alive(toast):
+                return
             if alpha > 0:
-                toast.attributes('-alpha', alpha)
-                self.parent.after(30, lambda: fade_out(alpha - 0.1))
+                try:
+                    toast.attributes('-alpha', alpha)
+                except Exception:
+                    return
+                if self._after(30, lambda: fade_out(alpha - 0.1)) is None:
+                    toast.destroy()
             else:
                 toast.destroy()
-        
+
         # Start fade out after duration
-        self.parent.after(duration, fade_out)
+        if self._after(duration, fade_out) is None:
+            toast.destroy()
     
     def _show_text_context_menu(self, event):
         menu = tk.Menu(
@@ -1638,9 +2261,13 @@ class UIManager:
         if hasattr(self, 'transcription_label'):
             self.transcription_label.configure(text=_("Transcription"))
 
-        # Update navigation and copy button
+        # Update navigation, re-run and copy buttons
         if hasattr(self, 'button_copy'):
             self.button_copy.configure(text=f"  {_('Copy')}")
+        if self._widget_alive(self.button_rerun):
+            self.button_rerun.configure(text=f"  \u21ba {_('AI Edit')}")
+        if self._widget_alive(self.device_refresh_link):
+            self.device_refresh_link.configure(text=f"\u21bb  {_('Refresh')}")
 
         # Update status label (only if showing "Idle")
         if hasattr(self, 'status_label'):
@@ -1728,6 +2355,19 @@ class UIManager:
                     highlightcolor="#a0a0a0"
                 )
         
+        # Update the level meter surface and repaint it for the new theme
+        if self._widget_alive(self.level_meter):
+            self.level_meter.configure(bg=self._surface_color(is_dark))
+            self._draw_meter()
+        if self._widget_alive(self.elapsed_label):
+            # Re-apply the elapsed colour for the new palette
+            current = str(self.elapsed_label.cget('text')) or "0:00"
+            try:
+                minutes, secs = current.split(":")
+                self.set_elapsed(int(minutes) * 60 + int(secs))
+            except (ValueError, TypeError):
+                self.set_elapsed(0.0)
+
         # Update navigation button colors for the new theme
         if hasattr(self, 'button_first_page') and self.button_first_page:
             self._update_nav_button_appearance()
@@ -1737,7 +2377,7 @@ class UIManager:
             link_color = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
             self.powered_by_label.configure(foreground=link_color)
 
-        print(f"Theme applied: {theme_name}")
+        logger.debug("Theme applied: %s", theme_name)
     
     def _set_light_title_bar(self, window):
         """Set Windows title bar to light mode."""
@@ -1753,4 +2393,4 @@ class UIManager:
                 ctypes.byref(value), ctypes.sizeof(value)
             )
         except Exception as e:
-            print(f"Could not set light title bar: {e}")
+            logger.warning("Could not set light title bar: %s", e)
