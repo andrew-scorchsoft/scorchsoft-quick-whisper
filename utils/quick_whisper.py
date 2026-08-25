@@ -50,7 +50,7 @@ class QuickWhisper(tk.Tk):
         # Hide window during initialization to prevent partial rendering flash
         self.withdraw()
 
-        self.version = "2.2.0"
+        self.version = "2.2.1"
 
         self.is_mac = platform.system() == 'Darwin'
 
@@ -99,9 +99,9 @@ class QuickWhisper(tk.Tk):
         self.minsize(500, 300)
         self.banner_visible = True
         # Initial model settings
-        self.transcription_model = "gpt-4o-transcribe"
+        self.transcription_model = "gpt-transcribe"
         self.transcription_model_type = "gpt"  # Can be "gpt" or "whisper"
-        self.ai_model = "gpt-5-mini"
+        self.ai_model = "gpt-5.6-luna"
         self.whisper_language = "auto"
         self.last_transcription = "NO LATEST TRANSCRIPTION"
         self.last_edit = "NO LATEST EDIT"
@@ -908,10 +908,11 @@ class QuickWhisper(tk.Tk):
 
             # Provide a clearer hint for known unsupported/renamed models
             err_text = str(e)
-            if "mini" in (self.transcription_model or "").lower():
+            known_models = ("gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1")
+            if (self.transcription_model or "").strip() not in known_models:
                 messagebox.showerror(
                     "Transcription Error",
-                    "The selected transcription model may be unsupported. Try 'gpt-4o-transcribe' or 'whisper-1'.\n\n"
+                    "The selected transcription model may be unsupported. Try 'gpt-transcribe' or 'whisper-1'.\n\n"
                     "If you entered a custom model, please verify the exact model name supported by the API."
                 )
             else:
@@ -1126,11 +1127,14 @@ class QuickWhisper(tk.Tk):
             print(f"About to process with AI Model {self.ai_model}")
 
             if "gpt-5" in self.ai_model:
+                # GPT-5.6 (Sol/Terra/Luna) dropped the "minimal" effort level in favour of
+                # none/low/medium/high/xhigh/max - use "low" for fast copy-editing.
+                reasoning_effort = "low" if "gpt-5.6" in self.ai_model else "minimal"
                 response = self.client.responses.create(
                     model=self.ai_model,
                     instructions=system_prompt,
-                    text={"verbosity": "low"},  
-                    reasoning={"effort": "minimal"},
+                    text={"verbosity": "low"},
+                    reasoning={"effort": reasoning_effort},
                     input=user_prompt,
                     max_output_tokens=8000
                 )
