@@ -176,12 +176,19 @@ class TrayManager:
             logger.info("Starting system tray icon")
             icon.run()
         except Exception as e:
+            if self._shutting_down:
+                # pystray's teardown reaches out to the notification service; on
+                # a box with no notification daemon that raises a GLib
+                # ServiceUnknown out of icon.run() during shutdown. Nothing is
+                # wrong and there is nothing to restore.
+                logger.debug("Tray backend error during shutdown (ignored): %s", e)
+                return
             logger.error("Error running system tray icon: %s", e, exc_info=True)
             # The backend failed after we said the tray was up. If the window
             # is hidden the user would have no way to get it back, so restore
             # it rather than leaving them stranded.
             self.is_running = False
-            if self.is_window_hidden and not self._shutting_down:
+            if self.is_window_hidden:
                 self._call_on_main(self._restore_window)
         finally:
             self.is_running = False

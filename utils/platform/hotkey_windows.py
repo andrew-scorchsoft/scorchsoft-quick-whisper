@@ -9,7 +9,7 @@ from pynput.keyboard import Key, KeyCode
 import threading
 import time
 
-from .hotkey_base import HotkeyManagerBase
+from .hotkey_base import HotkeyManagerBase, stop_listener_without_blocking
 
 from utils.app_logging import get_logger
 
@@ -72,7 +72,12 @@ class WindowsHotkeyManager(HotkeyManagerBase):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_backward),
                 self._normalize_shortcut(self.shortcuts['cycle_prompt_forward']):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_forward),
+                self._normalize_shortcut(self.shortcuts.get('retry_last', '')):
+                    lambda: self.parent.after(0, self.parent.retry_last_recording),
             }
+            # An unset shortcut normalises to an empty frozenset, which would
+            # otherwise match "no keys pressed". Drop it.
+            self._registered_hotkeys.pop(frozenset(), None)
 
             # Start new listener
             self.listener = keyboard.Listener(
@@ -116,15 +121,7 @@ class WindowsHotkeyManager(HotkeyManagerBase):
             if self.listener:
                 old_listener = self.listener
                 self.listener = None
-                old_listener.stop()
-                # Wait longer for listener thread to fully terminate to prevent
-                # leaked Windows keyboard hooks (a known source of memory leaks)
-                try:
-                    old_listener.join(timeout=5.0)
-                    if old_listener.is_alive():
-                        logger.warning("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
-                except Exception:
-                    pass
+                stop_listener_without_blocking(old_listener, "Windows")
 
             with self._lock:
                 self.pressed_keys.clear()

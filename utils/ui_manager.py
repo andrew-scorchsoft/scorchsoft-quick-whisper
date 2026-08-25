@@ -937,6 +937,7 @@ class UIManager:
         self._meter_peak = 0.0           # peak-hold marker (0..1)
         self._peak_hold_ticks = 0
         self._limit_state = None         # None | 'warning' | 'critical'
+        self._readout_visible = True
         self._level_meter_enabled = True
 
         # Status pulse state (QW-18a)
@@ -956,6 +957,7 @@ class UIManager:
         self.status_row = None
         self.status_left = None
         self._model_label_full = ""
+        self._model_label_variants = []
         self._model_fit_after_id = None
         self._status_min_width = 0
         
@@ -1283,7 +1285,8 @@ class UIManager:
             self.elapsed_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), 0))
 
         self._draw_meter()
-        
+        self._set_readout_visible(False)
+
         # Model info - smaller font
         self.model_label = ttk.Label(
             status_row,
@@ -1293,6 +1296,7 @@ class UIManager:
         )
         self.model_label.grid(row=0, column=1, sticky="ew", padx=(get_spacing('sm'), 0))
         self._model_label_full = str(self.model_label.cget('text'))
+        self._model_label_variants = [self._model_label_full]
         self._reserve_status_width()
         status_row.bind("<Configure>", lambda e: self._schedule_model_label_fit())
         self._schedule_model_label_fit()
@@ -1506,10 +1510,17 @@ class UIManager:
     def update_model_label(self):
         lang = "Auto" if self.parent.whisper_language == "auto" else self.parent.whisper_language.upper()
         model_type = "GPT" if self.parent.transcription_model_type == "gpt" else "Whisper"
-        self._model_label_full = (
-            f"{self.parent.transcription_model} ({model_type}, {lang}) · "
-            f"{self.parent.ai_model} · {self.parent.current_prompt_name}"
-        )
+        transcription_model = self.parent.transcription_model
+        ai_model = self.parent.ai_model
+        prompt_name = self.parent.current_prompt_name
+        # Most informative first; _fit_model_label picks the first that fits.
+        self._model_label_variants = [
+            f"{transcription_model} ({model_type}, {lang}) · {ai_model} · {prompt_name}",
+            f"{transcription_model} · {ai_model} · {prompt_name}",
+            f"{transcription_model} · {ai_model}",
+            f"{transcription_model}",
+        ]
+        self._model_label_full = self._model_label_variants[0]
         self.model_label.configure(text=self._model_label_full)
         self._schedule_model_label_fit()
 
@@ -1523,10 +1534,17 @@ class UIManager:
             return
         try:
             font = tkfont.Font(font=get_font('xs'))
-            # Only the recording state has to be reflow-free: that is when the
-            # meter and clock are live. Longer processing messages simply push
-            # the (secondary) model label, which elides to fit.
-            text_width = font.measure(_("Recording..."))
+            # Reserve for the widest status message the app can show, so no
+            # status change ever clips the meter or the clock out of the row.
+            text_width = max(font.measure(text) for text in (
+                _("Idle"),
+                _("Recording..."),
+                _("Processing - Audio File..."),
+                _("Processing - Transcript..."),
+                _("Processing - AI Editing..."),
+                _("Retrying transcription..."),
+                _("Error during transcription"),
+            ))
             elapsed_width = font.measure("00:00")
         except Exception:
             logger.debug("Could not measure status fonts", exc_info=True)
@@ -1573,12 +1591,15 @@ class UIManager:
             self.model_label.configure(text=full)
             return
 
-        if font.measure(full) <= available:
-            self.model_label.configure(text=full)
-            return
+        variants = self._model_label_variants or [full]
+        for variant in variants:
+            if font.measure(variant) <= available:
+                self.model_label.configure(text=variant)
+                return
 
+        # Nothing fits - truncate the shortest variant with an ellipsis
         ellipsis = "…"
-        text = full
+        text = variants[-1]
         while text and font.measure(text + ellipsis) > available:
             text = text[:-1]
         self.model_label.configure(text=(text + ellipsis) if text else ellipsis)
@@ -1726,8 +1747,16 @@ class UIManager:
         """Repaint the segmented meter from the current smoothed level."""
         if not self._widget_alive(self.level_meter):
             return
-        seg_w, gap, height, _width = self._meter_metrics()
+        seg_w, gap, height, width = self._meter_metrics()
         off, green, amber, red = self._meter_colors()
+
+        # If a narrow window squeezed the canvas, scale the blocks to whatever
+        # width we actually have rather than drawing off the right-hand edge.
+        actual_width = self.level_meter.winfo_width()
+        if 1 < actual_width < width:
+            unit = actual_width / float(self.METER_SEGMENTS)
+            gap = max(1.0, unit * 0.3)
+            seg_w = max(1.0, unit - gap)
 
         self.level_meter.delete("all")
         lit = self._meter_level * self.METER_SEGMENTS
@@ -1850,6 +1879,25 @@ class UIManager:
                 return 'warning'
         return None
 
+    def _set_readout_visible(self, visible):
+        """Show or hide the meter and clock.
+
+        The status column has a reserved minimum width, so showing or hiding
+        the readout never reflows the row.
+        """
+        if not self._level_meter_enabled:
+            visible = False
+        if visible == self._readout_visible:
+            return
+        self._readout_visible = visible
+        for widget in (self.recording_readout, self.elapsed_label):
+            if not self._widget_alive(widget):
+                continue
+            if visible:
+                widget.pack(side=tk.LEFT, padx=(get_spacing('sm'), 0))
+            else:
+                widget.pack_forget()
+
     def start_level_monitor(self):
         """Begin polling the audio manager for level and elapsed time."""
         if not self._level_meter_enabled or not self._widget_alive(self.level_meter):
@@ -1861,6 +1909,7 @@ class UIManager:
         self._meter_peak = 0.0
         self._peak_hold_ticks = 0
         self._limit_state = None
+        self._set_readout_visible(True)
         self.set_elapsed(0.0)
         self._draw_meter()
         self._poll_level()
@@ -1876,6 +1925,7 @@ class UIManager:
         self._limit_state = None
         self._draw_meter()
         self.set_elapsed(0.0)
+        self._set_readout_visible(False)
 
     def _poll_level(self):
         """Poll the audio manager every 100ms (polling, never callbacks)."""
@@ -2298,6 +2348,10 @@ class UIManager:
             else:
                 self.record_button_transcribe.configure(text=_("Stop and Process"))
                 self.record_button_edit.configure(text=_("Stop and Process"))
+
+        # Status widths change with the language - re-reserve and re-fit
+        self._reserve_status_width()
+        self._schedule_model_label_fit()
 
         # Update banner labels
         if hasattr(self, 'hide_banner_link'):

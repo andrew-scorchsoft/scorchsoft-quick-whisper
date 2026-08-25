@@ -123,6 +123,7 @@ class AudioManager:
         self.limit_warning_active = False
         self._record_start_time = None
         self._limit_reached = False
+        self._limit_notice_pending = False
 
         # Guards start/stop/cancel against re-entrancy (double hotkey presses,
         # the auto-stop firing while the user is already stopping, and so on).
@@ -164,6 +165,7 @@ class AudioManager:
         self.peak_level = 0.0
         self.limit_warning_active = False
         self._limit_reached = False
+        self._limit_notice_pending = False
         self._record_start_time = None
 
     # ------------------------------------------------------------------
@@ -416,15 +418,10 @@ class AudioManager:
         """Main-thread callback: stop at the size limit but keep the audio."""
         if not self.recording:
             return
-        try:
-            max_minutes = int(self.config.max_recording_minutes or 0)
-        except Exception:
-            max_minutes = 0
-        self._show_info(
-            _("Recording Limit Reached"),
-            _("Recording stopped automatically after {minutes} minutes to stay "
-              "within the upload size limit. What you have said so far is being "
-              "processed now.").format(minutes=max_minutes))
+        # The notice is raised from stop_recording, but only if the audio is
+        # actually kept - no point telling the user about a limit and then
+        # telling them the take was discarded.
+        self._limit_notice_pending = True
         # Route through the app so transcription is kicked off exactly as it
         # would be for a manual stop.
         try:
@@ -517,9 +514,22 @@ class AudioManager:
             self._play_async("assets/pop-down.wav")
 
             saved = self._write_wave(frames)
+            notify_limit = self._limit_notice_pending and saved is not None
+            limit_minutes = 0
+            if notify_limit:
+                try:
+                    limit_minutes = int(self.config.max_recording_minutes or 0)
+                except Exception:
+                    limit_minutes = 0
             self._reset_level_state()
             if saved is not None:
                 self._schedule_retention_cleanup(keep=saved)
+            if notify_limit:
+                self._show_info(
+                    _("Recording Limit Reached"),
+                    _("Recording stopped automatically after {minutes} minutes to stay "
+                      "within the upload size limit. What you have said so far is being "
+                      "processed now.").format(minutes=limit_minutes))
             return saved
         finally:
             self._stopping = False

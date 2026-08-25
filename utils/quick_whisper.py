@@ -41,7 +41,7 @@ from utils.tray_manager import TrayManager, tray_supported
 from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
 from utils.platform import open_url
 from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, unregister_refresh_callback, SUPPORTED_LANGUAGES
-from utils.app_logging import get_logger, setup_logging, get_log_file_path
+from utils.app_logging import get_logger, setup_logging
 from utils.paths import (
     resource_path as _resource_path,
     get_prompts_path,
@@ -488,7 +488,7 @@ class QuickWhisper(tk.Tk):
                         elif screen_width >= 1920 and screen_dpi > 96:
                             # Full HD with high DPI - modest scaling
                             scale_factor = 1.25
-                            logger.info(f"Detected Full HD with high DPI, using 1.25x scaling")
+                            logger.info("Detected Full HD with high DPI, using 1.25x scaling")
 
                     # Strategy 3: Fall back to DPI-based calculation
                     if scale_factor is None and screen_dpi > 96 * 1.1:
@@ -1067,18 +1067,24 @@ class QuickWhisper(tk.Tk):
             # Set globally so the app knows when recording stops whether 
             # transcript or edit mode was selected
             self.current_button_mode = mode
-            logger.info(f"\nAbout to start recording. mode = {mode}")
-            
-            # Quick verification of hotkey state before recording
-            # This helps ensure we can actually stop the recording with hotkeys
-            if not self.hotkey_manager.verify_hotkeys():
-                logger.warning("WARNING: Hotkeys not functioning correctly. Refreshing before recording...")
-                self.hotkey_manager.force_hotkey_refresh(callback=lambda success: 
-                                                        self.start_recording() if success else None)
-            else:
-                self.start_recording()
+            logger.info("About to start recording. mode = %s", mode)
+
+            # Recording must NEVER be gated on the state of the global hotkeys.
+            # Wayland, X11-less Linux, macOS without Accessibility permission
+            # and a failed Windows hook all leave the hotkeys unregistered -
+            # and a user clicking the button in the window has already said
+            # what they want. Repair the hotkeys opportunistically in the
+            # background instead (fire and forget).
+            try:
+                if not self.hotkey_manager.verify_hotkeys():
+                    logger.warning("Hotkeys not functioning correctly; refreshing in the background")
+                    self.hotkey_manager.force_hotkey_refresh()
+            except Exception as e:
+                logger.warning("Hotkey health check failed: %s", e)
+
+            self.start_recording()
         else:
-            logger.info(f"About to stop recording. mode = {self.current_button_mode}")
+            logger.info("About to stop recording. mode = %s", self.current_button_mode)
             self.stop_recording()
 
     def start_recording(self):
@@ -1767,8 +1773,8 @@ class QuickWhisper(tk.Tk):
                     vroot_height = self.winfo_vrootheight()
                     if vroot_width > 0 and vroot_height > 0:
                         return 0, 0, vroot_width, vroot_height
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not read virtual root dimensions: %s", e)
                 # Fallback to standard screen dimensions
                 return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
                 

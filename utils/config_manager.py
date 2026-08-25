@@ -56,7 +56,8 @@ class ConfigManager:
             "record_transcribe": None,
             "cancel_recording": None,
             "cycle_prompt_back": None,
-            "cycle_prompt_forward": None
+            "cycle_prompt_forward": None,
+            "retry_last": None
         },
         "recording": {
             "location": "alongside",
@@ -120,12 +121,17 @@ class ConfigManager:
             self.DEFAULT_SETTINGS["shortcuts"]["cancel_recording"] = "command+x"
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_back"] = "command+["
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_forward"] = "command+]"
+            self.DEFAULT_SETTINGS["shortcuts"]["retry_last"] = "command+alt+r"
         else:
             self.DEFAULT_SETTINGS["shortcuts"]["record_edit"] = "ctrl+alt+j"
             self.DEFAULT_SETTINGS["shortcuts"]["record_transcribe"] = "ctrl+alt+shift+j"
-            self.DEFAULT_SETTINGS["shortcuts"]["cancel_recording"] = "win+x"
+            # Not win+x: that is the Windows Power User menu (OS-reserved, so
+            # the app never receives it) and Super+X is commonly grabbed by
+            # Linux desktop environments.
+            self.DEFAULT_SETTINGS["shortcuts"]["cancel_recording"] = "ctrl+alt+x"
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_back"] = "alt+left"
             self.DEFAULT_SETTINGS["shortcuts"]["cycle_prompt_forward"] = "alt+right"
+            self.DEFAULT_SETTINGS["shortcuts"]["retry_last"] = "ctrl+alt+r"
     
     def _get_fernet(self) -> Fernet:
         """Get a Fernet instance for encryption/decryption."""

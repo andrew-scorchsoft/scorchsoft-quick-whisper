@@ -9,7 +9,7 @@ from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 import threading
 
-from .hotkey_base import HotkeyManagerBase
+from .hotkey_base import HotkeyManagerBase, stop_listener_without_blocking
 
 from utils.app_logging import get_logger
 
@@ -72,7 +72,12 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_backward),
                 self._normalize_shortcut(self.shortcuts['cycle_prompt_forward']):
                     lambda: self.parent.after(0, self.parent.cycle_prompt_forward),
+                self._normalize_shortcut(self.shortcuts.get('retry_last', '')):
+                    lambda: self.parent.after(0, self.parent.retry_last_recording),
             }
+            # An unset shortcut normalises to an empty frozenset, which would
+            # otherwise match "no keys pressed". Drop it.
+            self._registered_hotkeys.pop(frozenset(), None)
 
             # Start new listener
             self.listener = keyboard.Listener(
@@ -114,13 +119,7 @@ class LinuxHotkeyManager(HotkeyManagerBase):
             if self.listener:
                 old_listener = self.listener
                 self.listener = None
-                old_listener.stop()
-                try:
-                    old_listener.join(timeout=5.0)
-                    if old_listener.is_alive():
-                        logger.warning("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
-                except Exception:
-                    pass
+                stop_listener_without_blocking(old_listener, "Linux")
 
             with self._lock:
                 self.pressed_keys.clear()
@@ -171,7 +170,11 @@ class LinuxHotkeyManager(HotkeyManagerBase):
                 keys.add('alt')
             elif part == 'shift':
                 keys.add('shift')
-            elif part in ('win', 'windows', 'super', 'meta'):
+            elif part in ('win', 'windows', 'super', 'meta', 'cmd', 'command'):
+                # 'cmd'/'command' matter because a settings.json copied from a
+                # Mac (or shared between machines) stores 'command+[', which
+                # previously normalised to a literal 'command' key and could
+                # never match the 'super' the listener reports.
                 keys.add('super')
             elif part == 'left':
                 keys.add('left')

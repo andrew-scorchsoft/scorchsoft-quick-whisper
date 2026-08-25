@@ -40,6 +40,9 @@ class ManagePromptsDialog:
 
     def on_close(self):
         """Handle dialog close (X button) to ensure hotkeys are resumed."""
+        # Closing with unsaved edits used to discard them without asking.
+        if not self._confirm_discard():
+            return
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.resume()
         self.dialog.destroy()
@@ -94,7 +97,12 @@ class ManagePromptsDialog:
         select_frame.pack(fill=tk.BOTH, expand=True)
 
         # Listbox for prompts with scrollbar
-        self.prompt_list = tk.Listbox(select_frame, height=8, selectmode=tk.BROWSE, font=get_font('sm'))
+        # exportselection=0 is essential: with the default, the Listbox
+        # selection is tied to the X11 PRIMARY selection, so selecting text in
+        # the prompt editor next to it silently cleared curselection() - and
+        # Delete then did nothing at all, with no feedback.
+        self.prompt_list = tk.Listbox(select_frame, height=8, selectmode=tk.BROWSE,
+                                      exportselection=0, font=get_font('sm'))
         prompt_scrollbar = ttk.Scrollbar(select_frame, orient=tk.VERTICAL, command=self.prompt_list.yview)
         self.prompt_list.config(yscrollcommand=prompt_scrollbar.set)
         
@@ -124,12 +132,60 @@ class ManagePromptsDialog:
         # Bind selection event
         self.prompt_list.bind('<<ListboxSelect>>', self.on_prompt_select)
 
+    def _is_dirty(self):
+        """True when the editor holds unsaved changes to the selected prompt."""
+        if not self.current_selected_prompt or self.current_selected_prompt == "Default":
+            return False
+        try:
+            shown = self.content_text.get("1.0", tk.END).strip()
+        except Exception:
+            return False
+        stored = (self.parent.prompts.get(self.current_selected_prompt) or "").strip()
+        return shown != stored
+
+    def _confirm_discard(self):
+        """Offer to save pending edits. Returns False to cancel the action."""
+        if not self._is_dirty():
+            return True
+        answer = messagebox.askyesnocancel(
+            _("Unsaved Changes"),
+            _("Save changes to '{name}' before continuing?").format(
+                name=self.current_selected_prompt),
+            parent=self.dialog if hasattr(self, 'dialog') else None
+        )
+        if answer is None:
+            return False  # Cancel
+        if answer:
+            self.save_content_changes(announce=False)
+        return True
+
     def on_prompt_select(self, event):
         """Handle prompt selection and update the current selection."""
         selected_indices = self.prompt_list.curselection()
-        if selected_indices:
-            self.current_selected_prompt = self.prompt_list.get(selected_indices[0])
-            self.update_content()
+        if not selected_indices:
+            return
+
+        chosen = self.prompt_list.get(selected_indices[0])
+        if chosen == self.current_selected_prompt:
+            return
+
+        # Switching away used to blow away unsaved edits with no warning.
+        if not self._confirm_discard():
+            self._reselect_current()
+            return
+
+        self.current_selected_prompt = chosen
+        self.update_content()
+
+    def _reselect_current(self):
+        """Put the listbox selection back on the prompt still being edited."""
+        try:
+            names = list(self.prompt_list.get(0, tk.END))
+            if self.current_selected_prompt in names:
+                self.prompt_list.selection_clear(0, tk.END)
+                self.prompt_list.selection_set(names.index(self.current_selected_prompt))
+        except Exception:
+            pass
 
     def create_right_panel(self, main_frame):
         # Right panel uses grid placement - will scale proportionally
@@ -222,7 +278,7 @@ class ManagePromptsDialog:
                 foreground="#AAAAAA"
             )
 
-    def save_content_changes(self):
+    def save_content_changes(self, announce=True):
         """Save changes to the current prompt content."""
         if not self.current_selected_prompt or self.current_selected_prompt == "Default":
             return
@@ -234,7 +290,8 @@ class ManagePromptsDialog:
 
         self.parent.prompts[self.current_selected_prompt] = new_content
         self.parent.save_prompts(self.parent.prompts)
-        messagebox.showinfo(_("Success"), _("Prompt changes saved successfully"))
+        if announce:
+            messagebox.showinfo(_("Success"), _("Prompt changes saved successfully"))
 
     def create_new_prompt(self):
         """Open dialog for creating a new prompt."""
@@ -297,6 +354,22 @@ class ManagePromptsDialog:
             if len(new_name) > 25:
                 messagebox.showerror(_("Error"), _("Prompt name must be 25 characters or less"))
                 return
+            # "Default" is the built-in read-only prompt. A custom prompt with
+            # that name appears twice in the list, and every lookup resolves to
+            # the built-in one - so the user's prompt can never be selected,
+            # edited or deleted from the UI again.
+            if new_name.strip().lower() == "default":
+                messagebox.showerror(
+                    _("Error"),
+                    _("'Default' is reserved for the built-in prompt. Please choose another name.")
+                )
+                return
+            if new_name in self.parent.prompts:
+                if not messagebox.askyesno(
+                    _("Overwrite Prompt"),
+                    _("A prompt named '{name}' already exists. Replace it?").format(name=new_name)
+                ):
+                    return
 
             new_content = new_prompt_text.get("1.0", tk.END).strip()
             if not new_content:
@@ -351,12 +424,16 @@ class ManagePromptsDialog:
 
     def delete_current_prompt(self):
         """Delete the currently selected prompt."""
-        selected_indices = self.prompt_list.curselection()
-        if not selected_indices:
-            return
-        
-        prompt_name = self.prompt_list.get(selected_indices[0])
-        if prompt_name == "Default":
+        # Use the tracked selection rather than curselection(), which can be
+        # empty simply because the user selected text in the editor.
+        prompt_name = self.current_selected_prompt
+        if not prompt_name:
+            selected_indices = self.prompt_list.curselection()
+            if not selected_indices:
+                return
+            prompt_name = self.prompt_list.get(selected_indices[0])
+
+        if prompt_name == "Default" or prompt_name not in self.parent.prompts:
             return
         
         if messagebox.askyesno(_("Confirm Delete"), _("Are you sure you want to delete '{name}'?").format(name=prompt_name)):

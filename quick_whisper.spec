@@ -3,6 +3,7 @@ import platform
 import os
 import sys
 from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files
 
 # Determine current platform
 system = platform.system()
@@ -78,7 +79,15 @@ a = Analysis(
     ['quick_whisper.py'],
     pathex=[SPEC_ROOT],
     binaries=[],
-    datas=[('assets', 'assets'), ('locale', 'locale')],
+    # customtkinter ships its themes as package data (assets/themes/*.json) and
+    # sv_ttk ships sv.tcl plus theme/*.tcl. Neither has a PyInstaller hook, so
+    # without collecting them a frozen build fails at startup on a missing
+    # theme file. assets/ and locale/ are this app's own resources.
+    datas=(
+        [('assets', 'assets'), ('locale', 'locale')]
+        + collect_data_files('customtkinter')
+        + collect_data_files('sv_ttk')
+    ),
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
