@@ -27,6 +27,16 @@ def compile_po_to_mo(po_path: Path, mo_path: Path) -> bool:
         current_msgstr = None
         in_msgid = False
         in_msgstr = False
+        # A "#, fuzzy" flag means msgmerge guessed this translation from a
+        # similar string and a human has not confirmed it. The guesses are
+        # frequently wrong - msgmerge paired "Save Failed" with the French for
+        # "Retry failed" - so gettext's own msgfmt excludes them by default and
+        # falls back to the English source. This compiler did not, and shipped
+        # them. Skip them.
+        current_is_fuzzy = False
+        fuzzy_skipped = 0
+
+        pending_fuzzy = False
 
         with open(po_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -36,12 +46,17 @@ def compile_po_to_mo(po_path: Path, mo_path: Path) -> bool:
 
             if line.startswith('msgid "'):
                 if current_msgid is not None and current_msgstr is not None:
-                    # Include ALL messages including header (empty msgid has charset info)
-                    messages[current_msgid] = current_msgstr
+                    if current_is_fuzzy and current_msgid:
+                        fuzzy_skipped += 1
+                    else:
+                        # Include ALL messages including header (empty msgid has charset info)
+                        messages[current_msgid] = current_msgstr
                 current_msgid = line[7:-1]  # Remove 'msgid "' and trailing '"'
                 current_msgstr = None
                 in_msgid = True
                 in_msgstr = False
+                current_is_fuzzy = pending_fuzzy
+                pending_fuzzy = False
             elif line.startswith('msgstr "'):
                 current_msgstr = line[8:-1]  # Remove 'msgstr "' and trailing '"'
                 in_msgid = False
@@ -54,18 +69,31 @@ def compile_po_to_mo(po_path: Path, mo_path: Path) -> bool:
                 elif in_msgstr:
                     current_msgstr += content
             elif not line or line.startswith('#'):
+                # A flags comment applies to the entry that follows it.
+                if line.startswith('#,') and 'fuzzy' in line:
+                    pending_fuzzy = True
                 # Empty line or comment - save current message
                 if current_msgid is not None and current_msgstr is not None:
-                    # Include ALL messages including header (empty msgid has charset info)
-                    messages[current_msgid] = current_msgstr
+                    if current_is_fuzzy and current_msgid:
+                        fuzzy_skipped += 1
+                    else:
+                        # Include ALL messages including header (empty msgid has charset info)
+                        messages[current_msgid] = current_msgstr
                     current_msgid = None
                     current_msgstr = None
                     in_msgid = False
                     in_msgstr = False
+                    current_is_fuzzy = False
 
         # Don't forget the last message
         if current_msgid is not None and current_msgstr is not None:
-            messages[current_msgid] = current_msgstr
+            if current_is_fuzzy and current_msgid:
+                fuzzy_skipped += 1
+            else:
+                messages[current_msgid] = current_msgstr
+
+        if fuzzy_skipped:
+            print(f"    ({fuzzy_skipped} fuzzy entries skipped - need translator review)")
 
         # Process escape sequences
         def unescape(s):

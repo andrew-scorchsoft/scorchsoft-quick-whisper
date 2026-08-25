@@ -37,8 +37,29 @@ SOURCE_DIRS = [
     PROJECT_ROOT,  # For quick_whisper.py entry point
 ]
 
-# Supported languages
-LANGUAGES = ["en", "fr", "de", "es", "zh_CN", "ar"]
+# Supported languages.
+#
+# Derived from utils.i18n so this list cannot drift from the languages the app
+# actually offers. It previously hardcoded six, while the app shipped ten - so
+# ja, ko, ru and pt silently missed every extraction and fell further behind on
+# each run. Any locale directory already on disk is included too.
+def _supported_languages():
+    langs = []
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT))
+        from utils.i18n import SUPPORTED_LANGUAGES
+        langs = list(SUPPORTED_LANGUAGES.keys())
+    except Exception as exc:  # pragma: no cover - tooling must still run
+        print(f"  Warning: could not import SUPPORTED_LANGUAGES ({exc}); "
+              f"falling back to the locale directory")
+    if LOCALE_DIR.is_dir():
+        for entry in sorted(LOCALE_DIR.iterdir()):
+            if entry.is_dir() and entry.name not in langs:
+                langs.append(entry.name)
+    return langs or ["en"]
+
+
+LANGUAGES = _supported_languages()
 
 
 def run_command(cmd: list, description: str) -> bool:
