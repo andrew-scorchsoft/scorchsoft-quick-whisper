@@ -131,13 +131,18 @@ class ConfigDialog:
 
         # Define transcription models and their types
         self.transcription_models = {
+            "gpt-transcribe": "gpt",
             "gpt-4o-transcribe": "gpt",
+            "gpt-4o-mini-transcribe": "gpt",
             "whisper-1": "whisper",
             "other": "unknown"
         }
 
         # Define LLM models for copy-editing
         self.llm_models = [
+            "gpt-5.6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.6-sol",
             "gpt-5",
             "gpt-5-mini",
             "gpt-5-nano",
@@ -1094,7 +1099,7 @@ class ConfigDialog:
         # Model info
         ttk.Label(
             models_frame,
-            text="e.g., gpt-5, gpt-4o, gpt-4o-mini, o1-mini, o1-preview",
+            text="e.g., gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol, gpt-5, gpt-4.1, gpt-4o-mini",
             font=get_font('xxs'),
             foreground=THEME_TEXT_MUTED
         ).pack(anchor="w", pady=(5, 0))

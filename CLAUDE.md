@@ -48,7 +48,7 @@ brew install portaudio
 ### Core Application (`utils/quick_whisper.py`)
 - `QuickWhisper` class extends `tk.Tk` - main application window
 - Initializes all managers and coordinates between them
-- Handles OpenAI API calls for transcription (`client.audio.transcriptions.create`) and AI editing (`client.responses.create` for GPT-5, `client.chat.completions.create` for others)
+- Handles OpenAI API calls for transcription (`client.audio.transcriptions.create`) and AI editing (`client.responses.create` for GPT-5/GPT-5.6, `client.chat.completions.create` for others)
 - Manages prompts (Default from `assets/DefaultPrompt.md`, custom from `config/prompts.json`)
 
 ### Manager Classes (in `utils/`)
@@ -127,7 +127,8 @@ width, height = get_window_size('main') # Platform/HiDPI-aware dimensions
 
 - **Thread safety**: All keyboard callbacks are marshaled to main Tkinter thread via `self.parent.after(0, ...)` to prevent UI glitches
 - **Hotkey reliability**: Hotkeys can become unregistered after Windows lock/unlock - the app has health checking and auto-refresh (every 30s when enabled)
-- **Transcription models**: Two types supported - `gpt` (gpt-4o-transcribe) and `whisper` (whisper-1) with different API parameters
+- **Transcription models**: Two types supported - `gpt` (default `gpt-transcribe`, also `gpt-4o-transcribe`/`gpt-4o-mini-transcribe`) and `whisper` (whisper-1) with different API parameters
+- **Copy-editing model**: Defaults to `gpt-5.6-luna` via the Responses API with `reasoning.effort="low"`; older `gpt-5*` models use `effort="minimal"`, non-GPT-5 models use Chat Completions
 - **Recording storage**: Configurable location - alongside app, AppData/config folder, or custom path
 - **Linux/Wayland**: Global hotkeys have limited support under Wayland; X11 recommended for best results
 - **HiDPI**: Platform-specific scaling via `utils/theme/` module; explicit pixel values per platform (Windows, Linux, macOS) for fonts, spacing, and window sizes

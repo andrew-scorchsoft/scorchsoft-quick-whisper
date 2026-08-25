@@ -26,9 +26,9 @@ class ConfigManager:
     # Default settings structure
     DEFAULT_SETTINGS = {
         "models": {
-            "transcription_model": "gpt-4o-transcribe",
+            "transcription_model": "gpt-transcribe",
             "transcription_model_type": "gpt",
-            "ai_model": "gpt-5-mini",
+            "ai_model": "gpt-5.6-luna",
             "whisper_language": "auto"
         },
         "ui": {
