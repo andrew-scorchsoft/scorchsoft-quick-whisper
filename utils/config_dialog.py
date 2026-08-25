@@ -12,6 +12,9 @@ from utils.i18n import (
     _, _n, set_language, get_current_language, detect_os_locale,
     get_detected_locale_display, get_available_languages, SUPPORTED_LANGUAGES
 )
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
 
 # Theme colors for dark mode (used in AI Models section)
 THEME_TEXT_MUTED = "#909090"
@@ -21,13 +24,13 @@ THEME_ACCENT_HOVER = "#67e8f9"
 class ConfigDialog:
     def __init__(self, parent):
         _t0 = time.perf_counter()
-        print(f"[CONFIG DIALOG] __init__ started")
+        logger.info("[CONFIG DIALOG] __init__ started")
 
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.withdraw()  # Hide window until UI is built
         self.dialog.title(_("Configuration Settings"))
-        print(f"[CONFIG DIALOG] Toplevel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] Toplevel created: %sms", (time.perf_counter() - _t0)*1000)
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('config_dialog')
@@ -42,7 +45,7 @@ class ConfigDialog:
 
         # Handle window close (X button) to ensure hotkeys are resumed
         self.dialog.protocol("WM_DELETE_WINDOW", self._close_dialog)
-        print(f"[CONFIG DIALOG] Window configured: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] Window configured: %sms", (time.perf_counter() - _t0)*1000)
 
         # Variables for settings
         self.recording_location_var = tk.StringVar()
@@ -65,7 +68,7 @@ class ConfigDialog:
 
         # Track original HiDPI setting for restart prompt
         self.original_hidpi_mode = None
-        print(f"[CONFIG DIALOG] Variables initialized: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] Variables initialized: %sms", (time.perf_counter() - _t0)*1000)
 
         # Define Whisper supported languages
         self.languages = {
@@ -153,32 +156,32 @@ class ConfigDialog:
             "gpt-4o-mini",
             "other"
         ]
-        print(f"[CONFIG DIALOG] Static data defined: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] Static data defined: %sms", (time.perf_counter() - _t0)*1000)
 
         # Load current settings
         self.load_current_settings()
-        print(f"[CONFIG DIALOG] Settings loaded: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] Settings loaded: %sms", (time.perf_counter() - _t0)*1000)
         
         # Current selected category
         self.current_category = "Recording"
 
         self.create_dialog()
-        print(f"[CONFIG DIALOG] create_dialog() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] create_dialog() done: %sms", (time.perf_counter() - _t0)*1000)
 
         # Force Tkinter to process all widget geometry before showing
         # This prevents the black flash by ensuring widgets are rendered
         self.dialog.update_idletasks()
-        print(f"[CONFIG DIALOG] update_idletasks() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] update_idletasks() done: %sms", (time.perf_counter() - _t0)*1000)
 
         # Show window now that UI is fully built (prevents black flash)
         self.dialog.deiconify()
-        print(f"[CONFIG DIALOG] deiconify() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] deiconify() done: %sms", (time.perf_counter() - _t0)*1000)
 
         # Make dialog modal after UI is built (faster perceived load)
         self.dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
-        print(f"[CONFIG DIALOG] wait_visibility() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] wait_visibility() done: %sms", (time.perf_counter() - _t0)*1000)
         self.dialog.grab_set()
-        print(f"[CONFIG DIALOG] grab_set() done: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] grab_set() done: %sms", (time.perf_counter() - _t0)*1000)
 
         # Defer hotkey pause to after dialog is fully painted
         # Using after(50) + update() ensures widgets are rendered before the blocking pause
@@ -187,7 +190,7 @@ class ConfigDialog:
                 self.dialog.update()  # Force full repaint before blocking pause
                 self.parent.hotkey_manager.pause()
             self.dialog.after(50, pause_hotkeys)
-        print(f"[CONFIG DIALOG] __init__ complete: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG] __init__ complete: %sms", (time.perf_counter() - _t0)*1000)
 
     def load_current_settings(self):
         """Load current configuration settings from settings.json."""
@@ -268,7 +271,7 @@ class ConfigDialog:
                 background=[('!disabled', '#e0e0e0'), ('active', '#d0d0d0')],
                 foreground=[('!disabled', '#000000')]
             )
-        print(f"[CONFIG DIALOG]   - styles configured: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - styles configured: %sms", (time.perf_counter() - _t0)*1000)
 
         main_frame = ttk.Frame(self.dialog, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -276,21 +279,21 @@ class ConfigDialog:
         # Create top frame for navigation and content
         top_frame = ttk.Frame(main_frame)
         top_frame.pack(fill=tk.BOTH, expand=True)
-        print(f"[CONFIG DIALOG]   - frames created: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - frames created: %sms", (time.perf_counter() - _t0)*1000)
 
         # Create bottom frame for buttons
         self.create_bottom_buttons(main_frame)
-        print(f"[CONFIG DIALOG]   - bottom buttons created: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - bottom buttons created: %sms", (time.perf_counter() - _t0)*1000)
 
         # Create left navigation and right content areas in the top frame
         self.create_navigation_panel(top_frame)
-        print(f"[CONFIG DIALOG]   - navigation panel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - navigation panel created: %sms", (time.perf_counter() - _t0)*1000)
         self.create_content_panel(top_frame)
-        print(f"[CONFIG DIALOG]   - content panel created: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - content panel created: %sms", (time.perf_counter() - _t0)*1000)
 
         # Initially show recording settings
         self.show_recording_settings()
-        print(f"[CONFIG DIALOG]   - recording settings shown: {(time.perf_counter() - _t0)*1000:.1f}ms")
+        logger.info("[CONFIG DIALOG]   - recording settings shown: %sms", (time.perf_counter() - _t0)*1000)
         
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""

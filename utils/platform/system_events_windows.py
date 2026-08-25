@@ -11,6 +11,10 @@ from ctypes import wintypes, Structure, POINTER, WINFUNCTYPE
 
 from .system_events_base import SystemEventListenerBase
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 # Define WNDCLASSW structure (not in wintypes)
 class WNDCLASSW(Structure):
@@ -80,7 +84,7 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         self.is_running = True
         self.thread = threading.Thread(target=self._listen_for_events, daemon=True)
         self.thread.start()
-        print("System event listener started (Windows)")
+        logger.info("System event listener started (Windows)")
 
     def stop_listening(self):
         """Stop the listener thread."""
@@ -97,16 +101,16 @@ class WindowsSystemEventListener(SystemEventListenerBase):
             hwnd = self._create_message_window(wndclass)
 
             if not hwnd:
-                print("Failed to create message window")
+                logger.error("Failed to create message window")
                 return
 
             # Register for session notifications - NOTIFY_FOR_ALL_SESSIONS = 1
             result = ctypes.windll.wtsapi32.WTSRegisterSessionNotification(hwnd, 1)
             if not result:
-                print(f"Failed to register for session notifications: {ctypes.GetLastError()}")
+                logger.error("Failed to register for session notifications: %s", ctypes.GetLastError())
                 return
 
-            print("Successfully registered for Windows session notifications")
+            logger.info("Successfully registered for Windows session notifications")
 
             # Message loop
             msg = wintypes.MSG()
@@ -129,7 +133,7 @@ class WindowsSystemEventListener(SystemEventListenerBase):
             ctypes.windll.user32.UnregisterClassW(wndclass.lpszClassName, wndclass.hInstance)
 
         except Exception as e:
-            print(f"Error in event listener: {e}")
+            logger.error("Error in event listener: %s", e)
 
     def _handle_session_change(self, event_type):
         """Handle various session change events."""
@@ -146,22 +150,22 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         }
 
         event_name = event_names.get(event_type, f"Unknown Event ({event_type})")
-        print(f"Windows Session Event: {event_name}")
+        logger.info("Windows Session Event: %s", event_name)
 
         # Determine if we should refresh hotkeys
         should_refresh = False
         refresh_delay = 1000  # Default delay in ms
 
         if event_type == self.WTS_SESSION_UNLOCK:
-            print("System unlocked - will refresh hotkeys")
+            logger.info("System unlocked - will refresh hotkeys")
             should_refresh = True
             refresh_delay = 1000  # 1 second delay for unlock
         elif event_type == self.WTS_SESSION_LOCK:
-            print("System locked - will preemptively refresh hotkeys on unlock")
+            logger.info("System locked - will preemptively refresh hotkeys on unlock")
             should_refresh = True
             refresh_delay = 1500  # 1.5 second delay for lock
         elif event_type in (self.WTS_CONSOLE_CONNECT, self.WTS_REMOTE_CONNECT, self.WTS_SESSION_LOGON):
-            print("System connected/logged on - will refresh hotkeys")
+            logger.info("System connected/logged on - will refresh hotkeys")
             should_refresh = True
             refresh_delay = 2000  # 2 second delay for logon/connect
 
@@ -201,9 +205,9 @@ class WindowsSystemEventListener(SystemEventListenerBase):
             error = ctypes.GetLastError()
             # Error 1410 = class already exists (OK, we can reuse it)
             if error == 1410:
-                print("Window class already registered (reusing)")
+                logger.info("Window class already registered (reusing)")
             else:
-                print(f"Failed to register window class: error {error}")
+                logger.error("Failed to register window class: error %s", error)
                 return None
 
         return wndclass
@@ -211,7 +215,7 @@ class WindowsSystemEventListener(SystemEventListenerBase):
     def _create_message_window(self, wndclass):
         """Create a message-only window to receive system events."""
         if not wndclass:
-            print("Cannot create message window: wndclass is None")
+            logger.info("Cannot create message window: wndclass is None")
             return None
 
         # Configure CreateWindowExW
@@ -248,10 +252,10 @@ class WindowsSystemEventListener(SystemEventListenerBase):
         
         if not hwnd:
             error = ctypes.GetLastError()
-            print(f"Failed to create message window: error {error}")
+            logger.error("Failed to create message window: error %s", error)
             return None
         
-        print(f"Message window created successfully: hwnd={hwnd}")
+        logger.info("Message window created successfully: hwnd=%s", hwnd)
         return hwnd
 
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
@@ -267,6 +271,6 @@ class WindowsSystemEventListener(SystemEventListenerBase):
                 # wparam contains the event type (lock, unlock, etc.)
                 self._handle_session_change(wparam)
         except Exception as e:
-            print(f"Error in window procedure: {e}")
+            logger.error("Error in window procedure: %s", e)
         
         return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)

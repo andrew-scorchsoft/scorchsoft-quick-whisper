@@ -8,6 +8,10 @@ import threading
 import time
 from abc import ABC, abstractmethod
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class SystemEventListenerBase(ABC):
     """
@@ -35,11 +39,11 @@ class SystemEventListenerBase(ABC):
 
     def _refresh_hotkeys(self):
         """Execute hotkey refresh on the main thread."""
-        print("System event triggered hotkey refresh")
+        logger.info("System event triggered hotkey refresh")
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.force_hotkey_refresh()
         else:
-            print("Error: Cannot refresh hotkeys - hotkey_manager not found")
+            logger.error("Error: Cannot refresh hotkeys - hotkey_manager not found")
 
     def _throttled_refresh(self, delay_ms=1000, min_interval_sec=3):
         """
@@ -54,4 +58,4 @@ class SystemEventListenerBase(ABC):
             self.last_refresh_time = current_time
             self.parent.after(delay_ms, self._refresh_hotkeys)
         else:
-            print("Skipping refresh - too soon since last refresh")
+            logger.warning("Skipping refresh - too soon since last refresh")

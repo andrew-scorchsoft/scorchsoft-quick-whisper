@@ -8,6 +8,10 @@ import platform
 import subprocess
 import webbrowser
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_platform():
     """
@@ -61,7 +65,7 @@ class _NoOpHotkeyManager:
         }
 
     def register_hotkeys(self):
-        print("Hotkeys not available (no X11 display)")
+        logger.info("Hotkeys not available (no X11 display)")
         return False
 
     def unregister_hotkeys(self):
@@ -114,7 +118,7 @@ def get_hotkey_manager_class():
             return LinuxHotkeyManager
         except ImportError as e:
             # pynput requires X11 on Linux - if not available, use no-op fallback
-            print(f"Warning: Hotkeys disabled - pynput not available: {e}")
+            logger.warning("Warning: Hotkeys disabled - pynput not available: %s", e)
             return _NoOpHotkeyManager
 
 
@@ -157,12 +161,12 @@ def open_url(url):
             )
             return True
         except (subprocess.SubprocessError, FileNotFoundError) as e:
-            print(f"Failed to open URL via WSL interop: {e}")
+            logger.error("Failed to open URL via WSL interop: %s", e)
             return False
     else:
         try:
             webbrowser.open(url)
             return True
         except Exception as e:
-            print(f"Failed to open URL: {e}")
+            logger.error("Failed to open URL: %s", e)
             return False

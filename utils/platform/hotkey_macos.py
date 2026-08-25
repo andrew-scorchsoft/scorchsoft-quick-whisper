@@ -11,6 +11,10 @@ import subprocess
 
 from .hotkey_base import HotkeyManagerBase
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def check_accessibility_permissions():
     """
@@ -82,7 +86,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 if not self.listener.is_alive():
                     raise Exception("Listener failed to start - may need Accessibility permissions")
 
-                print(f"Registered {len(self._registered_hotkeys)} hotkeys successfully (macOS/pynput)")
+                logger.info("Registered %s hotkeys successfully (macOS/pynput)", len(self._registered_hotkeys))
                 return True
 
             except Exception as e:
@@ -92,7 +96,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 raise e
 
         except Exception as e:
-            print(f"Error registering hotkeys: {e}")
+            logger.error("Error registering hotkeys: %s", e)
             return False
 
     def _show_permission_dialog(self):
@@ -112,7 +116,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
             if result:
                 self._open_accessibility_settings()
         except Exception as e:
-            print(f"Error showing permission dialog: {e}")
+            logger.error("Error showing permission dialog: %s", e)
 
     def _open_accessibility_settings(self):
         """Open macOS System Settings to Accessibility preferences."""
@@ -129,7 +133,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                     '/System/Library/PreferencePanes/Security.prefPane'
                 ])
             except Exception as e:
-                print(f"Could not open System Settings: {e}")
+                logger.error("Could not open System Settings: %s", e)
 
     def unregister_hotkeys(self):
         """Stop the keyboard listener and clear hotkeys."""
@@ -141,7 +145,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 try:
                     old_listener.join(timeout=5.0)
                     if old_listener.is_alive():
-                        print("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
+                        logger.warning("[MEMORY] WARNING: pynput listener thread did not terminate within 5s - potential leak")
                 except Exception:
                     pass
 
@@ -149,9 +153,9 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 self.pressed_keys.clear()
                 self._registered_hotkeys.clear()
 
-            print("Hotkeys unregistered")
+            logger.info("Hotkeys unregistered")
         except Exception as e:
-            print(f"Error unregistering hotkeys: {e}")
+            logger.error("Error unregistering hotkeys: %s", e)
 
     def verify_hotkeys(self):
         """Verify that the keyboard listener is running."""
@@ -160,18 +164,18 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 return True
 
             if not self._registered_hotkeys:
-                print("No hotkeys registered")
+                logger.info("No hotkeys registered")
                 return False
 
             if not self.listener or not self.listener.is_alive():
-                print("Keyboard listener not alive")
+                logger.info("Keyboard listener not alive")
                 return False
 
-            print("Hotkey verification passed - listener is active")
+            logger.info("Hotkey verification passed - listener is active")
             return True
 
         except Exception as e:
-            print(f"Error verifying hotkeys: {e}")
+            logger.error("Error verifying hotkeys: %s", e)
             return False
 
     def _normalize_shortcut(self, shortcut_str):
@@ -272,7 +276,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                     self.pressed_keys.add(key_name)
                     self._check_hotkeys()
         except Exception as e:
-            print(f"Error in key press handler: {e}")
+            logger.error("Error in key press handler: %s", e)
 
     def _on_release(self, key):
         """Handle key release events."""
@@ -282,7 +286,7 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 with self._lock:
                     self.pressed_keys.discard(key_name)
         except Exception as e:
-            print(f"Error in key release handler: {e}")
+            logger.error("Error in key release handler: %s", e)
 
     def _check_hotkeys(self):
         """Check if currently pressed keys match any registered hotkey."""
@@ -294,5 +298,5 @@ class MacOSHotkeyManager(HotkeyManagerBase):
                 try:
                     callback()
                 except Exception as e:
-                    print(f"Error executing hotkey callback: {e}")
+                    logger.error("Error executing hotkey callback: %s", e)
                 break

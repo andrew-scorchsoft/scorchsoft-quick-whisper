@@ -16,6 +16,10 @@ from utils.config_manager import get_config
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from . import CURRENT_PLATFORM
 
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class HotkeyManagerBase(ABC):
     """
@@ -103,10 +107,10 @@ class HotkeyManagerBase(ABC):
         Returns:
             bool: True if refresh started successfully.
         """
-        print("Forcing hotkey refresh")
+        logger.info("Forcing hotkey refresh")
         try:
             if self._paused:
-                print("Hotkeys are paused; skipping refresh")
+                logger.warning("Hotkeys are paused; skipping refresh")
                 if callback:
                     callback(True)
                 return True
@@ -118,11 +122,11 @@ class HotkeyManagerBase(ABC):
             def _after_refresh():
                 success = self.register_hotkeys()
                 if success:
-                    print("Hotkey refresh completed successfully")
+                    logger.info("Hotkey refresh completed successfully")
                     if callback:
                         callback(True)
                 else:
-                    print("Failed to register hotkeys")
+                    logger.error("Failed to register hotkeys")
                     if callback:
                         callback(False)
                     messagebox.showerror("Hotkey Error",
@@ -132,7 +136,7 @@ class HotkeyManagerBase(ABC):
             return True
 
         except Exception as e:
-            print(f"Error during hotkey refresh: {e}")
+            logger.error("Error during hotkey refresh: %s", e)
             if callback:
                 callback(False)
             messagebox.showerror("Hotkey Error",
@@ -142,24 +146,24 @@ class HotkeyManagerBase(ABC):
     def pause(self):
         """Temporarily disable all hotkeys."""
         try:
-            print("Pausing hotkeys...")
+            logger.info("Pausing hotkeys...")
             self._paused = True
             self.unregister_hotkeys()
-            print("Hotkeys paused")
+            logger.info("Hotkeys paused")
         except Exception as e:
-            print(f"Error while pausing hotkeys: {e}")
+            logger.error("Error while pausing hotkeys: %s", e)
 
     def resume(self):
         """Re-enable hotkeys after a pause."""
         try:
             if not self._paused:
                 return
-            print("Resuming hotkeys...")
+            logger.info("Resuming hotkeys...")
             self._paused = False
             self.register_hotkeys()
-            print("Hotkeys resumed")
+            logger.info("Hotkeys resumed")
         except Exception as e:
-            print(f"Error while resuming hotkeys: {e}")
+            logger.error("Error while resuming hotkeys: %s", e)
 
     def save_shortcut_to_config(self, shortcut_name, key_combination):
         """Save a keyboard shortcut to settings.json."""
