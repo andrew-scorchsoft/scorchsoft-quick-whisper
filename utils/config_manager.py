@@ -12,12 +12,18 @@ import base64
 import json
 import os
 import platform
+import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from utils.app_logging import get_logger
+from utils.paths import get_config_dir
+
+logger = get_logger(__name__)
 
 
 class ConfigManager:
@@ -40,7 +46,10 @@ class ConfigManager:
             "window_x": None,  # Saved window position (None = center on screen)
             "window_y": None,
             "language_mode": "auto",  # "auto" or "manual"
-            "language": "en"  # Language code when mode is "manual"
+            "language": "en",  # Language code when mode is "manual"
+            "persist_history": True,   # Restore transcription history on launch
+            "history_limit": 100,      # Entries kept in memory and on disk
+            "show_level_meter": True   # Live input level meter while recording
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -52,7 +61,11 @@ class ConfigManager:
         "recording": {
             "location": "alongside",
             "custom_path": "",
-            "file_handling": "overwrite"
+            "file_handling": "overwrite",
+            "max_minutes": 10,          # Warn/stop before the API upload limit
+            "min_seconds": 0.4,         # Discard accidental hotkey taps
+            "discard_silent": True,     # Skip uploading recordings with no signal
+            "retention_days": 14        # Delete old recordings (0 = keep forever)
         },
         "behavior": {
             "auto_hotkey_refresh": True,
@@ -73,13 +86,16 @@ class ConfigManager:
     _ENCRYPTION_SALT = b'QuickWhisper_Salt_2024'
     _ENCRYPTION_PASSWORD = b'QW_Secure_Key_v1_xK9mP2nL'
     
-    def __init__(self, config_dir: str = "config"):
+    def __init__(self, config_dir: Optional[str] = None):
         """Initialize the config manager.
-        
+
         Args:
-            config_dir: Directory where config files are stored
+            config_dir: Directory where config files are stored. When omitted,
+                the location is resolved by ``utils.paths.get_config_dir()``,
+                which anchors it to the application rather than to the current
+                working directory.
         """
-        self.config_dir = Path(config_dir)
+        self.config_dir = Path(config_dir) if config_dir else get_config_dir()
         self.settings_path = self.config_dir / "settings.json"
         self.credentials_path = self.config_dir / "credentials.json"
         self.legacy_env_path = self.config_dir / ".env"
@@ -140,7 +156,7 @@ class ConfigManager:
             decrypted = fernet.decrypt(encrypted)
             return decrypted.decode('utf-8')
         except Exception as e:
-            print(f"Error decrypting value: {e}")
+            logger.error("Error decrypting value: %s", e)
             return ""
     
     def _load_config(self):
@@ -154,7 +170,7 @@ class ConfigManager:
     
     def _migrate_from_env(self):
         """Migrate settings from legacy .env file to new JSON format."""
-        print("Migrating configuration from .env to JSON format...")
+        logger.info("Migrating configuration from .env to JSON format...")
         
         env_vars = {}
         try:
@@ -165,7 +181,7 @@ class ConfigManager:
                         key, value = line.split('=', 1)
                         env_vars[key.strip()] = value.strip()
         except Exception as e:
-            print(f"Error reading .env file: {e}")
+            logger.error("Error reading .env file: %s", e)
             env_vars = {}
         
         # Build settings from env vars
@@ -228,11 +244,11 @@ class ConfigManager:
         backup_path = self.legacy_env_path.with_suffix('.env.backup')
         try:
             self.legacy_env_path.rename(backup_path)
-            print(f"Legacy .env file backed up to {backup_path}")
+            logger.info("Legacy .env file backed up to %s", backup_path)
         except Exception as e:
-            print(f"Could not backup .env file: {e}")
+            logger.warning("Could not backup .env file: %s", e)
         
-        print("Migration complete!")
+        logger.info("Migration from .env complete")
     
     def _load_settings(self):
         """Load settings from JSON file."""
@@ -243,7 +259,7 @@ class ConfigManager:
                 # Merge with defaults to handle any new settings
                 self._settings = self._merge_with_defaults(loaded, self.DEFAULT_SETTINGS)
             except Exception as e:
-                print(f"Error loading settings: {e}")
+                logger.error("Error loading settings: %s", e, exc_info=True)
                 self._settings = self._deep_copy(self.DEFAULT_SETTINGS)
         else:
             self._settings = self._deep_copy(self.DEFAULT_SETTINGS)
@@ -256,7 +272,7 @@ class ConfigManager:
                     loaded = json.load(f)
                 self._credentials = self._merge_with_defaults(loaded, self.DEFAULT_CREDENTIALS)
             except Exception as e:
-                print(f"Error loading credentials: {e}")
+                logger.error("Error loading credentials: %s", e, exc_info=True)
                 self._credentials = self._deep_copy(self.DEFAULT_CREDENTIALS)
         else:
             self._credentials = self._deep_copy(self.DEFAULT_CREDENTIALS)
@@ -270,12 +286,12 @@ class ConfigManager:
         is_encrypted = self._credentials.get("openai_api_key_encrypted", False)
         
         if api_key and not is_encrypted:
-            print("Encrypting API key for secure storage...")
+            logger.info("Encrypting API key for secure storage...")
             encrypted_key = self._encrypt_value(api_key)
             self._credentials["openai_api_key"] = encrypted_key
             self._credentials["openai_api_key_encrypted"] = True
             self.save_credentials()
-            print("API key has been encrypted.")
+            logger.info("API key has been encrypted.")
     
     def _merge_with_defaults(self, loaded: dict, defaults: dict) -> dict:
         """Recursively merge loaded config with defaults to fill in missing keys."""
@@ -299,24 +315,44 @@ class ConfigManager:
         else:
             return obj
     
+    def _atomic_write_json(self, path: Path, payload: dict):
+        """Write JSON to ``path`` atomically.
+
+        Settings are saved on almost every UI interaction, so a crash or power
+        loss mid-write previously risked truncating the file and losing every
+        setting. Write to a temporary file in the same directory and replace.
+        """
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(self.config_dir), prefix=path.name, suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_name, path)
+        except Exception:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
+
     def save_settings(self):
         """Save settings to JSON file."""
         try:
-            self.config_dir.mkdir(parents=True, exist_ok=True)
-            with open(self.settings_path, 'w', encoding='utf-8') as f:
-                json.dump(self._settings, f, indent=2, ensure_ascii=False)
+            self._atomic_write_json(self.settings_path, self._settings)
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logger.error("Error saving settings: %s", e, exc_info=True)
             raise
-    
+
     def save_credentials(self):
         """Save credentials to JSON file."""
         try:
-            self.config_dir.mkdir(parents=True, exist_ok=True)
-            with open(self.credentials_path, 'w', encoding='utf-8') as f:
-                json.dump(self._credentials, f, indent=2, ensure_ascii=False)
+            self._atomic_write_json(self.credentials_path, self._credentials)
         except Exception as e:
-            print(f"Error saving credentials: {e}")
+            logger.error("Error saving credentials: %s", e, exc_info=True)
             raise
     
     # ========== Settings Accessors ==========
@@ -437,6 +473,36 @@ class ConfigManager:
         """Set the language code."""
         self._settings["ui"]["language"] = value
 
+    @property
+    def persist_history(self) -> bool:
+        """Whether transcription history is restored on the next launch."""
+        return bool(self._settings["ui"].get("persist_history", True))
+
+    @persist_history.setter
+    def persist_history(self, value: bool):
+        self._settings["ui"]["persist_history"] = bool(value)
+
+    @property
+    def history_limit(self) -> int:
+        """Number of history entries kept in memory and on disk."""
+        try:
+            return max(1, int(self._settings["ui"].get("history_limit", 100)))
+        except (TypeError, ValueError):
+            return 100
+
+    @history_limit.setter
+    def history_limit(self, value: int):
+        self._settings["ui"]["history_limit"] = int(value)
+
+    @property
+    def show_level_meter(self) -> bool:
+        """Whether to show the live input level meter while recording."""
+        return bool(self._settings["ui"].get("show_level_meter", True))
+
+    @show_level_meter.setter
+    def show_level_meter(self, value: bool):
+        self._settings["ui"]["show_level_meter"] = bool(value)
+
     # Shortcuts
     @property
     def shortcuts(self) -> dict:
@@ -472,6 +538,52 @@ class ConfigManager:
     @file_handling.setter
     def file_handling(self, value: str):
         self._settings["recording"]["file_handling"] = value
+
+    @property
+    def max_recording_minutes(self) -> int:
+        """Maximum recording length before the app stops and processes (0 = no limit)."""
+        try:
+            return int(self._settings["recording"].get("max_minutes", 10))
+        except (TypeError, ValueError):
+            return 10
+
+    @max_recording_minutes.setter
+    def max_recording_minutes(self, value: int):
+        self._settings["recording"]["max_minutes"] = int(value)
+
+    @property
+    def min_recording_seconds(self) -> float:
+        """Recordings shorter than this are discarded rather than uploaded."""
+        try:
+            return float(self._settings["recording"].get("min_seconds", 0.4))
+        except (TypeError, ValueError):
+            return 0.4
+
+    @min_recording_seconds.setter
+    def min_recording_seconds(self, value: float):
+        self._settings["recording"]["min_seconds"] = float(value)
+
+    @property
+    def discard_silent_recordings(self) -> bool:
+        """Whether to skip uploading recordings that contain no detectable signal."""
+        return bool(self._settings["recording"].get("discard_silent", True))
+
+    @discard_silent_recordings.setter
+    def discard_silent_recordings(self, value: bool):
+        self._settings["recording"]["discard_silent"] = bool(value)
+
+    @property
+    def recording_retention_days(self) -> int:
+        """Days to keep saved recordings (0 = keep forever)."""
+        try:
+            return int(self._settings["recording"].get("retention_days", 14))
+        except (TypeError, ValueError):
+            return 14
+
+    @recording_retention_days.setter
+    def recording_retention_days(self, value: int):
+        self._settings["recording"]["retention_days"] = int(value)
+
     
     # Behavior
     @property
