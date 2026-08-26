@@ -26,6 +26,31 @@ from utils.paths import get_config_dir
 logger = get_logger(__name__)
 
 
+# Known models, shared by the configuration dialog and the status-line
+# pickers so the two can never drift apart. "other" is not listed here: it is
+# a UI affordance for entering a custom name, not a model.
+TRANSCRIPTION_MODELS = {
+    "gpt-transcribe": "gpt",
+    "gpt-4o-transcribe": "gpt",
+    "gpt-4o-mini-transcribe": "gpt",
+    "whisper-1": "whisper",
+}
+
+AI_MODELS = (
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+)
+
+
 class ConfigManager:
     """Manages application configuration using JSON files."""
     

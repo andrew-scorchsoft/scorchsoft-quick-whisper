@@ -2482,65 +2482,94 @@ class QuickWhisper(tk.Tk):
         ConfigDialog(self)
 
     def show_prompt_notification(self, message):
-        """Show a temporary notification message in the status label and speak the prompt name."""
-        # Create a clean version of the message for speech
-        speech_message = message.replace("Prompt: ", "")
-        
-        # Use text-to-speech for Windows
+        """Tell the user which prompt is now selected.
+
+        Speech used to be the only feedback here, and only on Windows, which
+        left Mac and Linux users cycling prompts completely blind. An on-screen
+        toast works everywhere, and is also the right answer for anyone running
+        with their sound muted.
+        """
+        try:
+            self.ui_manager.show_toast(
+                message, anchor=getattr(self.ui_manager, '_picker_prompt', None))
+        except Exception as e:
+            logger.debug("Could not show the prompt notification: %s", e)
+
+        # Speech is still useful when the window is not visible at all.
         if platform.system() == 'Windows':
+            speech_message = message.split(": ", 1)[-1]
             self.tts_manager.speak_text(speech_message)
+
+    def select_prompt(self, prompt_name):
+        """Switch to a named prompt (from the status-line picker)."""
+        if prompt_name not in self.prompt_names():
+            logger.warning("Prompt '%s' no longer exists; keeping '%s'",
+                           prompt_name, self.current_prompt_name)
+            messagebox.showwarning(
+                _("Prompt Not Found"),
+                _("The prompt '{name}' no longer exists.").format(name=prompt_name))
+            return
+        if prompt_name == self.current_prompt_name:
+            return
+        self.current_prompt_name = prompt_name
+        self.save_prompt_to_config(prompt_name)
+        self.update_model_label()
+        logger.info("Prompt changed to '%s'", prompt_name)
+        self.show_prompt_notification(_("Prompt: {name}").format(name=prompt_name))
+
+    def select_transcription_model(self, model, model_type):
+        """Switch transcription model (from the status-line picker)."""
+        if model == self.transcription_model:
+            return
+        self.transcription_model = model
+        self.transcription_model_type = model_type
+        self.config_manager.transcription_model = model
+        self.config_manager.transcription_model_type = model_type
+        self.config_manager.save_settings()
+        self.update_model_label()
+        logger.info("Transcription model changed to '%s' (%s)", model, model_type)
+        self.ui_manager.show_toast(_("Transcription: {model}").format(model=model),
+                                   anchor=self.ui_manager._picker_transcription)
+
+    def select_ai_model(self, model):
+        """Switch the copy-editing model (from the status-line picker)."""
+        if model == self.ai_model:
+            return
+        self.ai_model = model
+        self.config_manager.ai_model = model
+        self.config_manager.save_settings()
+        self.update_model_label()
+        logger.info("AI model changed to '%s'", model)
+        self.ui_manager.show_toast(_("AI edit: {model}").format(model=model),
+                                   anchor=self.ui_manager._picker_ai)
+
+    def prompt_names(self):
+        """Every selectable prompt name, with the built-in default first."""
+        return ["Default"] + [name for name in self.prompts.keys() if name != "Default"]
+
+    def _cycle_prompt(self, step):
+        """Move `step` places through the prompt list, wrapping around."""
+        names = self.prompt_names()
+        if len(names) < 2:
+            logger.debug("Prompt cycling ignored - only one prompt is available")
+            return
+        try:
+            current_index = names.index(self.current_prompt_name)
+        except ValueError:
+            current_index = 0
+        self.select_prompt(names[(current_index + step) % len(names)])
 
     def cycle_prompt_forward(self):
         """Cycle to the next prompt in the list."""
-        # Create list of prompt names including "Default"
-        prompt_names = ["Default"] + list(self.prompts.keys())
-        
-        # Find current index
-        try:
-            current_index = prompt_names.index(self.current_prompt_name)
-        except ValueError:
-            current_index = 0  # Default to the first prompt if not found
-        
-        # Calculate next index (cycle back to start if at end)
-        next_index = (current_index + 1) % len(prompt_names)
-        
-        # Update current prompt
-        self.current_prompt_name = prompt_names[next_index]
-        self.save_prompt_to_config(self.current_prompt_name)
-        
-        # Update UI
-        self.update_model_label()
-        
-        # Show notification and trigger text-to-speech
-        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+        self._cycle_prompt(1)
 
     def cycle_prompt_backward(self):
         """Cycle to the previous prompt in the list."""
-        # Create list of prompt names including "Default"
-        prompt_names = ["Default"] + list(self.prompts.keys())
-        
-        # Find current index
-        try:
-            current_index = prompt_names.index(self.current_prompt_name)
-        except ValueError:
-            current_index = 0  # Default to the first prompt if not found
-        
-        # Calculate previous index (cycle to end if at start)
-        prev_index = (current_index - 1) % len(prompt_names)
-        
-        # Update current prompt
-        self.current_prompt_name = prompt_names[prev_index]
-        self.save_prompt_to_config(self.current_prompt_name)
-        
-        # Update UI
-        self.update_model_label()
-        
-        # Show notification and trigger text-to-speech
-        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+        self._cycle_prompt(-1)
 
     def cycle_prompt_notification(self, prompt_name):
         """Show a temporary notification about the prompt change."""
-        self.show_prompt_notification(f"Prompt: {prompt_name}")
+        self.show_prompt_notification(_("Prompt: {name}").format(name=prompt_name))
 
     def setup_hotkey_health_checker(self):
         """Set up periodic health checks and refreshes for hotkeys.

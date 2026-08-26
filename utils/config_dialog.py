@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 import platform
 import time
-from utils.config_manager import get_config
+from utils.config_manager import get_config, TRANSCRIPTION_MODELS, AI_MODELS
 from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
 from utils.platform import open_url
 from utils.i18n import (
@@ -221,29 +221,13 @@ class ConfigDialog:
         }
 
         # Define transcription models and their types
-        self.transcription_models = {
-            "gpt-transcribe": "gpt",
-            "gpt-4o-transcribe": "gpt",
-            "gpt-4o-mini-transcribe": "gpt",
-            "whisper-1": "whisper",
-            "other": "unknown"
-        }
+        # Shared with the status-line pickers; "other" is the dialog's own
+        # affordance for typing a custom model name.
+        self.transcription_models = dict(TRANSCRIPTION_MODELS)
+        self.transcription_models["other"] = "unknown"
 
         # Define LLM models for copy-editing
-        self.llm_models = [
-            "gpt-5.6-luna",
-            "gpt-5.6-terra",
-            "gpt-5.6-sol",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "other"
-        ]
+        self.llm_models = list(AI_MODELS) + ["other"]
         logger.info("[CONFIG DIALOG] Static data defined: %sms", (time.perf_counter() - _t0)*1000)
 
         # Load current settings

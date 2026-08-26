@@ -11,7 +11,7 @@ import sv_ttk
 
 from utils.tooltip import ToolTip
 from utils.app_logging import get_logger
-from utils.config_manager import get_config
+from utils.config_manager import get_config, TRANSCRIPTION_MODELS, AI_MODELS
 from utils.platform import open_url
 from utils.i18n import _, _n
 from utils.theme import (
@@ -908,7 +908,6 @@ class UIManager:
         self.transcription_text = None
         self.status_label = None
         self.status_dot = None
-        self.model_label = None
         self.record_button_transcribe = None
         self.record_button_edit = None
         self.banner_label = None
@@ -952,11 +951,21 @@ class UIManager:
         # Re-run AI edit affordance (QW-08b)
         self._rerun_disabled = True
 
-        # Model label elision state
+        # Status-line picker state (transcription model / AI model / prompt)
         self.status_row = None
         self.status_left = None
-        self._model_label_full = ""
-        self._model_label_variants = []
+        self.status_pickers = None
+        self._picker_transcription = None
+        self._picker_ai = None
+        self._picker_prompt = None
+        self._picker_sep_1 = None
+        self._picker_sep_2 = None
+        self._picker_segments = ()
+        self._picker_text = {}
+        # (segments dropped, using short names) currently on screen, so a
+        # resize that changes nothing does not re-pack the row.
+        self._picker_layout = None
+        self._prompt_tooltip = None
         self._model_fit_after_id = None
         self._status_min_width = 0
         
@@ -1009,6 +1018,12 @@ class UIManager:
         # Copy link button
         style.configure("Copy.TLabel",
             font=get_font('copy_link'))
+
+        # Clickable status-line segments (model / prompt pickers). Same size as
+        # the caption they replaced, so the row is not made noisier by becoming
+        # interactive - the hand cursor and hover colour carry that.
+        style.configure("Picker.TLabel",
+            font=get_font('xxs'))
 
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
@@ -1286,16 +1301,46 @@ class UIManager:
         self._draw_meter()
         self._set_readout_visible(False)
 
-        # Model info - smaller font
-        self.model_label = ttk.Label(
-            status_row,
-            text=f"{self.parent.transcription_model} · {self.parent.ai_model}",
-            style="Small.TLabel",
-            anchor="e"
+        # ── Model / prompt pickers ───────────────────────────────────────
+        # What used to be a read-only caption. The prompt in particular is the
+        # main thing that changes between dictations, and it was previously
+        # only reachable by cycling blind through a shortcut.
+        self.status_pickers = ttk.Frame(status_row)
+        self.status_pickers.grid(row=0, column=1, sticky="e", padx=(get_spacing('sm'), 0))
+
+        self._picker_transcription = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+        self._picker_sep_1 = ttk.Label(
+            self.status_pickers, text="·", style="Small.TLabel",
+            foreground=self.theme.TEXT_MUTED)
+        self._picker_ai = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+        self._picker_sep_2 = ttk.Label(
+            self.status_pickers, text="·", style="Small.TLabel",
+            foreground=self.theme.TEXT_MUTED)
+        self._picker_prompt = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+
+        # Ordered outermost-first: the segments that give way when the window
+        # is narrow are the ones at the front of this list.
+        self._picker_segments = (
+            (self._picker_transcription, self._picker_sep_1),
+            (self._picker_ai, self._picker_sep_2),
         )
-        self.model_label.grid(row=0, column=1, sticky="ew", padx=(get_spacing('sm'), 0))
-        self._model_label_full = str(self.model_label.cget('text'))
-        self._model_label_variants = [self._model_label_full]
+
+        for widget in (self._picker_transcription, self._picker_sep_1, self._picker_ai,
+                       self._picker_sep_2, self._picker_prompt):
+            widget.pack(side=tk.LEFT, padx=(0, 3))
+
+        self._bind_picker(self._picker_transcription, self._show_transcription_model_menu)
+        self._bind_picker(self._picker_ai, self._show_ai_model_menu)
+        self._bind_picker(self._picker_prompt, self._show_prompt_menu)
+
+        ToolTip(self._picker_transcription, _("Click to change the transcription model"))
+        ToolTip(self._picker_ai, _("Click to change the AI copy-editing model"))
+        self._prompt_tooltip = ToolTip(self._picker_prompt, self._prompt_tooltip_text())
+
+        self.update_model_label()
         self._reserve_status_width()
         status_row.bind("<Configure>", lambda e: self._schedule_model_label_fit())
         self._schedule_model_label_fit()
@@ -1506,22 +1551,158 @@ class UIManager:
         self.parent.config_manager.hide_banner = not self.banner_visible
         self.parent.config_manager.save_settings()
     
+    # ------------------------------------------------------------------
+    # Status-line pickers (transcription model / AI model / prompt)
+    # ------------------------------------------------------------------
+
+    def _bind_picker(self, label, opener):
+        """Make a status-line segment behave like a clickable control."""
+        label.bind("<Button-1>", lambda e, fn=opener: fn())
+        label.bind("<Enter>", lambda e, w=label: self._set_picker_hover(w, True), add="+")
+        label.bind("<Leave>", lambda e, w=label: self._set_picker_hover(w, False), add="+")
+
+    def _set_picker_hover(self, label, hovering):
+        if not self._widget_alive(label):
+            return
+        is_dark = get_config().dark_mode
+        if hovering:
+            colour = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
+        else:
+            colour = self.theme.TEXT_TERTIARY if is_dark else "#666666"
+        label.configure(foreground=colour)
+
+    def _refresh_picker_colours(self):
+        for label in (self._picker_transcription, self._picker_ai, self._picker_prompt):
+            self._set_picker_hover(label, False)
+
+    def _prompt_tooltip_text(self):
+        """Tooltip for the prompt segment, naming the cycle shortcut."""
+        shortcuts = getattr(self.parent, 'shortcuts', {}) or {}
+        back = self._format_accelerator(shortcuts.get('cycle_prompt_back'))
+        forward = self._format_accelerator(shortcuts.get('cycle_prompt_forward'))
+        if back and forward:
+            return _("Click to change the prompt ({back} / {forward} to cycle)").format(
+                back=back, forward=forward)
+        return _("Click to change the prompt")
+
+    @staticmethod
+    def _format_accelerator(combo):
+        """Render 'ctrl+alt+j' the way a menu would: 'Ctrl+Alt+J'."""
+        if not combo:
+            return ""
+        pretty = {'ctrl': 'Ctrl', 'control': 'Ctrl', 'alt': 'Alt', 'shift': 'Shift',
+                  'cmd': 'Cmd', 'command': 'Cmd', 'super': 'Super', 'win': 'Win'}
+        parts = []
+        for part in str(combo).split('+'):
+            part = part.strip()
+            if not part:
+                continue
+            parts.append(pretty.get(part.lower(), part.upper() if len(part) == 1 else part.title()))
+        return "+".join(parts)
+
     def update_model_label(self):
         lang = "Auto" if self.parent.whisper_language == "auto" else self.parent.whisper_language.upper()
         model_type = "GPT" if self.parent.transcription_model_type == "gpt" else "Whisper"
-        transcription_model = self.parent.transcription_model
-        ai_model = self.parent.ai_model
-        prompt_name = self.parent.current_prompt_name
-        # Most informative first; _fit_model_label picks the first that fits.
-        self._model_label_variants = [
-            f"{transcription_model} ({model_type}, {lang}) · {ai_model} · {prompt_name}",
-            f"{transcription_model} · {ai_model} · {prompt_name}",
-            f"{transcription_model} · {ai_model}",
-            f"{transcription_model}",
-        ]
-        self._model_label_full = self._model_label_variants[0]
-        self.model_label.configure(text=self._model_label_full)
+
+        # Long and short forms per segment; the short form is used once the
+        # window is too narrow for everything.
+        self._picker_text = {
+            self._picker_transcription: (
+                f"{self.parent.transcription_model} ({model_type}, {lang})",
+                str(self.parent.transcription_model),
+            ),
+            self._picker_ai: (str(self.parent.ai_model), str(self.parent.ai_model)),
+            self._picker_prompt: (str(self.parent.current_prompt_name),
+                                  str(self.parent.current_prompt_name)),
+        }
+        for label, (long_form, _short) in self._picker_text.items():
+            if self._widget_alive(label):
+                label.configure(text=long_form)
+
+        if self._widget_alive(self._picker_prompt) and self._prompt_tooltip is not None:
+            self._prompt_tooltip.set_text(self._prompt_tooltip_text())
+
+        # The label text has just been overwritten with the long form, so the
+        # cached layout must be re-applied rather than skipped as unchanged.
+        self._picker_layout = None
+        self._refresh_picker_colours()
         self._schedule_model_label_fit()
+
+    def _picker_menu(self, name):
+        """A popup menu themed like the main menu bar."""
+        return StyledPopupMenu(self.parent, theme=self.theme, menu_name=name)
+
+    def _popup_under(self, menu, widget):
+        """Drop a menu just below a status-line segment."""
+        try:
+            x = widget.winfo_rootx()
+            y = widget.winfo_rooty() + widget.winfo_height() + 4
+            menu.tk_popup(x, y)
+        except Exception as e:
+            logger.warning("Could not open picker menu: %s", e)
+
+    def _show_prompt_menu(self):
+        """Pick the copy-editing prompt straight from the status line."""
+        menu = self._picker_menu("prompt_picker")
+        current = self.parent.current_prompt_name
+        names = self.parent.prompt_names()
+
+        # Hint the cycle shortcuts against the prompts either side of the
+        # current one, so the keys are discoverable from the menu itself.
+        shortcuts = getattr(self.parent, 'shortcuts', {}) or {}
+        accelerators = {}
+        if current in names and len(names) > 1:
+            position = names.index(current)
+            accelerators[names[(position - 1) % len(names)]] = \
+                self._format_accelerator(shortcuts.get('cycle_prompt_back'))
+            accelerators[names[(position + 1) % len(names)]] = \
+                self._format_accelerator(shortcuts.get('cycle_prompt_forward'))
+
+        for name in names:
+            menu.add_command(
+                label=self._picker_item_label(name, name == current),
+                command=lambda n=name: self.parent.select_prompt(n),
+                accelerator="" if name == current else accelerators.get(name, ""))
+
+        menu.add_separator()
+        menu.add_command(label=_("Manage Prompts..."), command=self.parent.manage_prompts)
+        self._popup_under(menu, self._picker_prompt)
+
+    @staticmethod
+    def _picker_item_label(name, selected):
+        """Mark the active entry so the menu shows what is currently in use."""
+        return f"● {name}" if selected else f"     {name}"
+
+    def _show_transcription_model_menu(self):
+        menu = self._picker_menu("transcription_picker")
+        current = self.parent.transcription_model
+        for model, model_type in TRANSCRIPTION_MODELS.items():
+            menu.add_command(
+                label=self._picker_item_label(model, model == current),
+                command=lambda m=model, t=model_type: self.parent.select_transcription_model(m, t))
+        if current not in TRANSCRIPTION_MODELS:
+            # A custom model set in the configuration dialog still has to show
+            # as the current selection, but is not re-selectable from here.
+            menu.add_separator()
+            menu.add_command(label=self._picker_item_label(current, True),
+                             command=self.parent.open_config)
+        menu.add_separator()
+        menu.add_command(label=_("More Model Settings..."), command=self.parent.open_config)
+        self._popup_under(menu, self._picker_transcription)
+
+    def _show_ai_model_menu(self):
+        menu = self._picker_menu("ai_picker")
+        current = self.parent.ai_model
+        for model in AI_MODELS:
+            menu.add_command(label=self._picker_item_label(model, model == current),
+                             command=lambda m=model: self.parent.select_ai_model(m))
+        if current not in AI_MODELS:
+            menu.add_separator()
+            menu.add_command(label=self._picker_item_label(current, True),
+                             command=self.parent.open_config)
+        menu.add_separator()
+        menu.add_command(label=_("More Model Settings..."), command=self.parent.open_config)
+        self._popup_under(menu, self._picker_ai)
 
     def _reserve_status_width(self):
         """Reserve room for the longest status message plus the live readout.
@@ -1562,46 +1743,91 @@ class UIManager:
         self._model_fit_after_id = self._after(60, self._fit_model_label)
 
     def _fit_model_label(self):
-        """Shorten the model label so it can never squeeze the live readout.
+        """Fit the pickers into the status row without squeezing the readout.
 
         The status row is narrow; the recording level meter and clock are the
-        part that must stay readable, so the (secondary) model information is
-        the thing that gives way.
+        part that must stay readable, so the model information gives way first.
+        Segments are dropped whole rather than truncated mid-word - a picker
+        showing "gpt-4o-min..." is not something anyone can click with
+        confidence. The prompt is never dropped: it is the segment people
+        actually change.
         """
         self._model_fit_after_id = None
-        if not self._widget_alive(self.model_label) or not self._widget_alive(self.status_row):
+        if not self._widget_alive(self.status_pickers) or not self._widget_alive(self.status_row):
             return
-        full = self._model_label_full or str(self.model_label.cget('text'))
+
         row_width = self.status_row.winfo_width()
         if row_width <= 1:
-            # Not laid out yet - try again shortly, keeping the full text.
-            self.model_label.configure(text=full)
+            # Not laid out yet - try again shortly.
             self._model_fit_after_id = self._after(200, self._fit_model_label)
             return
 
         left_width = self.status_left.winfo_reqwidth() if self._widget_alive(self.status_left) else 0
         left_width = max(left_width, self._status_min_width)
-        available = row_width - left_width - get_spacing('md')
-        available = max(available, 40)
+        available = max(row_width - left_width - get_spacing('md'), 40)
 
         try:
             font = tkfont.Font(font=get_font('xxs'))
         except Exception:
-            self.model_label.configure(text=full)
+            logger.debug("Could not measure the picker font", exc_info=True)
             return
 
-        variants = self._model_label_variants or [full]
-        for variant in variants:
-            if font.measure(variant) <= available:
-                self.model_label.configure(text=variant)
-                return
+        def width_of(text):
+            return font.measure(text) + 6  # padding either side of a segment
 
-        # Nothing fits - truncate the shortest variant with an ellipsis
-        ellipsis = "…"
-        text = variants[-1]
-        while text and font.measure(text + ellipsis) > available:
-            text = text[:-1]
-        self.model_label.configure(text=(text + ellipsis) if text else ellipsis)
+        prompt_long, _prompt_short = self._picker_text.get(self._picker_prompt, ("", ""))
+        separator_width = width_of("·")
+
+        # Try, in order: everything long, everything with short model names,
+        # then drop segments from the left until it fits.
+        for use_short in (False, True):
+            for drop in range(len(self._picker_segments) + 1):
+                total = width_of(prompt_long)
+                for index, (label, _sep) in enumerate(self._picker_segments):
+                    if index < drop:
+                        continue
+                    long_form, short_form = self._picker_text.get(label, ("", ""))
+                    total += width_of(short_form if use_short else long_form) + separator_width
+                if total <= available:
+                    self._apply_picker_layout(drop, use_short)
+                    return
+
+        # Nothing fits: show the prompt on its own.
+        self._apply_picker_layout(len(self._picker_segments), True)
+
+    def _apply_picker_layout(self, drop_count, use_short):
+        """Show the segments that fit, hiding the rest along with separators.
+
+        Everything is unpacked and re-packed in order, because packing a
+        previously hidden segment would otherwise put it at the end of the row.
+        """
+        layout = (drop_count, use_short)
+        if layout == self._picker_layout:
+            return
+        self._picker_layout = layout
+
+        ordered = []
+        for index, (label, separator) in enumerate(self._picker_segments):
+            if index >= drop_count:
+                long_form, short_form = self._picker_text.get(label, ("", ""))
+                if self._widget_alive(label):
+                    label.configure(text=short_form if use_short else long_form)
+                ordered.extend((label, separator))
+        ordered.append(self._picker_prompt)
+
+        for widget in self._all_picker_widgets():
+            if self._widget_alive(widget):
+                widget.pack_forget()
+        for widget in ordered:
+            if self._widget_alive(widget):
+                widget.pack(side=tk.LEFT, padx=(0, 3))
+
+    def _all_picker_widgets(self):
+        widgets = []
+        for label, separator in self._picker_segments:
+            widgets.extend((label, separator))
+        widgets.append(self._picker_prompt)
+        return widgets
         
     def _update_nav_button_appearance(self):
         """Update navigation button colors based on disabled state and theme."""
@@ -2375,6 +2601,10 @@ class UIManager:
                 self.record_button_transcribe.configure(text=_("Stop and Process"))
                 self.record_button_edit.configure(text=_("Stop and Process"))
 
+        # The picker tooltips name the cycle shortcuts, so they change too.
+        if self._widget_alive(self._picker_transcription):
+            self.update_model_label()
+
         # Status widths change with the language - re-reserve and re-fit
         self._reserve_status_width()
         self._schedule_model_label_fit()
@@ -2451,6 +2681,14 @@ class UIManager:
         # Update navigation button colors for the new theme
         if hasattr(self, 'button_first_page') and self.button_first_page:
             self._update_nav_button_appearance()
+
+        # The picker segments carry an explicit foreground, so they do not
+        # follow the ttk style when the theme changes.
+        if self._widget_alive(self._picker_prompt):
+            self._refresh_picker_colours()
+            for separator in (self._picker_sep_1, self._picker_sep_2):
+                if self._widget_alive(separator):
+                    separator.configure(foreground=self.theme.TEXT_MUTED)
 
         # Update powered by link color (light blue in dark mode, purple in light mode)
         if hasattr(self, 'powered_by_label') and self.powered_by_label:
