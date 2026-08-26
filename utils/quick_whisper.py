@@ -165,6 +165,9 @@ class QuickWhisper(tk.Tk):
         self.load_history()
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self._rerun_in_progress = False
+        # Serialises the read/write/restore sequence around auto-paste so two
+        # transcriptions finishing close together cannot interleave.
+        self._clipboard_lock = threading.Lock()
         
         # Initialize recording directory based on settings
         self.update_recording_directory()
@@ -1088,6 +1091,28 @@ class QuickWhisper(tk.Tk):
             logger.info("About to stop recording. mode = %s", self.current_button_mode)
             self.stop_recording()
 
+    def start_push_to_talk(self, mode="transcribe"):
+        """Begin recording because a record shortcut is being held down.
+
+        Push-to-talk deliberately does nothing when a recording is already
+        running: the user may have started one from the buttons, and cutting
+        it short because a shortcut was touched would lose their words.
+        """
+        if self.audio_manager.recording:
+            logger.debug("Push-to-talk press ignored - already recording")
+            return
+        self.current_button_mode = mode
+        logger.info("Push-to-talk recording started (mode=%s)", mode)
+        self.start_recording()
+
+    def finish_push_to_talk(self):
+        """Stop and process because the held record shortcut was released."""
+        if not self.audio_manager.recording:
+            logger.debug("Push-to-talk release ignored - not recording")
+            return
+        logger.info("Push-to-talk recording finished")
+        self.stop_recording()
+
     def start_recording(self):
         """Start audio recording."""
         # audio_manager.start_recording() handles all UI updates including button states
@@ -1374,38 +1399,123 @@ class QuickWhisper(tk.Tk):
                 self._ui_status(_("Idle"), "blue")
 
     def copy_last_transcription(self):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(self.last_transcription)
+        self._copy_to_clipboard(self.last_transcription)
 
-        except Exception as e:
-            logger.error("Failed to copy the transcription to clipboard: %s", e, exc_info=True)
-            messagebox.showerror(_("Auto-Copy Error"),
-                                 _("Failed to copy the transcription to clipboard: {error}").format(error=e))
-    
     def copy_last_edit(self):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(self.last_edit)
+        self._copy_to_clipboard(self.last_edit)
 
-        except Exception as e:
-            logger.error("Failed to copy the last edit to clipboard: %s", e, exc_info=True)
-            messagebox.showerror(_("Auto-Copy Error"),
-                                 _("Failed to copy the last edit to clipboard: {error}").format(error=e))
+    def _copy_to_clipboard(self, text):
+        """Copy text on the user's explicit request (so it is never restored)."""
+        with self._clipboard_lock:
+            if self._write_clipboard(text):
+                self.ui_manager.show_toast(_("Copied to clipboard"))
+                return
+        messagebox.showerror(
+            _("Copy Failed"),
+            _("The text could not be copied to the clipboard."))
         
     def auto_copy_text(self, text):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(text)
+        with self._clipboard_lock:
+            if self._write_clipboard(text):
+                return
+        logger.error("Failed to auto-copy the transcription to the clipboard")
+        self._show_error_async(
+            _("Auto-Copy Error"),
+            _("The transcription could not be copied to the clipboard. It is still "
+              "shown above and can be copied manually."))
 
+    # Sentinel meaning "the clipboard could not be read", which is different
+    # from "the clipboard was empty" - only the latter is safe to restore.
+    _CLIPBOARD_UNREADABLE = object()
+
+    def _read_clipboard(self):
+        """Return the clipboard text, or _CLIPBOARD_UNREADABLE if it cannot be read."""
+        try:
+            return pyperclip.paste()
         except Exception as e:
-            logger.error("Failed to auto-copy the transcription: %s", e, exc_info=True)
-            self._show_error_async(_("Auto-Copy Error"),
-                                   _("Failed to auto-copy the transcription: {error}").format(error=e))
+            logger.warning("Could not read the clipboard: %s", e)
+            return self._CLIPBOARD_UNREADABLE
+
+    def _write_clipboard(self, text, verify=True):
+        """Put text on the clipboard, confirming it actually landed.
+
+        pyperclip can fail silently when no clipboard backend is available
+        (a headless Linux box with no xclip/xsel, for instance). Pasting in
+        that state would send Ctrl+V with somebody else's content still on the
+        clipboard, so the write is read back before it is trusted.
+        """
+        try:
+            pyperclip.copy(text)
+        except Exception as e:
+            logger.error("Could not write to the clipboard: %s", e, exc_info=True)
+            return False
+        if not verify:
+            return True
+        try:
+            return pyperclip.paste() == text
+        except Exception as e:
+            # The write did not raise; treat an unreadable clipboard as success
+            # rather than blocking the paste on a read-only failure.
+            logger.debug("Could not verify the clipboard write: %s", e)
+            return True
+
+    def _schedule_clipboard_restore(self, previous, pasted_text):
+        """Put the previous clipboard contents back a moment after pasting.
+
+        Dictated text is often the most sensitive thing the app touches, so it
+        is not left sitting on the clipboard once it has been delivered. The
+        restore is skipped when the user has copied something else in the
+        meantime - their newer copy always wins.
+        """
+        if previous is self._CLIPBOARD_UNREADABLE:
+            # Never guess: clearing a clipboard we could not read risks
+            # destroying something the user still wants.
+            logger.info("Skipping clipboard restore - the previous contents could not be read")
+            return
+
+        delay_seconds = self.config_manager.clipboard_restore_delay_ms / 1000.0
+
+        def _restore():
+            time.sleep(delay_seconds)
+            with self._clipboard_lock:
+                current = self._read_clipboard()
+                if current is self._CLIPBOARD_UNREADABLE:
+                    return
+                if current != pasted_text:
+                    logger.debug("Clipboard changed since pasting; leaving it alone")
+                    return
+                if self._write_clipboard(previous, verify=False):
+                    logger.info("Previous clipboard contents restored after auto-paste")
+
+        threading.Thread(target=_restore, daemon=True, name="clipboard-restore").start()
 
     def auto_paste_text(self, text):
-        """Auto-paste text using the configured paste method."""
+        """Auto-paste text by putting it on the clipboard and sending Ctrl+V.
+
+        Every paste method here simulates the paste shortcut, so the text has
+        to be on the clipboard first - sending the keystroke on its own would
+        paste whatever the user happened to have copied earlier.
+        """
         try:
+            # The text has to be on the clipboard for Ctrl+V to mean anything.
+            # When auto-copy is on it is already there and the user wants it to
+            # stay; otherwise it is placed there just long enough to paste.
+            keep_on_clipboard = bool(self.auto_copy.get())
+            previous_clipboard = self._CLIPBOARD_UNREADABLE
+            restore_after = not keep_on_clipboard and self.config_manager.restore_clipboard
+
+            with self._clipboard_lock:
+                if restore_after:
+                    previous_clipboard = self._read_clipboard()
+                if not self._write_clipboard(text):
+                    logger.error("Aborting auto-paste - the text is not on the clipboard")
+                    self._ui_status(_("Could not paste - clipboard unavailable"), "red")
+                    self._show_error_async(
+                        _("Auto-Paste Error"),
+                        _("The text could not be placed on the clipboard, so it was not "
+                          "pasted. It is still shown above and can be copied manually."))
+                    return
+
             # Small delay before starting to ensure any previous key events are processed
             time.sleep(0.05)
 
@@ -1435,6 +1545,9 @@ class QuickWhisper(tk.Tk):
 
             # Small delay after to ensure paste completes before any other operations
             time.sleep(0.05)
+
+            if restore_after:
+                self._schedule_clipboard_restore(previous_clipboard, text)
         except Exception as e:
             logger.error("Auto-paste error: %s", e, exc_info=True)
             self._show_error_async(_("Auto-Paste Error"),
@@ -2584,6 +2697,38 @@ class QuickWhisper(tk.Tk):
 
         # First run after 10 seconds (baseline)
         self.after(10000, _log_diagnostics)
+
+    def apply_advanced_settings(self):
+        """Adopt Advanced settings that the running app keeps its own copy of.
+
+        Everything else is read from the config on demand, so only the cached
+        history values and the level meter need doing by hand here.
+        """
+        previous_persist = self.persist_history
+        self.max_history_length = self.config_manager.history_limit
+        self.persist_history = self.config_manager.persist_history
+
+        # Trim straight away rather than waiting for the next transcription.
+        limit = max(1, int(self.max_history_length or 1))
+        if len(self.history) > limit:
+            del self.history[:len(self.history) - limit]
+            self._clamp_history_index()
+            self.ui_manager.update_transcription_text()
+            self.ui_manager.update_navigation_buttons()
+
+        if self.persist_history:
+            self.save_history()
+        elif previous_persist:
+            # Turning persistence off should remove what was already written,
+            # otherwise the setting only stops new entries being stored.
+            try:
+                if self._history_path.exists():
+                    self._history_path.unlink()
+                    logger.info("History persistence disabled; removed %s", self._history_path)
+            except Exception as e:
+                logger.warning("Could not remove the history file %s: %s", self._history_path, e)
+
+        self.ui_manager.apply_level_meter_setting(self.config_manager.show_level_meter)
 
     def save_auto_hotkey_refresh(self):
         """Save the auto hotkey refresh setting to settings.json."""

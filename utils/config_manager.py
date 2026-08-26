@@ -72,7 +72,10 @@ class ConfigManager:
             "auto_hotkey_refresh": True,
             "auto_update_check": True,
             "paste_method": "auto",  # "auto", "sendinput" (Windows), "pynput", "pyautogui"
-            "close_to_tray": False  # False = close app on X, True = minimize to tray on X
+            "close_to_tray": False,  # False = close app on X, True = minimize to tray on X
+            "recording_mode": "toggle",   # "toggle" or "push_to_talk"
+            "restore_clipboard": True,    # Put the previous clipboard back after auto-paste
+            "clipboard_restore_delay_ms": 400  # How long the target app gets to read it
         }
     }
     
@@ -624,6 +627,43 @@ class ConfigManager:
     @close_to_tray.setter
     def close_to_tray(self, value: bool):
         self._settings["behavior"]["close_to_tray"] = value
+
+    @property
+    def recording_mode(self) -> str:
+        """"toggle" (press to start, press again to stop) or "push_to_talk"."""
+        value = self._settings["behavior"].get("recording_mode", "toggle")
+        return value if value in ("toggle", "push_to_talk") else "toggle"
+
+    @recording_mode.setter
+    def recording_mode(self, value: str):
+        self._settings["behavior"]["recording_mode"] = (
+            value if value in ("toggle", "push_to_talk") else "toggle")
+
+    @property
+    def restore_clipboard(self) -> bool:
+        """Whether the previous clipboard contents are put back after auto-paste."""
+        return bool(self._settings["behavior"].get("restore_clipboard", True))
+
+    @restore_clipboard.setter
+    def restore_clipboard(self, value: bool):
+        self._settings["behavior"]["restore_clipboard"] = bool(value)
+
+    @property
+    def clipboard_restore_delay_ms(self) -> int:
+        """Grace period before the clipboard is put back, in milliseconds.
+
+        Clamped: too short and the target application has not read the
+        clipboard yet, too long and the dictated text lingers.
+        """
+        try:
+            value = int(self._settings["behavior"].get("clipboard_restore_delay_ms", 400))
+        except (TypeError, ValueError):
+            return 400
+        return max(100, min(value, 5000))
+
+    @clipboard_restore_delay_ms.setter
+    def clipboard_restore_delay_ms(self, value: int):
+        self._settings["behavior"]["clipboard_restore_delay_ms"] = int(value)
 
     # ========== Credentials Accessors ==========
     

@@ -21,6 +21,83 @@ THEME_TEXT_MUTED = "#909090"
 THEME_ACCENT = "#22d3ee"
 THEME_ACCENT_HOVER = "#67e8f9"
 
+class ScrollableSettingsFrame(ttk.Frame):
+    """A settings panel that scrolls when its content is taller than the dialog.
+
+    Widgets go into ``.body``. The scrollbar only appears when it is actually
+    needed, so a short panel looks exactly like a plain frame.
+    """
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self._canvas = tk.Canvas(self, highlightthickness=0, bd=0, takefocus=0)
+        self._scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self._canvas.yview)
+        self._canvas.configure(yscrollcommand=self._on_scroll)
+
+        self.body = ttk.Frame(self._canvas)
+        self._window = self._canvas.create_window((0, 0), window=self.body, anchor="nw")
+
+        self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._scrollbar_visible = False
+
+        # Match the canvas background to the theme so it does not show up as a
+        # white rectangle behind the settings in dark mode.
+        try:
+            self._canvas.configure(bg=ttk.Style().lookup('TFrame', 'background') or '#1c1c1c')
+        except Exception:
+            pass
+
+        self.body.bind("<Configure>", self._on_body_configure)
+        self._canvas.bind("<Configure>", self._on_canvas_configure)
+        # Bind the wheel while the pointer is over the panel only, so it does
+        # not steal scrolling from the rest of the dialog.
+        self._canvas.bind("<Enter>", self._bind_wheel)
+        self._canvas.bind("<Leave>", self._unbind_wheel)
+
+    def _on_scroll(self, first, last):
+        self._scrollbar.set(first, last)
+        needed = not (float(first) <= 0.0 and float(last) >= 1.0)
+        if needed and not self._scrollbar_visible:
+            self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self._scrollbar_visible = True
+        elif not needed and self._scrollbar_visible:
+            self._scrollbar.pack_forget()
+            self._scrollbar_visible = False
+
+    def _on_body_configure(self, _event=None):
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        # Keep the inner frame as wide as the canvas so text wraps sensibly.
+        self._canvas.itemconfigure(self._window, width=event.width)
+
+    def _bind_wheel(self, _event=None):
+        self._canvas.bind_all("<MouseWheel>", self._on_wheel)
+        # X11 reports the wheel as buttons 4 and 5 rather than <MouseWheel>.
+        self._canvas.bind_all("<Button-4>", self._on_wheel)
+        self._canvas.bind_all("<Button-5>", self._on_wheel)
+
+    def _unbind_wheel(self, _event=None):
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            try:
+                self._canvas.unbind_all(sequence)
+            except Exception:
+                pass
+
+    def _on_wheel(self, event):
+        if not self._scrollbar_visible:
+            return
+        if getattr(event, 'num', None) == 4:
+            delta = -1
+        elif getattr(event, 'num', None) == 5:
+            delta = 1
+        else:
+            # Windows reports multiples of 120; macOS reports small integers.
+            delta = -1 if event.delta > 0 else 1
+        self._canvas.yview_scroll(delta, "units")
+
+
 class ConfigDialog:
     def __init__(self, parent):
         _t0 = time.perf_counter()
@@ -65,6 +142,17 @@ class ConfigDialog:
         self.custom_transcription_model_var = tk.StringVar()
         self.llm_model_var = tk.StringVar()
         self.custom_llm_model_var = tk.StringVar()
+
+        # Advanced settings variables
+        self.recording_mode_var = tk.StringVar()
+        self.max_minutes_var = tk.StringVar()
+        self.min_seconds_var = tk.StringVar()
+        self.discard_silent_var = tk.BooleanVar()
+        self.retention_days_var = tk.StringVar()
+        self.persist_history_var = tk.BooleanVar()
+        self.history_limit_var = tk.StringVar()
+        self.show_level_meter_var = tk.BooleanVar()
+        self.restore_clipboard_var = tk.BooleanVar()
 
         # Track original HiDPI setting for restart prompt
         self.original_hidpi_mode = None
@@ -237,6 +325,17 @@ class ConfigDialog:
         else:
             self.llm_model_var.set("other")
             self.custom_llm_model_var.set(current_llm)
+
+        # Advanced settings
+        self.recording_mode_var.set(self.config.recording_mode)
+        self.max_minutes_var.set(str(self.config.max_recording_minutes))
+        self.min_seconds_var.set(f"{self.config.min_recording_seconds:g}")
+        self.discard_silent_var.set(self.config.discard_silent_recordings)
+        self.retention_days_var.set(str(self.config.recording_retention_days))
+        self.persist_history_var.set(self.config.persist_history)
+        self.history_limit_var.set(str(self.config.history_limit))
+        self.show_level_meter_var.set(self.config.show_level_meter)
+        self.restore_clipboard_var.set(self.config.restore_clipboard)
         
     def create_dialog(self):
         """Create the main dialog layout."""
@@ -295,6 +394,19 @@ class ConfigDialog:
         self.show_recording_settings()
         logger.info("[CONFIG DIALOG]   - recording settings shown: %sms", (time.perf_counter() - _t0)*1000)
         
+    # Category key -> (translated label, panel builder attribute name).
+    # Keeping this in one table means a new settings tab is one entry, not a
+    # hand-copied button plus a branch in switch_category.
+    CATEGORIES = (
+        ("Recording", lambda: _("Recording"), "show_recording_settings"),
+        ("Display", lambda: _("Display"), "show_display_settings"),
+        ("Language", lambda: _("Language"), "show_language_settings"),
+        ("Output", lambda: _("Output"), "show_output_settings"),
+        ("AI Models", lambda: _("AI Models"), "show_ai_models_settings"),
+        ("Behavior", lambda: _("Behavior"), "show_behavior_settings"),
+        ("Advanced", lambda: _("Advanced"), "show_advanced_settings"),
+    )
+
     def create_navigation_panel(self, parent):
         """Create the left navigation panel."""
         self.nav_frame = ttk.LabelFrame(parent, text=_("Settings Categories"), padding="10", style='Dialog.TLabelframe')
@@ -303,69 +415,21 @@ class ConfigDialog:
         # Navigation buttons
         self.nav_buttons = {}
 
-        self.nav_buttons["Recording"] = ttk.Button(
-            self.nav_frame,
-            text=_("Recording"),
-            command=lambda: self.switch_category("Recording"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["Recording"].pack(fill=tk.X, pady=2)
-
-        self.nav_buttons["Display"] = ttk.Button(
-            self.nav_frame,
-            text=_("Display"),
-            command=lambda: self.switch_category("Display"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["Display"].pack(fill=tk.X, pady=2)
-
-        self.nav_buttons["Language"] = ttk.Button(
-            self.nav_frame,
-            text=_("Language"),
-            command=lambda: self.switch_category("Language"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["Language"].pack(fill=tk.X, pady=2)
-
-        self.nav_buttons["Output"] = ttk.Button(
-            self.nav_frame,
-            text=_("Output"),
-            command=lambda: self.switch_category("Output"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["Output"].pack(fill=tk.X, pady=2)
-
-        self.nav_buttons["AI Models"] = ttk.Button(
-            self.nav_frame,
-            text=_("AI Models"),
-            command=lambda: self.switch_category("AI Models"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["AI Models"].pack(fill=tk.X, pady=2)
-
-        self.nav_buttons["Behavior"] = ttk.Button(
-            self.nav_frame,
-            text=_("Behavior"),
-            command=lambda: self.switch_category("Behavior"),
-            width=15,
-            style='Nav.TButton',
-            cursor='hand2'
-        )
-        self.nav_buttons["Behavior"].pack(fill=tk.X, pady=2)
+        for key, label, _builder in self.CATEGORIES:
+            button = ttk.Button(
+                self.nav_frame,
+                text=label(),
+                command=lambda k=key: self.switch_category(k),
+                width=15,
+                style='Nav.TButton',
+                cursor='hand2'
+            )
+            button.pack(fill=tk.X, pady=2)
+            self.nav_buttons[key] = button
 
         # Highlight current selection
         self.update_navigation_highlight()
-        
+
     def create_content_panel(self, parent):
         """Create the right content panel."""
         self.content_frame = ttk.Frame(parent)
@@ -419,18 +483,10 @@ class ConfigDialog:
             widget.destroy()
 
         # Show appropriate settings
-        if category == "Recording":
-            self.show_recording_settings()
-        elif category == "Display":
-            self.show_display_settings()
-        elif category == "Language":
-            self.show_language_settings()
-        elif category == "Output":
-            self.show_output_settings()
-        elif category == "AI Models":
-            self.show_ai_models_settings()
-        elif category == "Behavior":
-            self.show_behavior_settings()
+        for key, _label, builder in self.CATEGORIES:
+            if key == category:
+                getattr(self, builder)()
+                break
             
     def update_navigation_highlight(self):
         """Update the visual highlight for the current navigation selection."""
@@ -804,6 +860,139 @@ class ConfigDialog:
             foreground="#888888"
         )
         tray_description.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+    # ------------------------------------------------------------------
+    # Advanced settings
+    # ------------------------------------------------------------------
+
+    def _advanced_section(self, parent, title):
+        """A titled group inside the Advanced panel."""
+        frame = ttk.LabelFrame(parent, text=title, padding="15", style='Dialog.TLabelframe')
+        frame.pack(fill="x", pady=(0, 14))
+        return frame
+
+    def _advanced_field(self, parent, label, variable, hint, width=8):
+        """A short labelled entry with an explanatory line beneath it."""
+        row = ttk.Frame(parent)
+        row.pack(fill="x", pady=(0, 2))
+        ttk.Label(row, text=label, style='Dialog.TLabel').pack(side=tk.LEFT)
+        entry = ttk.Entry(row, textvariable=variable, width=width, font=get_font('sm'))
+        entry.pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(
+            parent, text=hint, font=get_font('xxs'), foreground="#888888",
+            wraplength=430, justify="left"
+        ).pack(anchor="w", pady=(0, 10))
+        return entry
+
+    def _advanced_check(self, parent, label, variable, hint):
+        """A checkbox with an explanatory line beneath it."""
+        ttk.Checkbutton(
+            parent, text=label, variable=variable, style='Switch.TCheckbutton'
+        ).pack(anchor="w", pady=(0, 2))
+        ttk.Label(
+            parent, text=hint, font=get_font('xxs'), foreground="#888888",
+            wraplength=430, justify="left"
+        ).pack(anchor="w", padx=(6, 0), pady=(0, 10))
+
+    def show_advanced_settings(self):
+        """Show the advanced settings panel.
+
+        These all existed as settings.json keys before they had any interface,
+        which meant the app quietly enforced limits nobody could see. Anything
+        that silently discards a recording or deletes a file belongs here.
+        """
+        ttk.Label(
+            self.content_frame,
+            text=_("Advanced Settings"),
+            font=get_font('lg', 'bold')
+        ).pack(anchor="w", pady=(0, 16))
+
+        scroll = ScrollableSettingsFrame(self.content_frame)
+        scroll.pack(fill=tk.BOTH, expand=True)
+        body = scroll.body
+
+        # ── How recording is triggered ───────────────────────────────────
+        mode_frame = self._advanced_section(body, _("Recording Shortcut Behaviour"))
+        ttk.Label(
+            mode_frame,
+            text=_("Choose how the record shortcuts behave:"),
+            style='Dialog.TLabel'
+        ).pack(anchor="w", pady=(0, 10))
+
+        ttk.Radiobutton(
+            mode_frame, text=_("Toggle - press once to start, press again to stop"),
+            variable=self.recording_mode_var, value="toggle",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+        ttk.Label(
+            mode_frame,
+            text=_("The current behaviour. Best for longer dictation where you do not "
+                   "want to hold keys down."),
+            font=get_font('xxs'), foreground="#888888", wraplength=430, justify="left"
+        ).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        ttk.Radiobutton(
+            mode_frame, text=_("Push to talk - hold the shortcut, release to send"),
+            variable=self.recording_mode_var, value="push_to_talk",
+            style='Dialog.TRadiobutton'
+        ).pack(anchor="w", pady=2)
+        ttk.Label(
+            mode_frame,
+            text=_("Best for short dictation. Recording stops as soon as you let go of "
+                   "any key in the shortcut. The buttons in this window always toggle, "
+                   "whichever mode is selected."),
+            font=get_font('xxs'), foreground="#888888", wraplength=430, justify="left"
+        ).pack(anchor="w", padx=(20, 0), pady=(0, 4))
+
+        # ── Recording limits ─────────────────────────────────────────────
+        limits_frame = self._advanced_section(body, _("Recording Limits"))
+        self._advanced_field(
+            limits_frame, _("Maximum length (minutes):"), self.max_minutes_var,
+            _("Recording stops automatically at this length so the audio stays within "
+              "the upload size limit. Whatever was said is still transcribed. "
+              "Use 0 for no limit."))
+        self._advanced_field(
+            limits_frame, _("Minimum length (seconds):"), self.min_seconds_var,
+            _("Recordings shorter than this are discarded rather than sent for "
+              "transcription, which stops an accidental tap of the shortcut costing "
+              "an API call. Use 0 to keep every recording."))
+        self._advanced_check(
+            limits_frame, _("Discard silent recordings"), self.discard_silent_var,
+            _("Skip uploading a recording when no speech was detected in it. Turn this "
+              "off if quiet dictation is being discarded by mistake."))
+
+        # ── Stored recordings ────────────────────────────────────────────
+        files_frame = self._advanced_section(body, _("Stored Recordings"))
+        self._advanced_field(
+            files_frame, _("Delete recordings after (days):"), self.retention_days_var,
+            _("Audio files older than this are deleted automatically. Only applies when "
+              "recordings are saved with a date and time in the filename. "
+              "Use 0 to keep them forever."))
+
+        # ── History ──────────────────────────────────────────────────────
+        history_frame = self._advanced_section(body, _("Transcription History"))
+        self._advanced_check(
+            history_frame, _("Remember history between sessions"), self.persist_history_var,
+            _("Keep your transcriptions on disk so they are still there next time the "
+              "app starts. Turn this off if you would rather nothing was written down."))
+        self._advanced_field(
+            history_frame, _("Entries to keep:"), self.history_limit_var,
+            _("How many transcriptions are kept in the history before the oldest are "
+              "dropped."))
+
+        # ── Feedback and clipboard ───────────────────────────────────────
+        feedback_frame = self._advanced_section(body, _("Feedback and Clipboard"))
+        self._advanced_check(
+            feedback_frame, _("Show the input level meter while recording"),
+            self.show_level_meter_var,
+            _("Displays a live microphone level and timer next to the status, so you "
+              "can see that your voice is being picked up."))
+        self._advanced_check(
+            feedback_frame, _("Restore the previous clipboard after auto-paste"),
+            self.restore_clipboard_var,
+            _("When 'Copy to clipboard' is switched off, the transcription is put on "
+              "the clipboard only long enough to paste it, then whatever you had "
+              "copied before is put back."))
 
     def show_language_settings(self):
         """Show the language settings panel."""
@@ -1210,6 +1399,12 @@ class ConfigDialog:
         else:
             llm_model = self.llm_model_var.get()
 
+        # Validate the Advanced numbers before anything is written, so a typo
+        # cannot leave half the settings saved.
+        advanced = self._validated_advanced_settings()
+        if advanced is None:
+            return
+
         # Update configuration values
         try:
             self.config.recording_location = self.recording_location_var.get()
@@ -1229,8 +1424,22 @@ class ConfigDialog:
             self.config.transcription_model_type = model_type
             self.config.ai_model = llm_model
 
+            # Save Advanced settings
+            self.config.recording_mode = advanced['recording_mode']
+            self.config.max_recording_minutes = advanced['max_minutes']
+            self.config.min_recording_seconds = advanced['min_seconds']
+            self.config.discard_silent_recordings = advanced['discard_silent']
+            self.config.recording_retention_days = advanced['retention_days']
+            self.config.persist_history = advanced['persist_history']
+            self.config.history_limit = advanced['history_limit']
+            self.config.show_level_meter = advanced['show_level_meter']
+            self.config.restore_clipboard = advanced['restore_clipboard']
+
             # Save to file
             self.config.save_settings()
+
+            # Apply the advanced settings that the running app caches
+            self.parent.apply_advanced_settings()
 
             # Update parent's recording directory
             self.parent.update_recording_directory()
@@ -1283,6 +1492,66 @@ class ConfigDialog:
 
         except Exception as e:
             messagebox.showerror(_("Error"), _("Could not save settings: {error}").format(error=e)) 
+
+    def _validated_advanced_settings(self):
+        """Parse the Advanced fields, or show an error and return None.
+
+        The panel is only built once the user visits it, so anything they have
+        not looked at falls back to the value already in the configuration
+        rather than to a blank string.
+        """
+        def number(variable, label, current, minimum, maximum, as_float=False):
+            raw = (variable.get() or "").strip()
+            if not raw:
+                return current
+            try:
+                value = float(raw) if as_float else int(raw)
+            except ValueError:
+                messagebox.showerror(
+                    _("Invalid Value"),
+                    _("'{value}' is not a valid number for {field}.").format(
+                        value=raw, field=label))
+                return None
+            if value < minimum or value > maximum:
+                messagebox.showerror(
+                    _("Invalid Value"),
+                    _("{field} must be between {minimum} and {maximum}.").format(
+                        field=label, minimum=minimum, maximum=maximum))
+                return None
+            return value
+
+        max_minutes = number(self.max_minutes_var, _("Maximum length (minutes)"),
+                             self.config.max_recording_minutes, 0, 600)
+        if max_minutes is None:
+            return None
+
+        min_seconds = number(self.min_seconds_var, _("Minimum length (seconds)"),
+                             self.config.min_recording_seconds, 0, 60, as_float=True)
+        if min_seconds is None:
+            return None
+
+        retention_days = number(self.retention_days_var, _("Delete recordings after (days)"),
+                                self.config.recording_retention_days, 0, 3650)
+        if retention_days is None:
+            return None
+
+        history_limit = number(self.history_limit_var, _("Entries to keep"),
+                               self.config.history_limit, 1, 10000)
+        if history_limit is None:
+            return None
+
+        mode = self.recording_mode_var.get() or self.config.recording_mode
+        return {
+            'recording_mode': mode if mode in ("toggle", "push_to_talk") else "toggle",
+            'max_minutes': int(max_minutes),
+            'min_seconds': float(min_seconds),
+            'discard_silent': bool(self.discard_silent_var.get()),
+            'retention_days': int(retention_days),
+            'persist_history': bool(self.persist_history_var.get()),
+            'history_limit': int(history_limit),
+            'show_level_meter': bool(self.show_level_meter_var.get()),
+            'restore_clipboard': bool(self.restore_clipboard_var.get()),
+        }
 
     def _close_dialog(self):
         try:

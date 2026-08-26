@@ -147,6 +147,21 @@ class AudioManager:
             self._recording_event.set()
         else:
             self._recording_event.clear()
+        self._notify_tray(bool(value))
+
+    def _notify_tray(self, recording):
+        """Mirror the recording state onto the tray icon.
+
+        Every start, stop and cancel funnels through the recording setter, so
+        this is the one place that has to know. The tray is optional, so a
+        missing or broken tray is silently ignored.
+        """
+        try:
+            tray = getattr(self.parent, 'tray_manager', None)
+            if tray is not None:
+                tray.set_recording(recording)
+        except Exception as e:
+            logger.debug("Could not update the tray recording state: %s", e)
 
     # ------------------------------------------------------------------
     # Recording feedback (polled by UIManager)

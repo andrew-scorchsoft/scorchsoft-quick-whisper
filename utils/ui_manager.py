@@ -8,7 +8,6 @@ import ctypes
 import time
 import math
 import sv_ttk
-import pyperclip
 
 from utils.tooltip import ToolTip
 from utils.app_logging import get_logger
@@ -1898,6 +1897,19 @@ class UIManager:
             else:
                 widget.pack_forget()
 
+    def apply_level_meter_setting(self, enabled):
+        """Turn the live level readout on or off without a restart."""
+        enabled = bool(enabled)
+        if enabled == self._level_meter_enabled:
+            return
+        self._level_meter_enabled = enabled
+        if not enabled:
+            self.stop_level_monitor()
+            self._set_readout_visible(False)
+        elif getattr(getattr(self.parent, 'audio_manager', None), 'recording', False):
+            # Switched on mid-recording: start showing it straight away.
+            self.start_level_monitor()
+
     def start_level_monitor(self):
         """Begin polling the audio manager for level and elapsed time."""
         if not self._level_meter_enabled or not self._widget_alive(self.level_meter):
@@ -2129,8 +2141,22 @@ class UIManager:
         """Copy the entire transcription text to clipboard."""
         text = self.transcription_text.get("1.0", "end-1c")
         if text.strip():
-            pyperclip.copy(text)
-            self._show_toast(_("Copied to clipboard"))
+            # Route through the app so the copy is verified the same way as
+            # every other clipboard write.
+            self.parent._copy_to_clipboard(text)
+
+    def show_toast(self, message, duration=1500, anchor=None):
+        """Show a toast from any thread, tolerating a torn-down window."""
+        def _show():
+            try:
+                self._show_toast(message, duration=duration, anchor=anchor)
+            except Exception as e:
+                logger.debug("Could not show toast '%s': %s", message, e)
+
+        try:
+            self.parent.after(0, _show)
+        except Exception as e:
+            logger.debug("Could not schedule toast '%s': %s", message, e)
 
     def _show_toast(self, message, duration=1500, anchor=None):
         """Show a toast notification that fades away."""

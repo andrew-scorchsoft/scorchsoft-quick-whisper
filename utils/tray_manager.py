@@ -1,3 +1,4 @@
+import colorsys
 import threading
 import platform
 import tkinter as tk
@@ -8,6 +9,56 @@ from utils.app_logging import get_logger
 from utils.i18n import _, register_refresh_callback, unregister_refresh_callback
 
 logger = get_logger(__name__)
+
+# Hue window occupied by the brand gradient on the app icon (cyan -> purple).
+_BRAND_HUE_START = 180.0
+_BRAND_HUE_END = 270.0
+# Where that gradient is re-mapped to for the recording state (orange -> crimson).
+_RECORDING_HUE_START = 22.0
+_RECORDING_HUE_END = -20.0
+# Greys and near-whites (the ring and the glyph) are left alone, so the icon
+# stays recognisably itself rather than becoming a red blob.
+_MIN_SATURATION_TO_TINT = 0.25
+
+
+def make_recording_icon(image):
+    """Return a red 'recording' variant of the application icon.
+
+    Derived from the real icon at runtime rather than shipped as a second
+    asset, so it cannot drift out of step if the branding ever changes. Only
+    the coloured part of the artwork is re-hued: the dark surround and the
+    white glyph keep their values, which is what makes the two icons read as
+    the same icon in two states at 16 px.
+    """
+    source = image.convert("RGBA")
+    width, height = source.size
+    variant = Image.new("RGBA", (width, height))
+    read = source.load()
+    write = variant.load()
+    hue_span = _RECORDING_HUE_END - _RECORDING_HUE_START
+
+    for y in range(height):
+        for x in range(width):
+            red, green, blue, alpha = read[x, y]
+            if alpha == 0:
+                write[x, y] = (red, green, blue, alpha)
+                continue
+            hue, saturation, value = colorsys.rgb_to_hsv(
+                red / 255.0, green / 255.0, blue / 255.0)
+            if saturation < _MIN_SATURATION_TO_TINT:
+                write[x, y] = (red, green, blue, alpha)
+                continue
+            # Position within the brand gradient, so the new icon keeps a
+            # gradient of its own instead of going flat red.
+            position = (hue * 360.0 - _BRAND_HUE_START) / (_BRAND_HUE_END - _BRAND_HUE_START)
+            position = min(1.0, max(0.0, position))
+            new_hue = (_RECORDING_HUE_START + position * hue_span) % 360.0
+            new_red, new_green, new_blue = colorsys.hsv_to_rgb(
+                new_hue / 360.0, min(1.0, saturation * 1.05), value)
+            write[x, y] = (int(new_red * 255), int(new_green * 255),
+                           int(new_blue * 255), alpha)
+
+    return variant
 
 # pystray is imported lazily. Importing it at module scope is unsafe: on Linux
 # it raises at import time when no app-indicator library is installed
@@ -47,6 +98,8 @@ class TrayManager:
         self.is_running = False
         self.is_window_hidden = False
         self.icon_image = None
+        self.recording_icon_image = None
+        self._is_recording = False
         self._lock = threading.RLock()
         self._shutting_down = False
         self._language_callback_registered = False
@@ -77,6 +130,38 @@ class TrayManager:
             Item(lambda item: _('Exit'), self._exit_app)
         )
 
+    def _tooltip_text(self):
+        """Tray tooltip, which doubles as the recording indicator on hover."""
+        if self._is_recording:
+            return _("Quick Whisper - Recording...")
+        return "Quick Whisper"
+
+    def set_recording(self, recording):
+        """Switch the tray icon between its idle and recording appearance.
+
+        This is the only recording feedback available while the window is
+        minimised or hidden, which is how the app is used most of the time.
+        Safe to call from any thread and when there is no tray at all.
+        """
+        recording = bool(recording)
+        with self._lock:
+            if recording == self._is_recording:
+                return
+            self._is_recording = recording
+            icon_ref = self.icon
+            if not icon_ref or not self.is_running:
+                return
+            image = self.recording_icon_image if recording else self.icon_image
+            if image is None:
+                image = self.icon_image
+
+        try:
+            # pystray redraws the tray on assignment; title updates the tooltip.
+            icon_ref.icon = image
+            icon_ref.title = self._tooltip_text()
+        except Exception as e:
+            logger.debug("Could not update the tray icon state: %s", e)
+
     def _auto_refresh_enabled(self):
         """Read the auto-refresh flag defensively (called from the tray thread)."""
         try:
@@ -95,11 +180,19 @@ class TrayManager:
             icon_path = self.parent.resource_path("assets/icon-32.png")
             self.icon_image = Image.open(icon_path)
 
+            # Build the recording variant once, up front - swapping icons has
+            # to be instant, and a failure here must not disable the tray.
+            try:
+                self.recording_icon_image = make_recording_icon(self.icon_image)
+            except Exception as e:
+                logger.warning("Could not build the recording tray icon: %s", e)
+                self.recording_icon_image = None
+
             # Create the icon
             self.icon = pystray.Icon(
                 "QuickWhisper",
                 self.icon_image,
-                "Quick Whisper",
+                self._tooltip_text(),
                 self._menu_items(pystray)
             )
             return True

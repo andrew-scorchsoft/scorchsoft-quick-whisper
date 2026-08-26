@@ -56,24 +56,10 @@ class MacOSHotkeyManager(HotkeyManagerBase):
             # Stop existing listener if any
             self.unregister_hotkeys()
 
-            # Build hotkey mappings
-            self._registered_hotkeys = {
-                self._normalize_shortcut(self.shortcuts['record_edit']):
-                    lambda: self.parent.after(0, lambda: self.parent.toggle_recording("edit")),
-                self._normalize_shortcut(self.shortcuts['record_transcribe']):
-                    lambda: self.parent.after(0, lambda: self.parent.toggle_recording("transcribe")),
-                self._normalize_shortcut(self.shortcuts['cancel_recording']):
-                    lambda: self.parent.after(0, self.parent.cancel_recording),
-                self._normalize_shortcut(self.shortcuts['cycle_prompt_back']):
-                    lambda: self.parent.after(0, self.parent.cycle_prompt_backward),
-                self._normalize_shortcut(self.shortcuts['cycle_prompt_forward']):
-                    lambda: self.parent.after(0, self.parent.cycle_prompt_forward),
-                self._normalize_shortcut(self.shortcuts.get('retry_last', '')):
-                    lambda: self.parent.after(0, self.parent.retry_last_recording),
-            }
-            # An unset shortcut normalises to an empty frozenset, which would
-            # otherwise match "no keys pressed". Drop it.
-            self._registered_hotkeys.pop(frozenset(), None)
+            # Build hotkey mappings (shared across platforms, and aware of
+            # whether recording is a toggle or push-to-talk).
+            self._registered_hotkeys = self.build_hotkey_map()
+            self._clear_hold_state()
 
             # Start new listener
             try:
@@ -284,6 +270,9 @@ class MacOSHotkeyManager(HotkeyManagerBase):
             if key_name:
                 with self._lock:
                     self.pressed_keys.discard(key_name)
+                # Outside the lock: ending a push-to-talk take reaches back
+                # into the app, which must never happen holding this lock.
+                self._note_key_released(key_name)
         except Exception as e:
             logger.error("Error in key release handler: %s", e)
 
