@@ -256,6 +256,12 @@ class HotkeyManagerBase(ABC):
         """
         if not key_name:
             return
+        # This runs for every key the user releases anywhere in the OS, so the
+        # overwhelmingly common "not holding anything" case is answered without
+        # taking a lock. Reading the attribute is atomic; the lock below still
+        # settles any race over who clears it.
+        if self._held_combo is None:
+            return
         with self._hold_lock:
             combo = self._held_combo
             if combo is None or key_name not in combo:

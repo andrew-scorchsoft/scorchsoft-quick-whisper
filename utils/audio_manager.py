@@ -6,7 +6,6 @@ import wave
 from array import array
 from pathlib import Path
 from tkinter import messagebox
-from audioplayer import AudioPlayer
 import os
 import sys
 import time
@@ -16,6 +15,30 @@ from utils.app_logging import get_logger
 from utils.i18n import _
 
 logger = get_logger(__name__)
+
+# audioplayer is imported on demand. Importing it at module scope is unsafe on
+# Linux: it pulls in GStreamer through PyGObject and raises ValueError at import
+# time when the GStreamer namespace is missing, which took the whole
+# application down before a window was ever shown. Sound effects are a nicety -
+# a machine without them must still run the app. (pystray gets the same
+# treatment in utils/tray_manager.py, for the same reason.)
+_audio_player_cls = None  # None = not attempted yet, False = unavailable
+
+
+def _load_audio_player():
+    """Import audioplayer.AudioPlayer on demand, or None if unavailable."""
+    global _audio_player_cls
+    if _audio_player_cls is None:
+        try:
+            from audioplayer import AudioPlayer
+            _audio_player_cls = AudioPlayer
+        except Exception as e:
+            # ImportError, ValueError (missing GI namespace), and anything else
+            # a backend can throw on an unusual machine.
+            logger.warning("Sound effects unavailable - could not load audioplayer: %s", e)
+            _audio_player_cls = False
+    return _audio_player_cls or None
+
 
 # ``audioop`` is the cheap way to get an RMS out of a PCM buffer, but it was
 # removed from the standard library in Python 3.13. Fall back to a small
@@ -799,9 +822,13 @@ class AudioManager:
         Explicitly closes the AudioPlayer after playback to prevent
         resource leaks (COM handles on Windows, file descriptors on other platforms).
         """
+        player_cls = _load_audio_player()
+        if player_cls is None:
+            return
+
         player = None
         try:
-            player = AudioPlayer(self.resource_path(sound_file))
+            player = player_cls(self.resource_path(sound_file))
             player.play(block=True)
             _audio_diag['sounds_played'] += 1
         except Exception as e:

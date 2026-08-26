@@ -22,6 +22,11 @@ SEARCH_DEBOUNCE_MS = 120
 # Preview text is a single line; anything longer is elided in the list.
 PREVIEW_LENGTH = 120
 
+# Populating a Treeview costs real time per row, and the history limit can be
+# set as high as 10,000. Only this many rows are built; narrowing the search is
+# how you reach the rest, and the count line always says what was left out.
+MAX_ROWS = 300
+
 
 class HistoryDialog:
     """A list of history entries with live search and a full-text preview."""
@@ -38,8 +43,12 @@ class HistoryDialog:
         self.dialog.resizable(True, True)
         self.dialog.transient(parent)
 
-        # Row index in the tree -> index into parent.history
-        self._row_to_index = {}
+        # Tree row -> the history entry object it shows. Deliberately not the
+        # position: a transcription finishing while this dialog is open can
+        # trim the oldest entries and shift every index down.
+        self._row_to_entry = {}
+        self._rows = None
+        self._indexed_length = 0
         self._search_after_id = None
         self._search_var = tk.StringVar()
 
@@ -186,32 +195,33 @@ class HistoryDialog:
             return
 
         query = (self._search_var.get() or "").strip().lower()
+        words = query.split()
         self.tree.delete(*self.tree.get_children())
-        self._row_to_index.clear()
+        self._row_to_entry.clear()
 
-        total = len(self.parent.history)
-        shown = 0
+        rows = self._index_rows()
+        total = len(rows)
+        matched = 0
+        truncated = False
         # Newest first: the entry you want is nearly always a recent one.
-        for index in range(total - 1, -1, -1):
-            entry = self.parent.history_entry(index)
-            if entry is None or not self._matches(entry, query):
+        for entry, haystack, values in rows:
+            if words and not all(word in haystack for word in words):
                 continue
-            row = self.tree.insert("", tk.END, values=(
-                self._format_when(entry.get("timestamp")),
-                self._format_mode(entry.get("mode")),
-                entry.get("prompt") or "—",
-                self._format_preview(entry.get("text", "")),
-            ))
-            self._row_to_index[row] = index
-            shown += 1
+            matched += 1
+            if matched > MAX_ROWS:
+                truncated = True
+                continue
+            self._row_to_entry[self.tree.insert("", tk.END, values=values)] = entry
 
         if query:
-            self.status_label.configure(
-                text=_("{shown} of {total} entries match '{query}'").format(
-                    shown=shown, total=total, query=self._search_var.get().strip()))
+            text = _("{shown} of {total} entries match '{query}'").format(
+                shown=matched, total=total, query=self._search_var.get().strip())
         else:
-            self.status_label.configure(
-                text=_("{total} entries").format(total=total))
+            text = _("{total} entries").format(total=total)
+        if truncated:
+            text += "  —  " + _("showing the newest {count}; narrow the search to see more").format(
+                count=MAX_ROWS)
+        self.status_label.configure(text=text)
 
         children = self.tree.get_children()
         if children:
@@ -221,7 +231,41 @@ class HistoryDialog:
             self._set_preview_text("")
             self._set_buttons_enabled(False)
 
+    def _index_rows(self):
+        """Rows to display, newest first, as (entry, searchable text, columns).
+
+        Built once rather than on every keystroke: the column formatting and
+        the lowercased search text do not change while the dialog is up, and
+        rebuilding them per keystroke is what makes a large history sluggish to
+        search. Rebuilt if the history itself changed underneath us - a
+        recording started before this dialog opened can still finish while it
+        is up.
+        """
+        if self._rows is not None and self._indexed_length == len(self.parent.history):
+            return self._rows
+
+        rows = []
+        for index in range(len(self.parent.history) - 1, -1, -1):
+            entry = self.parent.history_entry(index)
+            if entry is None:
+                continue
+            when = self._format_when(entry.get("timestamp"))
+            mode = self._format_mode(entry.get("mode"))
+            prompt = entry.get("prompt") or "—"
+            text = entry.get("text", "")
+            haystack = " ".join((text, prompt, mode, when)).lower()
+            rows.append((entry, haystack, (when, mode, prompt, self._format_preview(text))))
+
+        self._rows = rows
+        self._indexed_length = len(self.parent.history)
+        return rows
+
     def _matches(self, entry, query):
+        """Whether one entry matches a search query.
+
+        Kept as the single definition of "matches" - :meth:`_index_rows` builds
+        the same haystack up front for the list itself.
+        """
         query = (query or "").strip().lower()
         if not query:
             return True
@@ -273,19 +317,35 @@ class HistoryDialog:
             self.tree.focus(children[0])
         return "break"
 
-    def _selected_index(self):
+    def _selected_entry(self):
+        """The history entry for the selected row, or None."""
         selection = self.tree.selection()
         if not selection:
             return None
-        return self._row_to_index.get(selection[0])
+        return self._row_to_entry.get(selection[0])
+
+    def _selected_index(self):
+        """Where the selected entry currently sits in the history.
+
+        Resolved by identity at the moment it is needed, so trimming that
+        happened after the list was drawn cannot make this point at the wrong
+        entry.
+        """
+        entry = self._selected_entry()
+        if entry is None:
+            return None
+        for index, candidate in enumerate(self.parent.history):
+            if candidate is entry:
+                return index
+        return None
 
     def _show_selected(self):
-        index = self._selected_index()
-        if index is None:
+        entry = self._selected_entry()
+        if entry is None:
             self._set_preview_text("")
             self._set_buttons_enabled(False)
             return
-        self._set_preview_text(self.parent.history_text(index))
+        self._set_preview_text(entry.get("text", ""))
         self._set_buttons_enabled(True)
 
     def _set_preview_text(self, text):
@@ -311,18 +371,18 @@ class HistoryDialog:
         """Put the selected entry back into the main window and close."""
         index = self._selected_index()
         if index is None:
+            # The entry was trimmed out of the history while this was open.
+            self.refresh()
             return
         self.parent.load_history_entry(index)
         self.close()
 
     def copy_selected(self):
-        index = self._selected_index()
-        if index is None:
-            return
-        text = self.parent.history_text(index)
+        entry = self._selected_entry()
+        text = (entry or {}).get("text", "")
         if not text:
             return
-        self.parent._copy_to_clipboard(text)
+        self.parent.copy_to_clipboard(text)
 
     def close(self):
         try:

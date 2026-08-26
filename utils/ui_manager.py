@@ -29,6 +29,10 @@ from utils.theme import (
 
 logger = get_logger(__name__)
 
+# Gap after each clickable segment in the status line. Used both when packing
+# them and when measuring whether they fit, so the two cannot disagree.
+PICKER_PADX = 3
+
 
 def get_system_font():
     """Get the appropriate system font for the current platform."""
@@ -221,8 +225,13 @@ class StyledPopupMenu:
             if 'label' in kwargs:
                 self.items[target_index] = (item_type, kwargs['label'], command, variable, accelerator)
         
-    def tk_popup(self, x, y):
-        """Show the popup menu at the specified coordinates."""
+    def tk_popup(self, x, y, align_right=False):
+        """Show the popup menu at the specified coordinates.
+
+        With ``align_right`` the given x is treated as the menu's right edge
+        rather than its left, which is what a control sitting at the right of
+        a row wants - otherwise the menu hangs out past the window.
+        """
         logger.debug("tk_popup called, menu=%s, is_open=%s, time_since_close=%.3f",
                      self._menu_name, self._is_open, time.time() - self._close_time)
 
@@ -315,6 +324,11 @@ class StyledPopupMenu:
         
         popup_width = self.popup.winfo_reqwidth()
         popup_height = self.popup.winfo_reqheight()
+
+        if align_right:
+            # Now that the width is known, hang the menu leftwards from x. The
+            # screen clamping below still has the final say.
+            x = x - popup_width
         
         # Get the virtual screen bounds (spans all monitors)
         # winfo_vrootx/y give the offset of the virtual root
@@ -968,6 +982,8 @@ class UIManager:
         self._prompt_tooltip = None
         self._model_fit_after_id = None
         self._status_min_width = 0
+        # Fonts used only for measuring text width, cached per size key.
+        self._measure_fonts = {}
         
     def _setup_styles(self):
         """Configure ttk styles for Sun Valley theme customization."""
@@ -1354,7 +1370,7 @@ class UIManager:
 
         for widget in (self._picker_transcription, self._picker_sep_1, self._picker_ai,
                        self._picker_sep_2, self._picker_prompt):
-            widget.pack(side=tk.LEFT, padx=(0, 3))
+            widget.pack(side=tk.LEFT, padx=(0, PICKER_PADX))
 
         self._bind_picker(self._picker_transcription, self._show_transcription_model_menu)
         self._bind_picker(self._picker_ai, self._show_ai_model_menu)
@@ -1625,6 +1641,9 @@ class UIManager:
         return "+".join(parts)
 
     def update_model_label(self):
+        # Defensive: this runs while the widgets are being built, before every
+        # attribute on the app has necessarily been assigned.
+        prompt_name = str(getattr(self.parent, 'current_prompt_name', None) or "Default")
         lang = "Auto" if self.parent.whisper_language == "auto" else self.parent.whisper_language.upper()
         model_type = "GPT" if self.parent.transcription_model_type == "gpt" else "Whisper"
 
@@ -1636,8 +1655,7 @@ class UIManager:
                 str(self.parent.transcription_model),
             ),
             self._picker_ai: (str(self.parent.ai_model), str(self.parent.ai_model)),
-            self._picker_prompt: (str(self.parent.current_prompt_name),
-                                  str(self.parent.current_prompt_name)),
+            self._picker_prompt: (prompt_name, prompt_name),
         }
         for label, (long_form, _short) in self._picker_text.items():
             if self._widget_alive(label):
@@ -1657,11 +1675,16 @@ class UIManager:
         return StyledPopupMenu(self.parent, theme=self.theme, menu_name=name)
 
     def _popup_under(self, menu, widget):
-        """Drop a menu just below a status-line segment."""
+        """Drop a menu just below a status-line segment.
+
+        The segments sit at the right of the row, so the menu is hung from
+        their right edge - opening leftwards keeps it over the window instead
+        of trailing off the side of it.
+        """
         try:
-            x = widget.winfo_rootx()
+            right_edge = widget.winfo_rootx() + widget.winfo_width()
             y = widget.winfo_rooty() + widget.winfo_height() + 4
-            menu.tk_popup(x, y)
+            menu.tk_popup(right_edge, y, align_right=True)
         except Exception as e:
             logger.warning("Could not open picker menu: %s", e)
 
@@ -1748,18 +1771,25 @@ class UIManager:
         """
         if not self._widget_alive(self.status_row):
             return
+        font = self._measuring_font('xs')
+        if font is None:
+            return
         try:
-            font = tkfont.Font(font=get_font('xs'))
-            # Reserve for the widest status message the app can show, so no
-            # status change ever clips the meter or the clock out of the row.
-            text_width = max(font.measure(text) for text in (
+            # The meter and clock are only on screen while recording, and the
+            # only status shown then is "Recording..." - every longer message
+            # ("Processing...", "Error during transcription") appears with the
+            # readout already hidden. Reserving for both maxima at once cost
+            # around 110px that the two can never actually need together, and
+            # that space is what the model and prompt pickers live in.
+            recording_text = font.measure(_("Recording..."))
+            idle_text = max(font.measure(text) for text in (
                 _("Idle"),
-                _("Recording..."),
                 _("Processing - Audio File..."),
                 _("Processing - Transcript..."),
                 _("Processing - AI Editing..."),
                 _("Retrying transcription..."),
                 _("Error during transcription"),
+                _("Clipboard unavailable"),
             ))
             elapsed_width = font.measure("00:00")
         except Exception:
@@ -1769,8 +1799,31 @@ class UIManager:
         _seg_w, _gap, _height, meter_width = self._meter_metrics()
         dot_width = get_font_size('status_dot') + get_spacing('sm')
         readout = (meter_width + elapsed_width + get_spacing('sm') * 2) if self._level_meter_enabled else 0
-        self._status_min_width = dot_width + text_width + readout + get_spacing('md')
+        widest = max(recording_text + readout, idle_text)
+        self._status_min_width = dot_width + widest + get_spacing('md')
         self.status_row.columnconfigure(0, minsize=self._status_min_width)
+
+    def _measuring_font(self, size_key):
+        """A cached tkfont for measuring text, or None if fonts are unavailable.
+
+        These are used from resize handlers, so building a fresh Tk font object
+        every time would churn named Tcl fonts on every frame of a window drag.
+        The cache is cleared whenever the theme or language changes the fonts.
+        """
+        cached = self._measure_fonts.get(size_key)
+        if cached is not None:
+            return cached
+        try:
+            font = tkfont.Font(font=get_font(size_key))
+        except Exception:
+            logger.debug("Could not build a measuring font for %s", size_key, exc_info=True)
+            return None
+        self._measure_fonts[size_key] = font
+        return font
+
+    def _clear_measuring_fonts(self):
+        """Drop the cached fonts after a theme or language change."""
+        self._measure_fonts.clear()
 
     def _schedule_model_label_fit(self):
         """Debounced re-fit of the model label (also on resize)."""
@@ -1802,22 +1855,23 @@ class UIManager:
         left_width = max(left_width, self._status_min_width)
         available = max(row_width - left_width - get_spacing('md'), 40)
 
-        try:
-            font = tkfont.Font(font=get_font('xxs'))
-        except Exception:
-            logger.debug("Could not measure the picker font", exc_info=True)
+        font = self._measuring_font('xxs')
+        if font is None:
             return
 
         def width_of(text):
-            return font.measure(text) + 6  # padding either side of a segment
+            # Matches the padx used when the segments are packed.
+            return font.measure(text) + PICKER_PADX
 
         prompt_long, _prompt_short = self._picker_text.get(self._picker_prompt, ("", ""))
         separator_width = width_of("·")
 
-        # Try, in order: everything long, everything with short model names,
-        # then drop segments from the left until it fits.
-        for use_short in (False, True):
-            for drop in range(len(self._picker_segments) + 1):
+        # Prefer keeping a segment in a shorter form over dropping it, so a
+        # moderately narrow window loses "(GPT, Auto)" rather than losing the
+        # transcription model entirely. Only when neither form fits is the
+        # segment dropped.
+        for drop in range(len(self._picker_segments) + 1):
+            for use_short in (False, True):
                 total = width_of(prompt_long)
                 for index, (label, _sep) in enumerate(self._picker_segments):
                     if index < drop:
@@ -1856,7 +1910,7 @@ class UIManager:
                 widget.pack_forget()
         for widget in ordered:
             if self._widget_alive(widget):
-                widget.pack(side=tk.LEFT, padx=(0, 3))
+                widget.pack(side=tk.LEFT, padx=(0, PICKER_PADX))
 
     def _all_picker_widgets(self):
         widgets = []
@@ -2438,7 +2492,7 @@ class UIManager:
         if text.strip():
             # Route through the app so the copy is verified the same way as
             # every other clipboard write.
-            self.parent._copy_to_clipboard(text)
+            self.parent.copy_to_clipboard(text)
 
     def show_toast(self, message, duration=1500, anchor=None):
         """Show a toast from any thread, tolerating a torn-down window."""
@@ -2482,9 +2536,14 @@ class UIManager:
         toast_width = toast.winfo_reqwidth()
         toast_height = toast.winfo_reqheight()
         
-        # Position below the anchor widget (the Copy link by default)
-        if anchor is None or not self._widget_alive(anchor):
+        # Position below the anchor widget (the Copy link by default). A
+        # picker segment dropped because the window is narrow still exists but
+        # is unmapped, and its screen position would be stale.
+        if anchor is None or not self._widget_alive(anchor) or not anchor.winfo_ismapped():
             anchor = self.button_copy
+        if not self._widget_alive(anchor) or not anchor.winfo_ismapped():
+            toast.destroy()
+            return
 
         btn_x = anchor.winfo_rootx()
         btn_y = anchor.winfo_rooty()
@@ -2672,6 +2731,10 @@ class UIManager:
                 self.record_button_transcribe.configure(text=_("Stop and Process"))
                 self.record_button_edit.configure(text=_("Stop and Process"))
 
+        # Translated status text is measured with these, and the strings have
+        # just changed underneath them.
+        self._clear_measuring_fonts()
+
         # The picker tooltips name the cycle shortcuts, so they change too.
         if self._widget_alive(self._picker_transcription):
             self.update_model_label()
@@ -2748,6 +2811,9 @@ class UIManager:
                 self.set_elapsed(int(minutes) * 60 + int(secs))
             except (ValueError, TypeError):
                 self.set_elapsed(0.0)
+
+        # Styles were rebuilt, so any font they resolved to may have changed.
+        self._clear_measuring_fonts()
 
         # Update navigation button colors for the new theme
         if hasattr(self, 'button_first_page') and self.button_first_page:

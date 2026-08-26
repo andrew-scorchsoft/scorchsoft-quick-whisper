@@ -54,6 +54,11 @@ class ScrollableSettingsFrame(ttk.Frame):
         # not steal scrolling from the rest of the dialog.
         self._canvas.bind("<Enter>", self._bind_wheel)
         self._canvas.bind("<Leave>", self._unbind_wheel)
+        # Switching settings category destroys this panel, and <Leave> does not
+        # necessarily fire first. An application-wide wheel binding left
+        # pointing at a destroyed canvas would raise on every scroll anywhere
+        # in the app, so it is torn down explicitly.
+        self.bind("<Destroy>", self._on_destroy)
 
     def _on_scroll(self, first, last):
         self._scrollbar.set(first, last)
@@ -85,6 +90,12 @@ class ScrollableSettingsFrame(ttk.Frame):
             except Exception:
                 pass
 
+    def _on_destroy(self, event=None):
+        # <Destroy> also fires for child widgets; only act on our own.
+        if event is not None and event.widget is not self:
+            return
+        self._unbind_wheel()
+
     def _on_wheel(self, event):
         if not self._scrollbar_visible:
             return
@@ -95,7 +106,11 @@ class ScrollableSettingsFrame(ttk.Frame):
         else:
             # Windows reports multiples of 120; macOS reports small integers.
             delta = -1 if event.delta > 0 else 1
-        self._canvas.yview_scroll(delta, "units")
+        try:
+            self._canvas.yview_scroll(delta, "units")
+        except tk.TclError:
+            # The panel went away without <Leave> or <Destroy> reaching us.
+            self._unbind_wheel()
 
 
 class ConfigDialog:
@@ -855,6 +870,29 @@ class ConfigDialog:
         frame.pack(fill="x", pady=(0, 14))
         return frame
 
+    @staticmethod
+    def _hint_label(parent, text, indent=0):
+        """Explanatory small print that wraps to whatever width it is given.
+
+        A fixed wraplength cannot work here: the settings dialog is 700px wide
+        at base scaling and 1050px on HiDPI, so any constant is either clipped
+        on one and wasteful on the other.
+        """
+        label = ttk.Label(
+            parent, text=text, font=get_font('xxs'), foreground="#888888",
+            justify="left", wraplength=360)
+        # fill="x" makes the label exactly as wide as the space it has, so its
+        # own width is the wrap width - no guessing at the parent's padding.
+        label.pack(anchor="w", fill="x", padx=(indent, 0), pady=(0, 10))
+
+        def _rewrap(event):
+            width = event.width - 4
+            if width > 80 and abs(width - int(label.cget('wraplength'))) > 8:
+                label.configure(wraplength=width)
+
+        label.bind("<Configure>", _rewrap, add="+")
+        return label
+
     def _advanced_field(self, parent, label, variable, hint, width=8):
         """A short labelled entry with an explanatory line beneath it."""
         row = ttk.Frame(parent)
@@ -862,10 +900,7 @@ class ConfigDialog:
         ttk.Label(row, text=label, style='Dialog.TLabel').pack(side=tk.LEFT)
         entry = ttk.Entry(row, textvariable=variable, width=width, font=get_font('sm'))
         entry.pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Label(
-            parent, text=hint, font=get_font('xxs'), foreground="#888888",
-            wraplength=430, justify="left"
-        ).pack(anchor="w", pady=(0, 10))
+        self._hint_label(parent, hint)
         return entry
 
     def _advanced_check(self, parent, label, variable, hint):
@@ -873,10 +908,7 @@ class ConfigDialog:
         ttk.Checkbutton(
             parent, text=label, variable=variable, style='Switch.TCheckbutton'
         ).pack(anchor="w", pady=(0, 2))
-        ttk.Label(
-            parent, text=hint, font=get_font('xxs'), foreground="#888888",
-            wraplength=430, justify="left"
-        ).pack(anchor="w", padx=(6, 0), pady=(0, 10))
+        self._hint_label(parent, hint, indent=6)
 
     def show_advanced_settings(self):
         """Show the advanced settings panel.
@@ -903,30 +935,32 @@ class ConfigDialog:
             style='Dialog.TLabel'
         ).pack(anchor="w", pady=(0, 10))
 
+        # Radio labels cannot wrap, so they stay short and the line beneath
+        # carries the detail.
         ttk.Radiobutton(
-            mode_frame, text=_("Toggle - press once to start, press again to stop"),
+            mode_frame, text=_("Toggle"),
             variable=self.recording_mode_var, value="toggle",
             style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        ttk.Label(
+        self._hint_label(
             mode_frame,
-            text=_("The current behaviour. Best for longer dictation where you do not "
-                   "want to hold keys down."),
-            font=get_font('xxs'), foreground="#888888", wraplength=430, justify="left"
-        ).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+            _("Press the shortcut once to start recording and again to stop. The "
+              "current behaviour, and the better one for longer dictation where you "
+              "do not want to hold keys down."),
+            indent=20)
 
         ttk.Radiobutton(
-            mode_frame, text=_("Push to talk - hold the shortcut, release to send"),
+            mode_frame, text=_("Push to talk"),
             variable=self.recording_mode_var, value="push_to_talk",
             style='Dialog.TRadiobutton'
         ).pack(anchor="w", pady=2)
-        ttk.Label(
+        self._hint_label(
             mode_frame,
-            text=_("Best for short dictation. Recording stops as soon as you let go of "
-                   "any key in the shortcut. The buttons in this window always toggle, "
-                   "whichever mode is selected."),
-            font=get_font('xxs'), foreground="#888888", wraplength=430, justify="left"
-        ).pack(anchor="w", padx=(20, 0), pady=(0, 4))
+            _("Hold the shortcut down and release it to send. Best for short "
+              "dictation. Recording stops as soon as you let go of any key in the "
+              "shortcut. The buttons in this window always toggle, whichever mode "
+              "is selected."),
+            indent=20)
 
         # ── Recording limits ─────────────────────────────────────────────
         limits_frame = self._advanced_section(body, _("Recording Limits"))

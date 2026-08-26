@@ -15,7 +15,6 @@ from PIL import Image, ImageTk
 from openai import OpenAI
 from utils.config_manager import get_config
 from pathlib import Path
-from audioplayer import AudioPlayer
 import platform
 import time
 import gc
@@ -85,6 +84,9 @@ class QuickWhisper(tk.Tk):
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
+        # The widgets are built before set_default_prompt() runs, and the status
+        # line names the selected prompt, so it has to exist by then.
+        self.current_prompt_name = "Default"
 
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
@@ -1444,12 +1446,12 @@ class QuickWhisper(tk.Tk):
                 self._ui_status(_("Idle"), "blue")
 
     def copy_last_transcription(self):
-        self._copy_to_clipboard(self.last_transcription)
+        self.copy_to_clipboard(self.last_transcription)
 
     def copy_last_edit(self):
-        self._copy_to_clipboard(self.last_edit)
+        self.copy_to_clipboard(self.last_edit)
 
-    def _copy_to_clipboard(self, text):
+    def copy_to_clipboard(self, text):
         """Copy text on the user's explicit request (so it is never restored)."""
         with self._clipboard_lock:
             self._abandon_clipboard_restore()
@@ -1596,7 +1598,10 @@ class QuickWhisper(tk.Tk):
                     self._clipboard_generation += 1
                 if not self._write_clipboard(text):
                     logger.error("Aborting auto-paste - the text is not on the clipboard")
-                    self._ui_status(_("Could not paste - clipboard unavailable"), "red")
+                    # Kept short: the status column reserves room for the
+                    # longest message it can ever show, and that reservation
+                    # comes out of the space the model/prompt pickers use.
+                    self._ui_status(_("Clipboard unavailable"), "red")
                     self._show_error_async(
                         _("Auto-Paste Error"),
                         _("The text could not be placed on the clipboard, so it was not "
@@ -2431,7 +2436,19 @@ class QuickWhisper(tk.Tk):
             messagebox.showinfo(_("No History"),
                                 _("There is nothing in your history yet."))
             return
-        HistoryDialog(self)
+        try:
+            HistoryDialog(self)
+        except Exception as e:
+            # The dialog pauses the global hotkeys while it is open; if it
+            # failed to finish opening, they have to come back.
+            logger.error("Could not open the history browser: %s", e, exc_info=True)
+            try:
+                self.hotkey_manager.resume()
+            except Exception:
+                pass
+            messagebox.showerror(
+                _("History Unavailable"),
+                _("The history browser could not be opened: {error}").format(error=e))
 
     def load_history_entry(self, index):
         """Show a history entry in the main window (from the browser)."""
@@ -2907,16 +2924,44 @@ class QuickWhisper(tk.Tk):
         if self.persist_history:
             self.save_history()
         elif previous_persist:
-            # Turning persistence off should remove what was already written,
-            # otherwise the setting only stops new entries being stored.
-            try:
-                if self._history_path.exists():
-                    self._history_path.unlink()
-                    logger.info("History persistence disabled; removed %s", self._history_path)
-            except Exception as e:
-                logger.warning("Could not remove the history file %s: %s", self._history_path, e)
+            self._offer_to_delete_saved_history()
 
         self.ui_manager.apply_level_meter_setting(self.config_manager.show_level_meter)
+
+    def _offer_to_delete_saved_history(self):
+        """Ask whether the already-saved history should be deleted too.
+
+        Turning persistence off only stops new entries being written, so the
+        file already on disk would otherwise sit there indefinitely - which is
+        not what someone switching it off for privacy reasons expects. Deleting
+        it silently is not right either: it is the user's data, so they decide.
+        """
+        try:
+            if not self._history_path.exists():
+                return
+        except Exception as e:
+            logger.warning("Could not check for the history file: %s", e)
+            return
+
+        delete_it = messagebox.askyesno(
+            _("Delete Saved History?"),
+            _("History will no longer be saved between sessions.\n\n"
+              "Would you like to delete the history already stored on disk?\n\n"
+              "Your current session's history stays in the window either way."),
+            icon='question')
+        if not delete_it:
+            logger.info("History persistence disabled; the saved file was kept")
+            return
+
+        try:
+            self._history_path.unlink()
+            logger.info("History persistence disabled; removed %s", self._history_path)
+        except Exception as e:
+            logger.warning("Could not remove the history file %s: %s", self._history_path, e)
+            messagebox.showwarning(
+                _("Could Not Delete History"),
+                _("The saved history file could not be deleted:\n{path}\n\nDetails: {error}"
+                  ).format(path=self._history_path, error=e))
 
     def save_auto_hotkey_refresh(self):
         """Save the auto hotkey refresh setting to settings.json."""
