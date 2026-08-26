@@ -19,6 +19,7 @@ from audioplayer import AudioPlayer
 import platform
 import time
 import gc
+from datetime import datetime
 
 # Note: pynput and pyautogui are imported lazily in paste methods to avoid
 # X11 connection errors on Linux when display is not available at import time
@@ -30,6 +31,7 @@ if platform.system() == 'Windows':
 
 from utils.tooltip import ToolTip
 from utils.manage_prompts_dialog import ManagePromptsDialog
+from utils.history_dialog import HistoryDialog
 from utils.config_dialog import ConfigDialog
 from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
@@ -223,6 +225,11 @@ class QuickWhisper(tk.Tk):
         self.bind('<Unmap>', self._handle_minimize)
         self.bind('<Map>', self._handle_restore)
         self.was_minimized = False
+
+        # Escape is what everyone reaches for to abandon something. Bound on
+        # the main window (not globally) so it only applies when Quick Whisper
+        # has focus, and it does nothing at all when not recording.
+        self.bind('<Escape>', self._handle_escape)
 
         # Ensure default bindings for common edit actions in Text and Entry widgets
         self._install_text_bindings()
@@ -958,6 +965,7 @@ class QuickWhisper(tk.Tk):
 
         # File menu - use styled popup menu for modern look
         self.file_menu = StyledPopupMenu(self)
+        self.file_menu.add_command(label=_("Browse History..."), command=self.show_history)
         self.file_menu.add_command(label=_("Save Session History"), command=self.save_session_history)
         self.file_menu.add_separator()
         # Only offer "Minimize to Tray" when there is actually a tray to
@@ -1025,6 +1033,10 @@ class QuickWhisper(tk.Tk):
         self.actions_menu.add_command(
             label=_("Re-run AI Edit on Current Text"),
             command=self.rerun_ai_edit
+        )
+        self.actions_menu.add_command(
+            label=_("Re-run AI Edit With Prompt..."),
+            command=lambda: self.ui_manager.show_rerun_prompt_menu()
         )
         self.actions_menu.add_separator()
 
@@ -1131,6 +1143,14 @@ class QuickWhisper(tk.Tk):
         """Cancel the current recording without processing."""
         self.audio_manager.cancel_recording()
         self.hotkey_manager.update_shortcut_displays()
+
+    def _handle_escape(self, _event=None):
+        """Cancel an in-progress recording when Escape is pressed."""
+        if not self.audio_manager.recording:
+            return None
+        logger.info("Recording cancelled with Escape")
+        self.cancel_recording()
+        return "break"
     
     def retry_last_recording(self, mode=None):
         """Retry processing the last recording.
@@ -1149,11 +1169,14 @@ class QuickWhisper(tk.Tk):
                 self.current_button_mode = mode
             return self.audio_manager.retry_last_recording()
 
-    def rerun_ai_edit(self):
+    def rerun_ai_edit(self, prompt_name=None):
         """Re-run the AI edit over the text currently in the transcript box.
 
         Lets the user apply a different prompt to something they have already
-        dictated without having to dictate it again.
+        dictated without having to dictate it again. ``prompt_name`` applies a
+        prompt for this run only, leaving the selected prompt alone - trying
+        three tones on one dictation should not change what the next recording
+        will use.
         """
         if self._rerun_in_progress:
             logger.info("Re-run AI edit ignored - one is already running")
@@ -1172,18 +1195,27 @@ class QuickWhisper(tk.Tk):
                                 _("There is no text to re-run the AI edit on."))
             return
 
+        if prompt_name is not None and prompt_name not in self.prompt_names():
+            logger.warning("Cannot re-run with unknown prompt '%s'", prompt_name)
+            messagebox.showwarning(
+                _("Prompt Not Found"),
+                _("The prompt '{name}' no longer exists.").format(name=prompt_name))
+            return
+
+        effective_prompt = prompt_name or self.current_prompt_name
         self._rerun_in_progress = True
         self._set_status(_("Processing - AI Editing..."), "green")
         logger.info("Re-running AI edit on %d characters using prompt '%s'",
-                    len(source_text), getattr(self, 'current_prompt_name', 'Default'))
+                    len(source_text), effective_prompt)
 
-        threading.Thread(target=self._rerun_ai_edit_worker, args=(source_text,),
+        threading.Thread(target=self._rerun_ai_edit_worker,
+                         args=(source_text, effective_prompt),
                          daemon=True, name="rerun-ai-edit").start()
 
-    def _rerun_ai_edit_worker(self, source_text):
+    def _rerun_ai_edit_worker(self, source_text, prompt_name=None):
         """Background half of :meth:`rerun_ai_edit`."""
         try:
-            edited_text = self.process_with_gpt_model(source_text)
+            edited_text = self.process_with_gpt_model(source_text, prompt_name=prompt_name)
             if edited_text is None:
                 # process_with_gpt_model has already told the user what failed.
                 self._ui_status(_("AI edit failed"), "red")
@@ -1196,7 +1228,9 @@ class QuickWhisper(tk.Tk):
                 return
 
             self.last_edit = edited_text
-            self.after(0, lambda: self.add_to_history(edited_text))
+            used_prompt = prompt_name or getattr(self, 'current_prompt_name', None)
+            self.after(0, lambda: self.add_to_history(
+                edited_text, mode=self.HISTORY_MODE_EDIT, prompt=used_prompt))
 
             # Same auto-copy/auto-paste behaviour as a normal recording.
             if self.auto_copy.get():
@@ -1340,7 +1374,9 @@ class QuickWhisper(tk.Tk):
 
             self.last_transcription = transcription_text
             # add_to_history touches widgets, so it must run on the main thread.
-            self.after(0, lambda t=transcription_text: self.add_to_history(t))
+            spoken_seconds = getattr(self.audio_manager, 'last_recording_duration', None)
+            self.after(0, lambda t=transcription_text, d=spoken_seconds: self.add_to_history(
+                t, mode=self.HISTORY_MODE_TRANSCRIPT, duration=d))
 
             # Process transcription with or without GPT as per the checkbox setting
             if self.current_button_mode == "edit":
@@ -1356,7 +1392,10 @@ class QuickWhisper(tk.Tk):
                 else:
                     play_text = edited_text.rstrip()
                     self.last_edit = play_text
-                    self.after(0, lambda t=play_text: self.add_to_history(t))
+                    prompt_name = self.current_prompt_name
+                    self.after(0, lambda t=play_text, p=prompt_name, d=spoken_seconds:
+                               self.add_to_history(t, mode=self.HISTORY_MODE_EDIT,
+                                                   prompt=p, duration=d))
             else:
                 logger.info("Outputting raw transcription only")
                 play_text = transcription_text
@@ -1688,10 +1727,10 @@ class QuickWhisper(tk.Tk):
         # Release Ctrl
         win32api.keybd_event(VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
 
-    def process_with_gpt_model(self, text):
+    def process_with_gpt_model(self, text, prompt_name=None):
         try:
             # Replace the hardcoded system prompt with the selected one
-            system_prompt = self.get_system_prompt()
+            system_prompt = self.get_system_prompt(prompt_name)
             
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
 
@@ -2236,17 +2275,36 @@ class QuickWhisper(tk.Tk):
         credit_label.bind("<Enter>", lambda e: credit_label.config(fg=link_hover))
         credit_label.bind("<Leave>", lambda e: credit_label.config(fg=link_color))
 
-    def add_to_history(self, text):
-        """Append an entry to the history, trimming and persisting it."""
+    # Modes recorded against a history entry, kept as stable identifiers so a
+    # saved history stays readable whatever language the app is running in.
+    HISTORY_MODE_TRANSCRIPT = "transcript"
+    HISTORY_MODE_EDIT = "edit"
+
+    def add_to_history(self, text, mode=None, prompt=None, duration=None):
+        """Append an entry to the history, trimming and persisting it.
+
+        Entries carry when they were made, whether they are a raw transcript
+        or an AI edit, and which prompt produced them. Without that the
+        history is an unlabelled stack of text in which the transcript and its
+        edit look identical.
+        """
         if text is None:
             return
 
+        entry = {
+            "text": text,
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "mode": mode or self.HISTORY_MODE_TRANSCRIPT,
+            "prompt": prompt,
+            "duration": round(float(duration), 1) if duration else None,
+        }
+
         # Repeating the same text (e.g. a re-run that produced an identical
         # edit) would just add a duplicate page to flick through.
-        if self.history and self.history[-1] == text:
+        if self.history and self.history_text(len(self.history) - 1) == text:
             self.history_index = len(self.history) - 1
         else:
-            self.history.append(text)
+            self.history.append(entry)
 
             # Enforce max history length by removing the oldest entries.
             limit = max(1, int(self.max_history_length or 1))
@@ -2259,6 +2317,40 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
         self.save_history()
+
+    @staticmethod
+    def _normalise_history_entry(item):
+        """Coerce a stored item into an entry dict, or None if unusable.
+
+        Histories written before entries had metadata are plain strings; they
+        are kept, just without a timestamp or a mode.
+        """
+        if isinstance(item, str):
+            return {"text": item, "timestamp": None, "mode": None,
+                    "prompt": None, "duration": None}
+        if isinstance(item, dict):
+            text = item.get("text")
+            if not isinstance(text, str):
+                return None
+            return {
+                "text": text,
+                "timestamp": item.get("timestamp"),
+                "mode": item.get("mode"),
+                "prompt": item.get("prompt"),
+                "duration": item.get("duration"),
+            }
+        return None
+
+    def history_entry(self, index):
+        """The entry dict at `index`, or None when out of range."""
+        if 0 <= index < len(self.history):
+            return self.history[index]
+        return None
+
+    def history_text(self, index):
+        """The text at `index`, or an empty string when out of range."""
+        entry = self.history_entry(index)
+        return entry["text"] if entry else ""
 
     def _clamp_history_index(self):
         """Keep the history index inside the bounds of the history list."""
@@ -2282,6 +2374,22 @@ class QuickWhisper(tk.Tk):
     def go_to_first_page(self):
         self.history_index = len(self.history) - 1  # Set to most recent
         self._clamp_history_index()
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
+
+    def show_history(self):
+        """Open the searchable history browser."""
+        if not self.history:
+            messagebox.showinfo(_("No History"),
+                                _("There is nothing in your history yet."))
+            return
+        HistoryDialog(self)
+
+    def load_history_entry(self, index):
+        """Show a history entry in the main window (from the browser)."""
+        if not (0 <= index < len(self.history)):
+            return
+        self.history_index = index
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
 
@@ -2317,7 +2425,7 @@ class QuickWhisper(tk.Tk):
             logger.warning("History file %s has an unexpected format; starting empty", path)
             return
 
-        entries = [item for item in data if isinstance(item, str)]
+        entries = [e for e in (self._normalise_history_entry(item) for item in data) if e]
         limit = max(1, int(self.max_history_length or 1))
         self.history = entries[-limit:]
         self.history_index = len(self.history) - 1
@@ -2330,10 +2438,11 @@ class QuickWhisper(tk.Tk):
 
         path = self._history_path
         tmp_path = path.with_suffix(path.suffix + ".tmp")
+        payload = {"version": 2, "entries": self.history}
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(tmp_path, 'w', encoding='utf-8') as f:
-                json.dump(self.history, f, indent=2, ensure_ascii=False)
+                json.dump(payload, f, indent=2, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, path)
@@ -2344,7 +2453,7 @@ class QuickWhisper(tk.Tk):
                     tmp_path.unlink()
             except Exception:
                 pass
-    
+
     def save_session_history(self):
         if not self.history:
             messagebox.showinfo(_("No History"), _("There is no history to save."))
@@ -2364,7 +2473,8 @@ class QuickWhisper(tk.Tk):
         try:
             # Serialize history to JSON and save to file
             with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(self.history, f, indent=4, ensure_ascii=False)
+                json.dump({"version": 2, "entries": self.history}, f,
+                          indent=4, ensure_ascii=False)
 
             logger.info("Session history saved to %s", file_path)
             messagebox.showinfo(_("Success"),
@@ -2423,11 +2533,12 @@ class QuickWhisper(tk.Tk):
         self.config_manager.selected_prompt = prompt_name
         self.config_manager.save_settings()
 
-    def get_system_prompt(self):
-        """Get the current system prompt based on selection."""
-        if self.current_prompt_name == "Default":
+    def get_system_prompt(self, prompt_name=None):
+        """The system prompt text for `prompt_name`, or for the current selection."""
+        name = prompt_name or self.current_prompt_name
+        if name == "Default":
             return self.default_system_prompt
-        return self.prompts.get(self.current_prompt_name, self.default_system_prompt)
+        return self.prompts.get(name, self.default_system_prompt)
     
     
     def set_default_prompt(self):

@@ -1165,9 +1165,20 @@ class UIManager:
         self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
 
-        # Separator, re-run and copy - with padding to align baselines with arrows
+        # Separator, history, re-run and copy - with padding to align baselines
         separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
+
+        # Stepping one entry at a time answers "what did I just say"; this
+        # answers "what did I dictate about the invoice on Tuesday".
+        self.button_history = ttk.Label(
+            nav_frame, text=f"  {_('History')}", style="Copy.TLabel", cursor="hand2",
+            foreground=self.theme.TEXT_SECONDARY)
+        self.button_history.pack(side=tk.LEFT, pady=(8, 0))
+        self.button_history.bind("<Button-1>", lambda e: self.parent.show_history())
+
+        separator_label0 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
+        separator_label0.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
 
         # Re-run the AI edit against the text currently in the box (QW-08b)
         self.button_rerun = ttk.Label(
@@ -1175,6 +1186,9 @@ class UIManager:
         )
         self.button_rerun.pack(side=tk.LEFT, pady=(8, 0))
         self.button_rerun.bind("<Button-1>", lambda e: self._rerun_ai_edit())
+        # Right-click applies a different prompt for this run only, so trying
+        # three tones on one dictation does not change the selected prompt.
+        self.button_rerun.bind("<Button-3>", lambda e: self.show_rerun_prompt_menu())
 
         separator_label2 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label2.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1191,7 +1205,9 @@ class UIManager:
         ToolTip(self.button_first_page, _("Latest entry"))
         ToolTip(self.button_arrow_left, _("Newer"))
         ToolTip(self.button_arrow_right, _("Older"))
-        ToolTip(self.button_rerun, _("Re-run the AI edit on the text above"))
+        ToolTip(self.button_history, _("Search everything you have dictated"))
+        ToolTip(self.button_rerun,
+                _("Re-run the AI edit on the text above (right-click for another prompt)"))
         ToolTip(self.button_copy, _("Copy to clipboard"))
         
         # Text area - tk.Text with border, padding, and rounded appearance
@@ -1240,12 +1256,20 @@ class UIManager:
         
         # Bind events that might change content to update scrollbar visibility
         self.transcription_text.bind("<KeyRelease>", lambda e: self.parent.after(10, self._on_text_changed))
-        self.transcription_text.bind("<<Paste>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
-        self.transcription_text.bind("<<Cut>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
+        self.transcription_text.bind("<<Paste>>", lambda e: self.parent.after(10, self._on_text_changed))
+        self.transcription_text.bind("<<Cut>>", lambda e: self.parent.after(10, self._on_text_changed))
         self.transcription_text.bind("<Configure>", lambda e: self.parent.after(10, update_scrollbar_visibility))
         
         # Connect scrollbar to text widget
         text_scrollbar.config(command=self.transcription_text.yview)
+
+        # Word count and, where it is known, how long the recording behind this
+        # text was. Cheap context that answers "did it get all of that?".
+        self.text_stats_label = ttk.Label(
+            content, text="", style="Small.TLabel", anchor="e",
+            foreground=self.theme.TEXT_MUTED)
+        self.text_stats_label.pack(fill=tk.X, pady=(0, get_spacing('sm')))
+        self.update_text_stats()
         
         # ─────────────────────────────────────────────────────────────────────
         # STATUS ROW
@@ -1673,6 +1697,18 @@ class UIManager:
         """Mark the active entry so the menu shows what is currently in use."""
         return f"● {name}" if selected else f"     {name}"
 
+    def show_rerun_prompt_menu(self, anchor=None):
+        """Offer a one-off prompt to re-run the current text through."""
+        if self._rerun_disabled:
+            return
+        menu = self._picker_menu("rerun_prompt")
+        current = self.parent.current_prompt_name
+        for name in self.parent.prompt_names():
+            menu.add_command(
+                label=self._picker_item_label(name, name == current),
+                command=lambda n=name: self.parent.rerun_ai_edit(prompt_name=n))
+        self._popup_under(menu, anchor or self.button_rerun)
+
     def _show_transcription_model_menu(self):
         menu = self._picker_menu("transcription_picker")
         current = self.parent.transcription_model
@@ -1892,10 +1928,42 @@ class UIManager:
     def update_transcription_text(self):
         if 0 <= self.parent.history_index < len(self.parent.history):
             self.transcription_text.delete("1.0", tk.END)
-            self.transcription_text.insert("1.0", self.parent.history[self.parent.history_index])
+            self.transcription_text.insert("1.0", self.parent.history_text(self.parent.history_index))
             # Update scrollbar visibility after content change
             self._after(10, self._update_scrollbar_visibility)
         self.update_rerun_state()
+        self.update_text_stats()
+
+    def update_text_stats(self):
+        """Refresh the word count / spoken length caption under the transcript."""
+        if not self._widget_alive(getattr(self, 'text_stats_label', None)):
+            return
+        try:
+            text = self.transcription_text.get("1.0", "end-1c")
+        except Exception:
+            return
+
+        words = len(text.split())
+        if not words:
+            self.text_stats_label.configure(text="")
+            return
+
+        parts = [_n("{n} word", "{n} words", words).format(n=words)]
+
+        # Only the entry currently being shown can be labelled with a length -
+        # once the text has been edited by hand it no longer describes the
+        # recording, so the length is dropped rather than made misleading.
+        entry = self.parent.history_entry(self.parent.history_index)
+        if entry and entry.get("duration") and entry.get("text") == text:
+            parts.append(self._format_duration(entry["duration"]))
+
+        self.text_stats_label.configure(text="  ·  ".join(parts))
+
+    @staticmethod
+    def _format_duration(seconds):
+        """Render a spoken length as m:ss."""
+        total = int(round(float(seconds)))
+        return f"{total // 60}:{total % 60:02d}"
             
 
     # ═════════════════════════════════════════════════════════════════════════
@@ -2282,6 +2350,7 @@ class UIManager:
         if callable(getattr(self, '_update_scrollbar_visibility', None)):
             self._update_scrollbar_visibility()
         self.update_rerun_state()
+        self.update_text_stats()
 
     def update_rerun_state(self):
         """Enable the re-run link only when there is text to re-edit."""
@@ -2566,6 +2635,8 @@ class UIManager:
         # Update navigation, re-run and copy buttons
         if hasattr(self, 'button_copy'):
             self.button_copy.configure(text=f"  {_('Copy')}")
+        if self._widget_alive(getattr(self, 'button_history', None)):
+            self.button_history.configure(text=f"  {_('History')}")
         if self._widget_alive(self.button_rerun):
             self.button_rerun.configure(text=f"  \u21ba {_('AI Edit')}")
         if self._widget_alive(self.device_refresh_link):

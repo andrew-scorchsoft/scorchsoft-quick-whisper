@@ -124,6 +124,9 @@ class AudioManager:
         self._record_start_time = None
         self._limit_reached = False
         self._limit_notice_pending = False
+        # Length of the last kept recording, so the transcript can be labelled
+        # with how long it took to say.
+        self.last_recording_duration = 0.0
 
         # Guards start/stop/cancel against re-entrancy (double hotkey presses,
         # the auto-stop firing while the user is already stopping, and so on).
@@ -523,6 +526,7 @@ class AudioManager:
                 self._show_info(_("Nothing to Transcribe"), discard_reason)
                 return None
 
+            self.last_recording_duration = duration
             self._ui('set_status', _("Processing - Audio File..."), "green")
 
             # Play stop recording sound

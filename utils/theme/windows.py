@@ -30,6 +30,7 @@ WINDOW_SIZES = {
         'edit_prompt_dialog': (600, 600),
         'config_dialog': (700, 620),
         'hotkey_dialog': (500, 400),
+        'history_dialog': (760, 620),
         'version_notification': (400, 200),
     },
     # Windows HiDPI - explicit values
@@ -43,6 +44,7 @@ WINDOW_SIZES = {
         'edit_prompt_dialog': (700, 720),
         'config_dialog': (1050, 930),
         'hotkey_dialog': (720, 620),
+        'history_dialog': (1140, 930),
         'version_notification': (440, 220),
     },
     # Linux HiDPI - explicit values (matched to windows_hd for consistent HiDPI experience)
@@ -56,6 +58,7 @@ WINDOW_SIZES = {
         'edit_prompt_dialog': (700, 720),
         'config_dialog': (1050, 930),
         'hotkey_dialog': (720, 620),
+        'history_dialog': (1140, 930),
         'version_notification': (440, 220),
     },
     # macOS HiDPI - OS handles most scaling
@@ -69,6 +72,7 @@ WINDOW_SIZES = {
         'edit_prompt_dialog': (600, 600),
         'config_dialog': (700, 620),
         'hotkey_dialog': (500, 400),
+        'history_dialog': (760, 620),
         'version_notification': (400, 200),
     },
 }
@@ -120,7 +124,7 @@ class WindowSizeProvider:
             window_name: One of 'main', 'api_key_dialog', 'about_dialog',
                         'tos_dialog', 'terms_of_use', 'manage_prompts',
                         'edit_prompt_dialog', 'config_dialog', 'hotkey_dialog',
-                        'version_notification'
+                        'history_dialog', 'version_notification'
 
         Returns:
             Tuple of (width, height) for the current platform and HiDPI mode
@@ -150,7 +154,7 @@ def get_window_size(window_name: str) -> tuple:
         window_name: One of 'main', 'api_key_dialog', 'about_dialog',
                     'tos_dialog', 'terms_of_use', 'manage_prompts',
                     'edit_prompt_dialog', 'config_dialog', 'hotkey_dialog',
-                    'version_notification'
+                    'history_dialog', 'version_notification'
 
     Returns:
         Tuple of (width, height) for the current platform and HiDPI mode
