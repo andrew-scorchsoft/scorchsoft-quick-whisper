@@ -170,6 +170,12 @@ class QuickWhisper(tk.Tk):
         # Serialises the read/write/restore sequence around auto-paste so two
         # transcriptions finishing close together cannot interleave.
         self._clipboard_lock = threading.Lock()
+        # What to put back after an auto-paste, what we put on the clipboard to
+        # get there, and a counter so only the most recent paste owns the
+        # restore. All three are guarded by _clipboard_lock.
+        self._clipboard_snapshot = None
+        self._last_pasted_text = None
+        self._clipboard_generation = 0
         
         # Initialize recording directory based on settings
         self.update_recording_directory()
@@ -1446,6 +1452,7 @@ class QuickWhisper(tk.Tk):
     def _copy_to_clipboard(self, text):
         """Copy text on the user's explicit request (so it is never restored)."""
         with self._clipboard_lock:
+            self._abandon_clipboard_restore()
             if self._write_clipboard(text):
                 self.ui_manager.show_toast(_("Copied to clipboard"))
                 return
@@ -1455,6 +1462,7 @@ class QuickWhisper(tk.Tk):
         
     def auto_copy_text(self, text):
         with self._clipboard_lock:
+            self._abandon_clipboard_restore()
             if self._write_clipboard(text):
                 return
         logger.error("Failed to auto-copy the transcription to the clipboard")
@@ -1466,6 +1474,17 @@ class QuickWhisper(tk.Tk):
     # Sentinel meaning "the clipboard could not be read", which is different
     # from "the clipboard was empty" - only the latter is safe to restore.
     _CLIPBOARD_UNREADABLE = object()
+
+    def _abandon_clipboard_restore(self):
+        """Cancel any pending restore. Must be called holding the lock.
+
+        Used when the user deliberately puts something on the clipboard: they
+        have said they want it there, so a restore scheduled moments earlier
+        must not snatch it back.
+        """
+        self._clipboard_generation += 1
+        self._clipboard_snapshot = None
+        self._last_pasted_text = None
 
     def _read_clipboard(self):
         """Return the clipboard text, or _CLIPBOARD_UNREADABLE if it cannot be read."""
@@ -1498,15 +1517,38 @@ class QuickWhisper(tk.Tk):
             logger.debug("Could not verify the clipboard write: %s", e)
             return True
 
-    def _schedule_clipboard_restore(self, previous, pasted_text):
+    def _take_clipboard_snapshot(self):
+        """Remember what to put back once the pending paste has landed.
+
+        Must be called holding ``_clipboard_lock``. If a restore from an
+        earlier paste is still outstanding and the clipboard still holds what
+        that paste put there, the *older* snapshot is carried forward -
+        otherwise two transcriptions finishing inside the restore window would
+        "restore" the first one's dictated text and leave it on the clipboard.
+        """
+        current = self._read_clipboard()
+        pending = self._clipboard_snapshot
+        if (pending is not None
+                and self._last_pasted_text is not None
+                and current == self._last_pasted_text):
+            logger.debug("Carrying the earlier clipboard snapshot through a second paste")
+            return pending
+        return current
+
+    def _schedule_clipboard_restore(self, pasted_text):
         """Put the previous clipboard contents back a moment after pasting.
 
         Dictated text is often the most sensitive thing the app touches, so it
         is not left sitting on the clipboard once it has been delivered. The
         restore is skipped when the user has copied something else in the
-        meantime - their newer copy always wins.
+        meantime - their newer copy always wins - and when a newer paste has
+        taken over, since that paste owns the restore now.
         """
-        if previous is self._CLIPBOARD_UNREADABLE:
+        with self._clipboard_lock:
+            snapshot = self._clipboard_snapshot
+            generation = self._clipboard_generation
+
+        if snapshot is self._CLIPBOARD_UNREADABLE:
             # Never guess: clearing a clipboard we could not read risks
             # destroying something the user still wants.
             logger.info("Skipping clipboard restore - the previous contents could not be read")
@@ -1517,14 +1559,19 @@ class QuickWhisper(tk.Tk):
         def _restore():
             time.sleep(delay_seconds)
             with self._clipboard_lock:
+                if generation != self._clipboard_generation:
+                    logger.debug("A newer paste owns the clipboard restore; standing down")
+                    return
                 current = self._read_clipboard()
                 if current is self._CLIPBOARD_UNREADABLE:
                     return
                 if current != pasted_text:
                     logger.debug("Clipboard changed since pasting; leaving it alone")
                     return
-                if self._write_clipboard(previous, verify=False):
+                if self._write_clipboard(snapshot, verify=False):
                     logger.info("Previous clipboard contents restored after auto-paste")
+                self._clipboard_snapshot = None
+                self._last_pasted_text = None
 
         threading.Thread(target=_restore, daemon=True, name="clipboard-restore").start()
 
@@ -1540,12 +1587,13 @@ class QuickWhisper(tk.Tk):
             # When auto-copy is on it is already there and the user wants it to
             # stay; otherwise it is placed there just long enough to paste.
             keep_on_clipboard = bool(self.auto_copy.get())
-            previous_clipboard = self._CLIPBOARD_UNREADABLE
             restore_after = not keep_on_clipboard and self.config_manager.restore_clipboard
 
             with self._clipboard_lock:
                 if restore_after:
-                    previous_clipboard = self._read_clipboard()
+                    self._clipboard_snapshot = self._take_clipboard_snapshot()
+                    self._last_pasted_text = text
+                    self._clipboard_generation += 1
                 if not self._write_clipboard(text):
                     logger.error("Aborting auto-paste - the text is not on the clipboard")
                     self._ui_status(_("Could not paste - clipboard unavailable"), "red")
@@ -1586,7 +1634,7 @@ class QuickWhisper(tk.Tk):
             time.sleep(0.05)
 
             if restore_after:
-                self._schedule_clipboard_restore(previous_clipboard, text)
+                self._schedule_clipboard_restore(text)
         except Exception as e:
             logger.error("Auto-paste error: %s", e, exc_info=True)
             self._show_error_async(_("Auto-Paste Error"),

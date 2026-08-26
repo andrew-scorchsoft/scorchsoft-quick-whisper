@@ -12,8 +12,12 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
 ## Features
 
 - **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Ctrl+Alt+J` for edit, `Ctrl+Alt+Shift+J` for transcription).
-- **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired.
+- **Toggle or Push-to-Talk**: Press once to start and again to stop, or hold the shortcut and release to send - whichever suits the length of what you are dictating.
+- **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired. When auto-copy is off, whatever you had copied before is put back once the paste is done.
 - **Optional OpenAI ChatGPT Editing**: Enhance your transcriptions using OpenAI ChatGPT for a polished, copy-edited text output.
+- **One-click Prompt and Model Switching**: The line under the transcript names the transcription model, the copy-editing model and the selected prompt - click any of them to change it.
+- **Searchable History**: Everything you dictate is kept with the time, the prompt used and how long you spoke, and can be searched from **File > Browse History**.
+- **Recording Feedback**: A live input level meter and timer while recording, plus a red tray icon so you can tell you are recording even when the window is hidden.
 - **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle OpenAI ChatGPT editing.
 
 ## Screenshot
@@ -87,12 +91,18 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
    **Windows/Linux:**
    - `Ctrl+Alt+J` for Record + AI Edit
    - `Ctrl+Alt+Shift+J` for Record + Transcript
-   - `Win+X` to Cancel Recording
+   - `Ctrl+Alt+X` to Cancel Recording
+   - `Ctrl+Alt+R` to Retry the Last Recording
+   - `Alt+Left` / `Alt+Right` to cycle through prompts
 
    **Mac:**
    - `⌘+Alt+J` for Record + AI Edit
    - `⌘+Alt+Shift+J` for Record + Transcript
    - `⌘+X` to Cancel Recording
+   - `⌘+Alt+R` to Retry the Last Recording
+   - `⌘+[` / `⌘+]` to cycle through prompts
+
+   `Escape` also cancels a recording while the Quick Whisper window has focus.
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
 
@@ -120,6 +130,25 @@ Control how recording files are managed:
 - **Overwrite the same file each time (default)**: Saves disk space by reusing the same filename
 - **Save each recording with date/time in filename**: Creates unique files like `recording_20240101_143052.wav`
   - ⚠️ **Warning**: This option can consume significant disk space over time
+
+### Advanced Settings
+
+**Settings > Configuration > Advanced** covers the behaviour that used to be
+editable only by hand in `settings.json`:
+
+- **Recording shortcut behaviour**: toggle (press to start, press again to stop) or
+  push to talk (hold the shortcut, release to send). The buttons in the main
+  window always toggle, whichever mode you choose.
+- **Recording limits**: the maximum length before recording stops automatically
+  to stay within the upload size limit, the minimum length below which an
+  accidental tap of the shortcut is discarded rather than costing an API call,
+  and whether recordings with no detected speech are skipped.
+- **Stored recordings**: how many days saved recordings are kept before being
+  deleted automatically.
+- **Transcription history**: whether history is kept between sessions, and how
+  many entries to keep.
+- **Feedback and clipboard**: whether to show the live input level meter, and
+  whether the previous clipboard contents are restored after an auto-paste.
 
 ### Config Files
 
