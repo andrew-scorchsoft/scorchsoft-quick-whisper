@@ -26,6 +26,12 @@ class ToolTip():
         # Never outlive the widget we are attached to.
         widget.bind("<Destroy>", self._on_widget_destroyed, add="+")
 
+    def set_text(self, text):
+        """Change the tooltip text, refreshing it if it is currently showing."""
+        self.text = text
+        if self.tooltip_window:
+            self.hide_tooltip()
+
     def show_tooltip(self, event=None):
         if self.tooltip_window or not self.text:
             return

@@ -141,6 +141,11 @@ class HotkeyManagerBase(ABC):
         self.config = get_config()
         self.is_mac = CURRENT_PLATFORM == 'macos'
 
+        # Push-to-talk state. ``_held_combo`` is the key combination currently
+        # being held down to record; releasing any of its keys ends the take.
+        self._held_combo = None
+        self._hold_lock = threading.Lock()
+
         # Default shortcuts (platform-specific)
         self.shortcuts = self._get_default_shortcuts()
 
@@ -178,6 +183,98 @@ class HotkeyManagerBase(ABC):
             name: (self.config.get_shortcut(name) or default)
             for name, default in defaults.items()
         }
+
+    # ------------------------------------------------------------------
+    # Hotkey map + push-to-talk
+    # ------------------------------------------------------------------
+
+    def build_hotkey_map(self):
+        """Return ``{frozenset(keys): callback}`` for the platform listener.
+
+        All three platforms drive the same six actions from the same shortcut
+        names, so the mapping is built once here. Recording is routed through
+        :meth:`_dispatch_record` so it can behave as a toggle or as
+        push-to-talk without the platform listeners needing to know.
+        """
+        actions = {
+            'record_edit': lambda combo: self._dispatch_record("edit", combo),
+            'record_transcribe': lambda combo: self._dispatch_record("transcribe", combo),
+            'cancel_recording': lambda combo: self._on_main_thread(self.parent.cancel_recording),
+            'cycle_prompt_back': lambda combo: self._on_main_thread(self.parent.cycle_prompt_backward),
+            'cycle_prompt_forward': lambda combo: self._on_main_thread(self.parent.cycle_prompt_forward),
+            'retry_last': lambda combo: self._on_main_thread(self.parent.retry_last_recording),
+        }
+
+        mapping = {}
+        for name, action in actions.items():
+            combo = self._normalize_shortcut(self.shortcuts.get(name, '') or '')
+            # An unset shortcut normalises to an empty frozenset, which would
+            # otherwise match "no keys pressed".
+            if not combo:
+                continue
+            # Bind the combination now so the callback knows which keys have to
+            # be released to end a push-to-talk recording.
+            mapping[combo] = (lambda a=action, c=combo: a(c))
+        return mapping
+
+    def _on_main_thread(self, func, *args):
+        """Run a callback on the Tk main loop, tolerating a closing window."""
+        try:
+            self.parent.after(0, lambda: func(*args))
+        except Exception as e:
+            logger.debug("Could not marshal hotkey callback to the main thread: %s", e)
+
+    def recording_mode(self):
+        """Return "toggle" or "push_to_talk" from the current configuration."""
+        try:
+            return self.config.recording_mode
+        except Exception:
+            return "toggle"
+
+    def _dispatch_record(self, mode, combo):
+        """Handle a record hotkey press for either recording mode."""
+        if self.recording_mode() != "push_to_talk":
+            self._on_main_thread(self.parent.toggle_recording, mode)
+            return
+
+        with self._hold_lock:
+            if self._held_combo is not None:
+                # Key auto-repeat while the combination is held. Already
+                # recording, so there is nothing to do.
+                return
+            self._held_combo = combo
+
+        logger.info("Push-to-talk started (mode=%s)", mode)
+        self._on_main_thread(self.parent.start_push_to_talk, mode)
+
+    def _note_key_released(self, key_name):
+        """Tell the base class a key came up, so push-to-talk can end.
+
+        Called by every platform listener from its own release handler.
+        Releasing any key of the held combination ends the recording, which
+        matches how people actually let go of a chord.
+        """
+        if not key_name:
+            return
+        # This runs for every key the user releases anywhere in the OS, so the
+        # overwhelmingly common "not holding anything" case is answered without
+        # taking a lock. Reading the attribute is atomic; the lock below still
+        # settles any race over who clears it.
+        if self._held_combo is None:
+            return
+        with self._hold_lock:
+            combo = self._held_combo
+            if combo is None or key_name not in combo:
+                return
+            self._held_combo = None
+
+        logger.info("Push-to-talk released")
+        self._on_main_thread(self.parent.finish_push_to_talk)
+
+    def _clear_hold_state(self):
+        """Forget any in-flight push-to-talk hold (used around refreshes)."""
+        with self._hold_lock:
+            self._held_combo = None
 
     @abstractmethod
     def register_hotkeys(self):
@@ -291,6 +388,9 @@ class HotkeyManagerBase(ABC):
         try:
             logger.info("Pausing hotkeys...")
             self._paused = True
+            # A hold that survives the pause would wait for a release event
+            # that can no longer arrive.
+            self._clear_hold_state()
             # Drop any refresh scheduled before the pause, so it cannot
             # re-register behind a modal that deliberately disabled hotkeys.
             if self._pending_refresh_id is not None:

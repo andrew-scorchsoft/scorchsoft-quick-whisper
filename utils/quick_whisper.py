@@ -15,10 +15,10 @@ from PIL import Image, ImageTk
 from openai import OpenAI
 from utils.config_manager import get_config
 from pathlib import Path
-from audioplayer import AudioPlayer
 import platform
 import time
 import gc
+from datetime import datetime
 
 # Note: pynput and pyautogui are imported lazily in paste methods to avoid
 # X11 connection errors on Linux when display is not available at import time
@@ -30,6 +30,7 @@ if platform.system() == 'Windows':
 
 from utils.tooltip import ToolTip
 from utils.manage_prompts_dialog import ManagePromptsDialog
+from utils.history_dialog import HistoryDialog
 from utils.config_dialog import ConfigDialog
 from utils.hotkey_manager import HotkeyManager
 from utils.audio_manager import AudioManager
@@ -83,6 +84,9 @@ class QuickWhisper(tk.Tk):
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
+        # The widgets are built before set_default_prompt() runs, and the status
+        # line names the selected prompt, so it has to exist by then.
+        self.current_prompt_name = "Default"
 
         icon_path = self.resource_path("assets/icon-32.png")
         self.iconphoto(False, tk.PhotoImage(file=icon_path))
@@ -165,6 +169,15 @@ class QuickWhisper(tk.Tk):
         self.load_history()
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self._rerun_in_progress = False
+        # Serialises the read/write/restore sequence around auto-paste so two
+        # transcriptions finishing close together cannot interleave.
+        self._clipboard_lock = threading.Lock()
+        # What to put back after an auto-paste, what we put on the clipboard to
+        # get there, and a counter so only the most recent paste owns the
+        # restore. All three are guarded by _clipboard_lock.
+        self._clipboard_snapshot = None
+        self._last_pasted_text = None
+        self._clipboard_generation = 0
         
         # Initialize recording directory based on settings
         self.update_recording_directory()
@@ -220,6 +233,11 @@ class QuickWhisper(tk.Tk):
         self.bind('<Unmap>', self._handle_minimize)
         self.bind('<Map>', self._handle_restore)
         self.was_minimized = False
+
+        # Escape is what everyone reaches for to abandon something. Bound on
+        # the main window (not globally) so it only applies when Quick Whisper
+        # has focus, and it does nothing at all when not recording.
+        self.bind('<Escape>', self._handle_escape)
 
         # Ensure default bindings for common edit actions in Text and Entry widgets
         self._install_text_bindings()
@@ -955,6 +973,7 @@ class QuickWhisper(tk.Tk):
 
         # File menu - use styled popup menu for modern look
         self.file_menu = StyledPopupMenu(self)
+        self.file_menu.add_command(label=_("Browse History..."), command=self.show_history)
         self.file_menu.add_command(label=_("Save Session History"), command=self.save_session_history)
         self.file_menu.add_separator()
         # Only offer "Minimize to Tray" when there is actually a tray to
@@ -1023,6 +1042,10 @@ class QuickWhisper(tk.Tk):
             label=_("Re-run AI Edit on Current Text"),
             command=self.rerun_ai_edit
         )
+        self.actions_menu.add_command(
+            label=_("Re-run AI Edit With Prompt..."),
+            command=lambda: self.ui_manager.show_rerun_prompt_menu()
+        )
         self.actions_menu.add_separator()
 
         # Copy actions group
@@ -1088,6 +1111,28 @@ class QuickWhisper(tk.Tk):
             logger.info("About to stop recording. mode = %s", self.current_button_mode)
             self.stop_recording()
 
+    def start_push_to_talk(self, mode="transcribe"):
+        """Begin recording because a record shortcut is being held down.
+
+        Push-to-talk deliberately does nothing when a recording is already
+        running: the user may have started one from the buttons, and cutting
+        it short because a shortcut was touched would lose their words.
+        """
+        if self.audio_manager.recording:
+            logger.debug("Push-to-talk press ignored - already recording")
+            return
+        self.current_button_mode = mode
+        logger.info("Push-to-talk recording started (mode=%s)", mode)
+        self.start_recording()
+
+    def finish_push_to_talk(self):
+        """Stop and process because the held record shortcut was released."""
+        if not self.audio_manager.recording:
+            logger.debug("Push-to-talk release ignored - not recording")
+            return
+        logger.info("Push-to-talk recording finished")
+        self.stop_recording()
+
     def start_recording(self):
         """Start audio recording."""
         # audio_manager.start_recording() handles all UI updates including button states
@@ -1106,6 +1151,14 @@ class QuickWhisper(tk.Tk):
         """Cancel the current recording without processing."""
         self.audio_manager.cancel_recording()
         self.hotkey_manager.update_shortcut_displays()
+
+    def _handle_escape(self, _event=None):
+        """Cancel an in-progress recording when Escape is pressed."""
+        if not self.audio_manager.recording:
+            return None
+        logger.info("Recording cancelled with Escape")
+        self.cancel_recording()
+        return "break"
     
     def retry_last_recording(self, mode=None):
         """Retry processing the last recording.
@@ -1124,11 +1177,14 @@ class QuickWhisper(tk.Tk):
                 self.current_button_mode = mode
             return self.audio_manager.retry_last_recording()
 
-    def rerun_ai_edit(self):
+    def rerun_ai_edit(self, prompt_name=None):
         """Re-run the AI edit over the text currently in the transcript box.
 
         Lets the user apply a different prompt to something they have already
-        dictated without having to dictate it again.
+        dictated without having to dictate it again. ``prompt_name`` applies a
+        prompt for this run only, leaving the selected prompt alone - trying
+        three tones on one dictation should not change what the next recording
+        will use.
         """
         if self._rerun_in_progress:
             logger.info("Re-run AI edit ignored - one is already running")
@@ -1147,18 +1203,27 @@ class QuickWhisper(tk.Tk):
                                 _("There is no text to re-run the AI edit on."))
             return
 
+        if prompt_name is not None and prompt_name not in self.prompt_names():
+            logger.warning("Cannot re-run with unknown prompt '%s'", prompt_name)
+            messagebox.showwarning(
+                _("Prompt Not Found"),
+                _("The prompt '{name}' no longer exists.").format(name=prompt_name))
+            return
+
+        effective_prompt = prompt_name or self.current_prompt_name
         self._rerun_in_progress = True
         self._set_status(_("Processing - AI Editing..."), "green")
         logger.info("Re-running AI edit on %d characters using prompt '%s'",
-                    len(source_text), getattr(self, 'current_prompt_name', 'Default'))
+                    len(source_text), effective_prompt)
 
-        threading.Thread(target=self._rerun_ai_edit_worker, args=(source_text,),
+        threading.Thread(target=self._rerun_ai_edit_worker,
+                         args=(source_text, effective_prompt),
                          daemon=True, name="rerun-ai-edit").start()
 
-    def _rerun_ai_edit_worker(self, source_text):
+    def _rerun_ai_edit_worker(self, source_text, prompt_name=None):
         """Background half of :meth:`rerun_ai_edit`."""
         try:
-            edited_text = self.process_with_gpt_model(source_text)
+            edited_text = self.process_with_gpt_model(source_text, prompt_name=prompt_name)
             if edited_text is None:
                 # process_with_gpt_model has already told the user what failed.
                 self._ui_status(_("AI edit failed"), "red")
@@ -1171,7 +1236,9 @@ class QuickWhisper(tk.Tk):
                 return
 
             self.last_edit = edited_text
-            self.after(0, lambda: self.add_to_history(edited_text))
+            used_prompt = prompt_name or getattr(self, 'current_prompt_name', None)
+            self.after(0, lambda: self.add_to_history(
+                edited_text, mode=self.HISTORY_MODE_EDIT, prompt=used_prompt))
 
             # Same auto-copy/auto-paste behaviour as a normal recording.
             if self.auto_copy.get():
@@ -1315,7 +1382,9 @@ class QuickWhisper(tk.Tk):
 
             self.last_transcription = transcription_text
             # add_to_history touches widgets, so it must run on the main thread.
-            self.after(0, lambda t=transcription_text: self.add_to_history(t))
+            spoken_seconds = getattr(self.audio_manager, 'last_recording_duration', None)
+            self.after(0, lambda t=transcription_text, d=spoken_seconds: self.add_to_history(
+                t, mode=self.HISTORY_MODE_TRANSCRIPT, duration=d))
 
             # Process transcription with or without GPT as per the checkbox setting
             if self.current_button_mode == "edit":
@@ -1331,7 +1400,10 @@ class QuickWhisper(tk.Tk):
                 else:
                     play_text = edited_text.rstrip()
                     self.last_edit = play_text
-                    self.after(0, lambda t=play_text: self.add_to_history(t))
+                    prompt_name = self.current_prompt_name
+                    self.after(0, lambda t=play_text, p=prompt_name, d=spoken_seconds:
+                               self.add_to_history(t, mode=self.HISTORY_MODE_EDIT,
+                                                   prompt=p, duration=d))
             else:
                 logger.info("Outputting raw transcription only")
                 play_text = transcription_text
@@ -1374,38 +1446,168 @@ class QuickWhisper(tk.Tk):
                 self._ui_status(_("Idle"), "blue")
 
     def copy_last_transcription(self):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(self.last_transcription)
+        self.copy_to_clipboard(self.last_transcription)
 
-        except Exception as e:
-            logger.error("Failed to copy the transcription to clipboard: %s", e, exc_info=True)
-            messagebox.showerror(_("Auto-Copy Error"),
-                                 _("Failed to copy the transcription to clipboard: {error}").format(error=e))
-    
     def copy_last_edit(self):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(self.last_edit)
+        self.copy_to_clipboard(self.last_edit)
 
-        except Exception as e:
-            logger.error("Failed to copy the last edit to clipboard: %s", e, exc_info=True)
-            messagebox.showerror(_("Auto-Copy Error"),
-                                 _("Failed to copy the last edit to clipboard: {error}").format(error=e))
+    def copy_to_clipboard(self, text):
+        """Copy text on the user's explicit request (so it is never restored)."""
+        with self._clipboard_lock:
+            self._abandon_clipboard_restore()
+            if self._write_clipboard(text):
+                self.ui_manager.show_toast(_("Copied to clipboard"))
+                return
+        messagebox.showerror(
+            _("Copy Failed"),
+            _("The text could not be copied to the clipboard."))
         
     def auto_copy_text(self, text):
-        try:
-            # Copy text to clipboard
-            pyperclip.copy(text)
+        with self._clipboard_lock:
+            self._abandon_clipboard_restore()
+            if self._write_clipboard(text):
+                return
+        logger.error("Failed to auto-copy the transcription to the clipboard")
+        self._show_error_async(
+            _("Auto-Copy Error"),
+            _("The transcription could not be copied to the clipboard. It is still "
+              "shown above and can be copied manually."))
 
+    # Sentinel meaning "the clipboard could not be read", which is different
+    # from "the clipboard was empty" - only the latter is safe to restore.
+    _CLIPBOARD_UNREADABLE = object()
+
+    def _abandon_clipboard_restore(self):
+        """Cancel any pending restore. Must be called holding the lock.
+
+        Used when the user deliberately puts something on the clipboard: they
+        have said they want it there, so a restore scheduled moments earlier
+        must not snatch it back.
+        """
+        self._clipboard_generation += 1
+        self._clipboard_snapshot = None
+        self._last_pasted_text = None
+
+    def _read_clipboard(self):
+        """Return the clipboard text, or _CLIPBOARD_UNREADABLE if it cannot be read."""
+        try:
+            return pyperclip.paste()
         except Exception as e:
-            logger.error("Failed to auto-copy the transcription: %s", e, exc_info=True)
-            self._show_error_async(_("Auto-Copy Error"),
-                                   _("Failed to auto-copy the transcription: {error}").format(error=e))
+            logger.warning("Could not read the clipboard: %s", e)
+            return self._CLIPBOARD_UNREADABLE
+
+    def _write_clipboard(self, text, verify=True):
+        """Put text on the clipboard, confirming it actually landed.
+
+        pyperclip can fail silently when no clipboard backend is available
+        (a headless Linux box with no xclip/xsel, for instance). Pasting in
+        that state would send Ctrl+V with somebody else's content still on the
+        clipboard, so the write is read back before it is trusted.
+        """
+        try:
+            pyperclip.copy(text)
+        except Exception as e:
+            logger.error("Could not write to the clipboard: %s", e, exc_info=True)
+            return False
+        if not verify:
+            return True
+        try:
+            return pyperclip.paste() == text
+        except Exception as e:
+            # The write did not raise; treat an unreadable clipboard as success
+            # rather than blocking the paste on a read-only failure.
+            logger.debug("Could not verify the clipboard write: %s", e)
+            return True
+
+    def _take_clipboard_snapshot(self):
+        """Remember what to put back once the pending paste has landed.
+
+        Must be called holding ``_clipboard_lock``. If a restore from an
+        earlier paste is still outstanding and the clipboard still holds what
+        that paste put there, the *older* snapshot is carried forward -
+        otherwise two transcriptions finishing inside the restore window would
+        "restore" the first one's dictated text and leave it on the clipboard.
+        """
+        current = self._read_clipboard()
+        pending = self._clipboard_snapshot
+        if (pending is not None
+                and self._last_pasted_text is not None
+                and current == self._last_pasted_text):
+            logger.debug("Carrying the earlier clipboard snapshot through a second paste")
+            return pending
+        return current
+
+    def _schedule_clipboard_restore(self, pasted_text):
+        """Put the previous clipboard contents back a moment after pasting.
+
+        Dictated text is often the most sensitive thing the app touches, so it
+        is not left sitting on the clipboard once it has been delivered. The
+        restore is skipped when the user has copied something else in the
+        meantime - their newer copy always wins - and when a newer paste has
+        taken over, since that paste owns the restore now.
+        """
+        with self._clipboard_lock:
+            snapshot = self._clipboard_snapshot
+            generation = self._clipboard_generation
+
+        if snapshot is self._CLIPBOARD_UNREADABLE:
+            # Never guess: clearing a clipboard we could not read risks
+            # destroying something the user still wants.
+            logger.info("Skipping clipboard restore - the previous contents could not be read")
+            return
+
+        delay_seconds = self.config_manager.clipboard_restore_delay_ms / 1000.0
+
+        def _restore():
+            time.sleep(delay_seconds)
+            with self._clipboard_lock:
+                if generation != self._clipboard_generation:
+                    logger.debug("A newer paste owns the clipboard restore; standing down")
+                    return
+                current = self._read_clipboard()
+                if current is self._CLIPBOARD_UNREADABLE:
+                    return
+                if current != pasted_text:
+                    logger.debug("Clipboard changed since pasting; leaving it alone")
+                    return
+                if self._write_clipboard(snapshot, verify=False):
+                    logger.info("Previous clipboard contents restored after auto-paste")
+                self._clipboard_snapshot = None
+                self._last_pasted_text = None
+
+        threading.Thread(target=_restore, daemon=True, name="clipboard-restore").start()
 
     def auto_paste_text(self, text):
-        """Auto-paste text using the configured paste method."""
+        """Auto-paste text by putting it on the clipboard and sending Ctrl+V.
+
+        Every paste method here simulates the paste shortcut, so the text has
+        to be on the clipboard first - sending the keystroke on its own would
+        paste whatever the user happened to have copied earlier.
+        """
         try:
+            # The text has to be on the clipboard for Ctrl+V to mean anything.
+            # When auto-copy is on it is already there and the user wants it to
+            # stay; otherwise it is placed there just long enough to paste.
+            keep_on_clipboard = bool(self.auto_copy.get())
+            restore_after = not keep_on_clipboard and self.config_manager.restore_clipboard
+
+            with self._clipboard_lock:
+                if restore_after:
+                    self._clipboard_snapshot = self._take_clipboard_snapshot()
+                    self._last_pasted_text = text
+                    self._clipboard_generation += 1
+                if not self._write_clipboard(text):
+                    logger.error("Aborting auto-paste - the text is not on the clipboard")
+                    # Kept short: the status column reserves room for the
+                    # longest message it can ever show, and that reservation
+                    # comes out of the space the model/prompt pickers use.
+                    self._ui_status(_("Clipboard unavailable"), "red")
+                    self._show_error_async(
+                        _("Auto-Paste Error"),
+                        _("The text could not be placed on the clipboard, so it was not "
+                          "pasted. It is still shown above and can be copied manually."))
+                    return
+
             # Small delay before starting to ensure any previous key events are processed
             time.sleep(0.05)
 
@@ -1435,6 +1637,9 @@ class QuickWhisper(tk.Tk):
 
             # Small delay after to ensure paste completes before any other operations
             time.sleep(0.05)
+
+            if restore_after:
+                self._schedule_clipboard_restore(text)
         except Exception as e:
             logger.error("Auto-paste error: %s", e, exc_info=True)
             self._show_error_async(_("Auto-Paste Error"),
@@ -1575,10 +1780,10 @@ class QuickWhisper(tk.Tk):
         # Release Ctrl
         win32api.keybd_event(VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
 
-    def process_with_gpt_model(self, text):
+    def process_with_gpt_model(self, text, prompt_name=None):
         try:
             # Replace the hardcoded system prompt with the selected one
-            system_prompt = self.get_system_prompt()
+            system_prompt = self.get_system_prompt(prompt_name)
             
             user_prompt = "Here is the transcription \r\n<transcription>\r\n" + text + "\r\n</transcription>\r\n"
 
@@ -2123,17 +2328,36 @@ class QuickWhisper(tk.Tk):
         credit_label.bind("<Enter>", lambda e: credit_label.config(fg=link_hover))
         credit_label.bind("<Leave>", lambda e: credit_label.config(fg=link_color))
 
-    def add_to_history(self, text):
-        """Append an entry to the history, trimming and persisting it."""
+    # Modes recorded against a history entry, kept as stable identifiers so a
+    # saved history stays readable whatever language the app is running in.
+    HISTORY_MODE_TRANSCRIPT = "transcript"
+    HISTORY_MODE_EDIT = "edit"
+
+    def add_to_history(self, text, mode=None, prompt=None, duration=None):
+        """Append an entry to the history, trimming and persisting it.
+
+        Entries carry when they were made, whether they are a raw transcript
+        or an AI edit, and which prompt produced them. Without that the
+        history is an unlabelled stack of text in which the transcript and its
+        edit look identical.
+        """
         if text is None:
             return
 
+        entry = {
+            "text": text,
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "mode": mode or self.HISTORY_MODE_TRANSCRIPT,
+            "prompt": prompt,
+            "duration": round(float(duration), 1) if duration else None,
+        }
+
         # Repeating the same text (e.g. a re-run that produced an identical
         # edit) would just add a duplicate page to flick through.
-        if self.history and self.history[-1] == text:
+        if self.history and self.history_text(len(self.history) - 1) == text:
             self.history_index = len(self.history) - 1
         else:
-            self.history.append(text)
+            self.history.append(entry)
 
             # Enforce max history length by removing the oldest entries.
             limit = max(1, int(self.max_history_length or 1))
@@ -2146,6 +2370,40 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
         self.save_history()
+
+    @staticmethod
+    def _normalise_history_entry(item):
+        """Coerce a stored item into an entry dict, or None if unusable.
+
+        Histories written before entries had metadata are plain strings; they
+        are kept, just without a timestamp or a mode.
+        """
+        if isinstance(item, str):
+            return {"text": item, "timestamp": None, "mode": None,
+                    "prompt": None, "duration": None}
+        if isinstance(item, dict):
+            text = item.get("text")
+            if not isinstance(text, str):
+                return None
+            return {
+                "text": text,
+                "timestamp": item.get("timestamp"),
+                "mode": item.get("mode"),
+                "prompt": item.get("prompt"),
+                "duration": item.get("duration"),
+            }
+        return None
+
+    def history_entry(self, index):
+        """The entry dict at `index`, or None when out of range."""
+        if 0 <= index < len(self.history):
+            return self.history[index]
+        return None
+
+    def history_text(self, index):
+        """The text at `index`, or an empty string when out of range."""
+        entry = self.history_entry(index)
+        return entry["text"] if entry else ""
 
     def _clamp_history_index(self):
         """Keep the history index inside the bounds of the history list."""
@@ -2169,6 +2427,34 @@ class QuickWhisper(tk.Tk):
     def go_to_first_page(self):
         self.history_index = len(self.history) - 1  # Set to most recent
         self._clamp_history_index()
+        self.ui_manager.update_transcription_text()
+        self.ui_manager.update_navigation_buttons()
+
+    def show_history(self):
+        """Open the searchable history browser."""
+        if not self.history:
+            messagebox.showinfo(_("No History"),
+                                _("There is nothing in your history yet."))
+            return
+        try:
+            HistoryDialog(self)
+        except Exception as e:
+            # The dialog pauses the global hotkeys while it is open; if it
+            # failed to finish opening, they have to come back.
+            logger.error("Could not open the history browser: %s", e, exc_info=True)
+            try:
+                self.hotkey_manager.resume()
+            except Exception:
+                pass
+            messagebox.showerror(
+                _("History Unavailable"),
+                _("The history browser could not be opened: {error}").format(error=e))
+
+    def load_history_entry(self, index):
+        """Show a history entry in the main window (from the browser)."""
+        if not (0 <= index < len(self.history)):
+            return
+        self.history_index = index
         self.ui_manager.update_transcription_text()
         self.ui_manager.update_navigation_buttons()
 
@@ -2204,7 +2490,7 @@ class QuickWhisper(tk.Tk):
             logger.warning("History file %s has an unexpected format; starting empty", path)
             return
 
-        entries = [item for item in data if isinstance(item, str)]
+        entries = [e for e in (self._normalise_history_entry(item) for item in data) if e]
         limit = max(1, int(self.max_history_length or 1))
         self.history = entries[-limit:]
         self.history_index = len(self.history) - 1
@@ -2217,10 +2503,11 @@ class QuickWhisper(tk.Tk):
 
         path = self._history_path
         tmp_path = path.with_suffix(path.suffix + ".tmp")
+        payload = {"version": 2, "entries": self.history}
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(tmp_path, 'w', encoding='utf-8') as f:
-                json.dump(self.history, f, indent=2, ensure_ascii=False)
+                json.dump(payload, f, indent=2, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, path)
@@ -2231,7 +2518,7 @@ class QuickWhisper(tk.Tk):
                     tmp_path.unlink()
             except Exception:
                 pass
-    
+
     def save_session_history(self):
         if not self.history:
             messagebox.showinfo(_("No History"), _("There is no history to save."))
@@ -2251,7 +2538,8 @@ class QuickWhisper(tk.Tk):
         try:
             # Serialize history to JSON and save to file
             with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(self.history, f, indent=4, ensure_ascii=False)
+                json.dump({"version": 2, "entries": self.history}, f,
+                          indent=4, ensure_ascii=False)
 
             logger.info("Session history saved to %s", file_path)
             messagebox.showinfo(_("Success"),
@@ -2310,11 +2598,12 @@ class QuickWhisper(tk.Tk):
         self.config_manager.selected_prompt = prompt_name
         self.config_manager.save_settings()
 
-    def get_system_prompt(self):
-        """Get the current system prompt based on selection."""
-        if self.current_prompt_name == "Default":
+    def get_system_prompt(self, prompt_name=None):
+        """The system prompt text for `prompt_name`, or for the current selection."""
+        name = prompt_name or self.current_prompt_name
+        if name == "Default":
             return self.default_system_prompt
-        return self.prompts.get(self.current_prompt_name, self.default_system_prompt)
+        return self.prompts.get(name, self.default_system_prompt)
     
     
     def set_default_prompt(self):
@@ -2369,65 +2658,94 @@ class QuickWhisper(tk.Tk):
         ConfigDialog(self)
 
     def show_prompt_notification(self, message):
-        """Show a temporary notification message in the status label and speak the prompt name."""
-        # Create a clean version of the message for speech
-        speech_message = message.replace("Prompt: ", "")
-        
-        # Use text-to-speech for Windows
+        """Tell the user which prompt is now selected.
+
+        Speech used to be the only feedback here, and only on Windows, which
+        left Mac and Linux users cycling prompts completely blind. An on-screen
+        toast works everywhere, and is also the right answer for anyone running
+        with their sound muted.
+        """
+        try:
+            self.ui_manager.show_toast(
+                message, anchor=getattr(self.ui_manager, '_picker_prompt', None))
+        except Exception as e:
+            logger.debug("Could not show the prompt notification: %s", e)
+
+        # Speech is still useful when the window is not visible at all.
         if platform.system() == 'Windows':
+            speech_message = message.split(": ", 1)[-1]
             self.tts_manager.speak_text(speech_message)
+
+    def select_prompt(self, prompt_name):
+        """Switch to a named prompt (from the status-line picker)."""
+        if prompt_name not in self.prompt_names():
+            logger.warning("Prompt '%s' no longer exists; keeping '%s'",
+                           prompt_name, self.current_prompt_name)
+            messagebox.showwarning(
+                _("Prompt Not Found"),
+                _("The prompt '{name}' no longer exists.").format(name=prompt_name))
+            return
+        if prompt_name == self.current_prompt_name:
+            return
+        self.current_prompt_name = prompt_name
+        self.save_prompt_to_config(prompt_name)
+        self.update_model_label()
+        logger.info("Prompt changed to '%s'", prompt_name)
+        self.show_prompt_notification(_("Prompt: {name}").format(name=prompt_name))
+
+    def select_transcription_model(self, model, model_type):
+        """Switch transcription model (from the status-line picker)."""
+        if model == self.transcription_model:
+            return
+        self.transcription_model = model
+        self.transcription_model_type = model_type
+        self.config_manager.transcription_model = model
+        self.config_manager.transcription_model_type = model_type
+        self.config_manager.save_settings()
+        self.update_model_label()
+        logger.info("Transcription model changed to '%s' (%s)", model, model_type)
+        self.ui_manager.show_toast(_("Transcription: {model}").format(model=model),
+                                   anchor=self.ui_manager._picker_transcription)
+
+    def select_ai_model(self, model):
+        """Switch the copy-editing model (from the status-line picker)."""
+        if model == self.ai_model:
+            return
+        self.ai_model = model
+        self.config_manager.ai_model = model
+        self.config_manager.save_settings()
+        self.update_model_label()
+        logger.info("AI model changed to '%s'", model)
+        self.ui_manager.show_toast(_("AI edit: {model}").format(model=model),
+                                   anchor=self.ui_manager._picker_ai)
+
+    def prompt_names(self):
+        """Every selectable prompt name, with the built-in default first."""
+        return ["Default"] + [name for name in self.prompts.keys() if name != "Default"]
+
+    def _cycle_prompt(self, step):
+        """Move `step` places through the prompt list, wrapping around."""
+        names = self.prompt_names()
+        if len(names) < 2:
+            logger.debug("Prompt cycling ignored - only one prompt is available")
+            return
+        try:
+            current_index = names.index(self.current_prompt_name)
+        except ValueError:
+            current_index = 0
+        self.select_prompt(names[(current_index + step) % len(names)])
 
     def cycle_prompt_forward(self):
         """Cycle to the next prompt in the list."""
-        # Create list of prompt names including "Default"
-        prompt_names = ["Default"] + list(self.prompts.keys())
-        
-        # Find current index
-        try:
-            current_index = prompt_names.index(self.current_prompt_name)
-        except ValueError:
-            current_index = 0  # Default to the first prompt if not found
-        
-        # Calculate next index (cycle back to start if at end)
-        next_index = (current_index + 1) % len(prompt_names)
-        
-        # Update current prompt
-        self.current_prompt_name = prompt_names[next_index]
-        self.save_prompt_to_config(self.current_prompt_name)
-        
-        # Update UI
-        self.update_model_label()
-        
-        # Show notification and trigger text-to-speech
-        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+        self._cycle_prompt(1)
 
     def cycle_prompt_backward(self):
         """Cycle to the previous prompt in the list."""
-        # Create list of prompt names including "Default"
-        prompt_names = ["Default"] + list(self.prompts.keys())
-        
-        # Find current index
-        try:
-            current_index = prompt_names.index(self.current_prompt_name)
-        except ValueError:
-            current_index = 0  # Default to the first prompt if not found
-        
-        # Calculate previous index (cycle to end if at start)
-        prev_index = (current_index - 1) % len(prompt_names)
-        
-        # Update current prompt
-        self.current_prompt_name = prompt_names[prev_index]
-        self.save_prompt_to_config(self.current_prompt_name)
-        
-        # Update UI
-        self.update_model_label()
-        
-        # Show notification and trigger text-to-speech
-        self.show_prompt_notification(f"Prompt: {self.current_prompt_name}")
+        self._cycle_prompt(-1)
 
     def cycle_prompt_notification(self, prompt_name):
         """Show a temporary notification about the prompt change."""
-        self.show_prompt_notification(f"Prompt: {prompt_name}")
+        self.show_prompt_notification(_("Prompt: {name}").format(name=prompt_name))
 
     def setup_hotkey_health_checker(self):
         """Set up periodic health checks and refreshes for hotkeys.
@@ -2584,6 +2902,66 @@ class QuickWhisper(tk.Tk):
 
         # First run after 10 seconds (baseline)
         self.after(10000, _log_diagnostics)
+
+    def apply_advanced_settings(self):
+        """Adopt Advanced settings that the running app keeps its own copy of.
+
+        Everything else is read from the config on demand, so only the cached
+        history values and the level meter need doing by hand here.
+        """
+        previous_persist = self.persist_history
+        self.max_history_length = self.config_manager.history_limit
+        self.persist_history = self.config_manager.persist_history
+
+        # Trim straight away rather than waiting for the next transcription.
+        limit = max(1, int(self.max_history_length or 1))
+        if len(self.history) > limit:
+            del self.history[:len(self.history) - limit]
+            self._clamp_history_index()
+            self.ui_manager.update_transcription_text()
+            self.ui_manager.update_navigation_buttons()
+
+        if self.persist_history:
+            self.save_history()
+        elif previous_persist:
+            self._offer_to_delete_saved_history()
+
+        self.ui_manager.apply_level_meter_setting(self.config_manager.show_level_meter)
+
+    def _offer_to_delete_saved_history(self):
+        """Ask whether the already-saved history should be deleted too.
+
+        Turning persistence off only stops new entries being written, so the
+        file already on disk would otherwise sit there indefinitely - which is
+        not what someone switching it off for privacy reasons expects. Deleting
+        it silently is not right either: it is the user's data, so they decide.
+        """
+        try:
+            if not self._history_path.exists():
+                return
+        except Exception as e:
+            logger.warning("Could not check for the history file: %s", e)
+            return
+
+        delete_it = messagebox.askyesno(
+            _("Delete Saved History?"),
+            _("History will no longer be saved between sessions.\n\n"
+              "Would you like to delete the history already stored on disk?\n\n"
+              "Your current session's history stays in the window either way."),
+            icon='question')
+        if not delete_it:
+            logger.info("History persistence disabled; the saved file was kept")
+            return
+
+        try:
+            self._history_path.unlink()
+            logger.info("History persistence disabled; removed %s", self._history_path)
+        except Exception as e:
+            logger.warning("Could not remove the history file %s: %s", self._history_path, e)
+            messagebox.showwarning(
+                _("Could Not Delete History"),
+                _("The saved history file could not be deleted:\n{path}\n\nDetails: {error}"
+                  ).format(path=self._history_path, error=e))
 
     def save_auto_hotkey_refresh(self):
         """Save the auto hotkey refresh setting to settings.json."""

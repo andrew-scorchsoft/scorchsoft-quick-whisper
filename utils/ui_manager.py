@@ -8,11 +8,10 @@ import ctypes
 import time
 import math
 import sv_ttk
-import pyperclip
 
 from utils.tooltip import ToolTip
 from utils.app_logging import get_logger
-from utils.config_manager import get_config
+from utils.config_manager import get_config, TRANSCRIPTION_MODELS, AI_MODELS
 from utils.platform import open_url
 from utils.i18n import _, _n
 from utils.theme import (
@@ -29,6 +28,10 @@ from utils.theme import (
 )
 
 logger = get_logger(__name__)
+
+# Gap after each clickable segment in the status line. Used both when packing
+# them and when measuring whether they fit, so the two cannot disagree.
+PICKER_PADX = 3
 
 
 def get_system_font():
@@ -222,8 +225,13 @@ class StyledPopupMenu:
             if 'label' in kwargs:
                 self.items[target_index] = (item_type, kwargs['label'], command, variable, accelerator)
         
-    def tk_popup(self, x, y):
-        """Show the popup menu at the specified coordinates."""
+    def tk_popup(self, x, y, align_right=False):
+        """Show the popup menu at the specified coordinates.
+
+        With ``align_right`` the given x is treated as the menu's right edge
+        rather than its left, which is what a control sitting at the right of
+        a row wants - otherwise the menu hangs out past the window.
+        """
         logger.debug("tk_popup called, menu=%s, is_open=%s, time_since_close=%.3f",
                      self._menu_name, self._is_open, time.time() - self._close_time)
 
@@ -316,6 +324,11 @@ class StyledPopupMenu:
         
         popup_width = self.popup.winfo_reqwidth()
         popup_height = self.popup.winfo_reqheight()
+
+        if align_right:
+            # Now that the width is known, hang the menu leftwards from x. The
+            # screen clamping below still has the final say.
+            x = x - popup_width
         
         # Get the virtual screen bounds (spans all monitors)
         # winfo_vrootx/y give the offset of the virtual root
@@ -909,7 +922,6 @@ class UIManager:
         self.transcription_text = None
         self.status_label = None
         self.status_dot = None
-        self.model_label = None
         self.record_button_transcribe = None
         self.record_button_edit = None
         self.banner_label = None
@@ -953,13 +965,25 @@ class UIManager:
         # Re-run AI edit affordance (QW-08b)
         self._rerun_disabled = True
 
-        # Model label elision state
+        # Status-line picker state (transcription model / AI model / prompt)
         self.status_row = None
         self.status_left = None
-        self._model_label_full = ""
-        self._model_label_variants = []
+        self.status_pickers = None
+        self._picker_transcription = None
+        self._picker_ai = None
+        self._picker_prompt = None
+        self._picker_sep_1 = None
+        self._picker_sep_2 = None
+        self._picker_segments = ()
+        self._picker_text = {}
+        # (segments dropped, using short names) currently on screen, so a
+        # resize that changes nothing does not re-pack the row.
+        self._picker_layout = None
+        self._prompt_tooltip = None
         self._model_fit_after_id = None
         self._status_min_width = 0
+        # Fonts used only for measuring text width, cached per size key.
+        self._measure_fonts = {}
         
     def _setup_styles(self):
         """Configure ttk styles for Sun Valley theme customization."""
@@ -1010,6 +1034,12 @@ class UIManager:
         # Copy link button
         style.configure("Copy.TLabel",
             font=get_font('copy_link'))
+
+        # Clickable status-line segments (model / prompt pickers). Same size as
+        # the caption they replaced, so the row is not made noisier by becoming
+        # interactive - the hand cursor and hover colour carry that.
+        style.configure("Picker.TLabel",
+            font=get_font('xxs'))
 
     def create_widgets(self):
         """Create UI with Sun Valley theme (ttk widgets)."""
@@ -1151,9 +1181,20 @@ class UIManager:
         self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
 
-        # Separator, re-run and copy - with padding to align baselines with arrows
+        # Separator, history, re-run and copy - with padding to align baselines
         separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
+
+        # Stepping one entry at a time answers "what did I just say"; this
+        # answers "what did I dictate about the invoice on Tuesday".
+        self.button_history = ttk.Label(
+            nav_frame, text=f"  {_('History')}", style="Copy.TLabel", cursor="hand2",
+            foreground=self.theme.TEXT_SECONDARY)
+        self.button_history.pack(side=tk.LEFT, pady=(8, 0))
+        self.button_history.bind("<Button-1>", lambda e: self.parent.show_history())
+
+        separator_label0 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
+        separator_label0.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
 
         # Re-run the AI edit against the text currently in the box (QW-08b)
         self.button_rerun = ttk.Label(
@@ -1161,6 +1202,9 @@ class UIManager:
         )
         self.button_rerun.pack(side=tk.LEFT, pady=(8, 0))
         self.button_rerun.bind("<Button-1>", lambda e: self._rerun_ai_edit())
+        # Right-click applies a different prompt for this run only, so trying
+        # three tones on one dictation does not change the selected prompt.
+        self.button_rerun.bind("<Button-3>", lambda e: self.show_rerun_prompt_menu())
 
         separator_label2 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label2.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1177,7 +1221,9 @@ class UIManager:
         ToolTip(self.button_first_page, _("Latest entry"))
         ToolTip(self.button_arrow_left, _("Newer"))
         ToolTip(self.button_arrow_right, _("Older"))
-        ToolTip(self.button_rerun, _("Re-run the AI edit on the text above"))
+        ToolTip(self.button_history, _("Search everything you have dictated"))
+        ToolTip(self.button_rerun,
+                _("Re-run the AI edit on the text above (right-click for another prompt)"))
         ToolTip(self.button_copy, _("Copy to clipboard"))
         
         # Text area - tk.Text with border, padding, and rounded appearance
@@ -1226,12 +1272,20 @@ class UIManager:
         
         # Bind events that might change content to update scrollbar visibility
         self.transcription_text.bind("<KeyRelease>", lambda e: self.parent.after(10, self._on_text_changed))
-        self.transcription_text.bind("<<Paste>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
-        self.transcription_text.bind("<<Cut>>", lambda e: self.parent.after(10, update_scrollbar_visibility))
+        self.transcription_text.bind("<<Paste>>", lambda e: self.parent.after(10, self._on_text_changed))
+        self.transcription_text.bind("<<Cut>>", lambda e: self.parent.after(10, self._on_text_changed))
         self.transcription_text.bind("<Configure>", lambda e: self.parent.after(10, update_scrollbar_visibility))
         
         # Connect scrollbar to text widget
         text_scrollbar.config(command=self.transcription_text.yview)
+
+        # Word count and, where it is known, how long the recording behind this
+        # text was. Cheap context that answers "did it get all of that?".
+        self.text_stats_label = ttk.Label(
+            content, text="", style="Small.TLabel", anchor="e",
+            foreground=self.theme.TEXT_MUTED)
+        self.text_stats_label.pack(fill=tk.X, pady=(0, get_spacing('sm')))
+        self.update_text_stats()
         
         # ─────────────────────────────────────────────────────────────────────
         # STATUS ROW
@@ -1287,16 +1341,46 @@ class UIManager:
         self._draw_meter()
         self._set_readout_visible(False)
 
-        # Model info - smaller font
-        self.model_label = ttk.Label(
-            status_row,
-            text=f"{self.parent.transcription_model} · {self.parent.ai_model}",
-            style="Small.TLabel",
-            anchor="e"
+        # ── Model / prompt pickers ───────────────────────────────────────
+        # What used to be a read-only caption. The prompt in particular is the
+        # main thing that changes between dictations, and it was previously
+        # only reachable by cycling blind through a shortcut.
+        self.status_pickers = ttk.Frame(status_row)
+        self.status_pickers.grid(row=0, column=1, sticky="e", padx=(get_spacing('sm'), 0))
+
+        self._picker_transcription = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+        self._picker_sep_1 = ttk.Label(
+            self.status_pickers, text="·", style="Small.TLabel",
+            foreground=self.theme.TEXT_MUTED)
+        self._picker_ai = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+        self._picker_sep_2 = ttk.Label(
+            self.status_pickers, text="·", style="Small.TLabel",
+            foreground=self.theme.TEXT_MUTED)
+        self._picker_prompt = ttk.Label(
+            self.status_pickers, text="", style="Picker.TLabel", cursor="hand2")
+
+        # Ordered outermost-first: the segments that give way when the window
+        # is narrow are the ones at the front of this list.
+        self._picker_segments = (
+            (self._picker_transcription, self._picker_sep_1),
+            (self._picker_ai, self._picker_sep_2),
         )
-        self.model_label.grid(row=0, column=1, sticky="ew", padx=(get_spacing('sm'), 0))
-        self._model_label_full = str(self.model_label.cget('text'))
-        self._model_label_variants = [self._model_label_full]
+
+        for widget in (self._picker_transcription, self._picker_sep_1, self._picker_ai,
+                       self._picker_sep_2, self._picker_prompt):
+            widget.pack(side=tk.LEFT, padx=(0, PICKER_PADX))
+
+        self._bind_picker(self._picker_transcription, self._show_transcription_model_menu)
+        self._bind_picker(self._picker_ai, self._show_ai_model_menu)
+        self._bind_picker(self._picker_prompt, self._show_prompt_menu)
+
+        ToolTip(self._picker_transcription, _("Click to change the transcription model"))
+        ToolTip(self._picker_ai, _("Click to change the AI copy-editing model"))
+        self._prompt_tooltip = ToolTip(self._picker_prompt, self._prompt_tooltip_text())
+
+        self.update_model_label()
         self._reserve_status_width()
         status_row.bind("<Configure>", lambda e: self._schedule_model_label_fit())
         self._schedule_model_label_fit()
@@ -1507,22 +1591,177 @@ class UIManager:
         self.parent.config_manager.hide_banner = not self.banner_visible
         self.parent.config_manager.save_settings()
     
+    # ------------------------------------------------------------------
+    # Status-line pickers (transcription model / AI model / prompt)
+    # ------------------------------------------------------------------
+
+    def _bind_picker(self, label, opener):
+        """Make a status-line segment behave like a clickable control."""
+        label.bind("<Button-1>", lambda e, fn=opener: fn())
+        label.bind("<Enter>", lambda e, w=label: self._set_picker_hover(w, True), add="+")
+        label.bind("<Leave>", lambda e, w=label: self._set_picker_hover(w, False), add="+")
+
+    def _set_picker_hover(self, label, hovering):
+        if not self._widget_alive(label):
+            return
+        is_dark = get_config().dark_mode
+        if hovering:
+            colour = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
+        else:
+            colour = self.theme.TEXT_TERTIARY if is_dark else "#666666"
+        label.configure(foreground=colour)
+
+    def _refresh_picker_colours(self):
+        for label in (self._picker_transcription, self._picker_ai, self._picker_prompt):
+            self._set_picker_hover(label, False)
+
+    def _prompt_tooltip_text(self):
+        """Tooltip for the prompt segment, naming the cycle shortcut."""
+        shortcuts = getattr(self.parent, 'shortcuts', {}) or {}
+        back = self._format_accelerator(shortcuts.get('cycle_prompt_back'))
+        forward = self._format_accelerator(shortcuts.get('cycle_prompt_forward'))
+        if back and forward:
+            return _("Click to change the prompt ({back} / {forward} to cycle)").format(
+                back=back, forward=forward)
+        return _("Click to change the prompt")
+
+    @staticmethod
+    def _format_accelerator(combo):
+        """Render 'ctrl+alt+j' the way a menu would: 'Ctrl+Alt+J'."""
+        if not combo:
+            return ""
+        pretty = {'ctrl': 'Ctrl', 'control': 'Ctrl', 'alt': 'Alt', 'shift': 'Shift',
+                  'cmd': 'Cmd', 'command': 'Cmd', 'super': 'Super', 'win': 'Win'}
+        parts = []
+        for part in str(combo).split('+'):
+            part = part.strip()
+            if not part:
+                continue
+            parts.append(pretty.get(part.lower(), part.upper() if len(part) == 1 else part.title()))
+        return "+".join(parts)
+
     def update_model_label(self):
+        # Defensive: this runs while the widgets are being built, before every
+        # attribute on the app has necessarily been assigned.
+        prompt_name = str(getattr(self.parent, 'current_prompt_name', None) or "Default")
         lang = "Auto" if self.parent.whisper_language == "auto" else self.parent.whisper_language.upper()
         model_type = "GPT" if self.parent.transcription_model_type == "gpt" else "Whisper"
-        transcription_model = self.parent.transcription_model
-        ai_model = self.parent.ai_model
-        prompt_name = self.parent.current_prompt_name
-        # Most informative first; _fit_model_label picks the first that fits.
-        self._model_label_variants = [
-            f"{transcription_model} ({model_type}, {lang}) · {ai_model} · {prompt_name}",
-            f"{transcription_model} · {ai_model} · {prompt_name}",
-            f"{transcription_model} · {ai_model}",
-            f"{transcription_model}",
-        ]
-        self._model_label_full = self._model_label_variants[0]
-        self.model_label.configure(text=self._model_label_full)
+
+        # Long and short forms per segment; the short form is used once the
+        # window is too narrow for everything.
+        self._picker_text = {
+            self._picker_transcription: (
+                f"{self.parent.transcription_model} ({model_type}, {lang})",
+                str(self.parent.transcription_model),
+            ),
+            self._picker_ai: (str(self.parent.ai_model), str(self.parent.ai_model)),
+            self._picker_prompt: (prompt_name, prompt_name),
+        }
+        for label, (long_form, _short) in self._picker_text.items():
+            if self._widget_alive(label):
+                label.configure(text=long_form)
+
+        if self._widget_alive(self._picker_prompt) and self._prompt_tooltip is not None:
+            self._prompt_tooltip.set_text(self._prompt_tooltip_text())
+
+        # The label text has just been overwritten with the long form, so the
+        # cached layout must be re-applied rather than skipped as unchanged.
+        self._picker_layout = None
+        self._refresh_picker_colours()
         self._schedule_model_label_fit()
+
+    def _picker_menu(self, name):
+        """A popup menu themed like the main menu bar."""
+        return StyledPopupMenu(self.parent, theme=self.theme, menu_name=name)
+
+    def _popup_under(self, menu, widget):
+        """Drop a menu just below a status-line segment.
+
+        The segments sit at the right of the row, so the menu is hung from
+        their right edge - opening leftwards keeps it over the window instead
+        of trailing off the side of it.
+        """
+        try:
+            right_edge = widget.winfo_rootx() + widget.winfo_width()
+            y = widget.winfo_rooty() + widget.winfo_height() + 4
+            menu.tk_popup(right_edge, y, align_right=True)
+        except Exception as e:
+            logger.warning("Could not open picker menu: %s", e)
+
+    def _show_prompt_menu(self):
+        """Pick the copy-editing prompt straight from the status line."""
+        menu = self._picker_menu("prompt_picker")
+        current = self.parent.current_prompt_name
+        names = self.parent.prompt_names()
+
+        # Hint the cycle shortcuts against the prompts either side of the
+        # current one, so the keys are discoverable from the menu itself.
+        shortcuts = getattr(self.parent, 'shortcuts', {}) or {}
+        accelerators = {}
+        if current in names and len(names) > 1:
+            position = names.index(current)
+            accelerators[names[(position - 1) % len(names)]] = \
+                self._format_accelerator(shortcuts.get('cycle_prompt_back'))
+            accelerators[names[(position + 1) % len(names)]] = \
+                self._format_accelerator(shortcuts.get('cycle_prompt_forward'))
+
+        for name in names:
+            menu.add_command(
+                label=self._picker_item_label(name, name == current),
+                command=lambda n=name: self.parent.select_prompt(n),
+                accelerator="" if name == current else accelerators.get(name, ""))
+
+        menu.add_separator()
+        menu.add_command(label=_("Manage Prompts..."), command=self.parent.manage_prompts)
+        self._popup_under(menu, self._picker_prompt)
+
+    @staticmethod
+    def _picker_item_label(name, selected):
+        """Mark the active entry so the menu shows what is currently in use."""
+        return f"● {name}" if selected else f"     {name}"
+
+    def show_rerun_prompt_menu(self, anchor=None):
+        """Offer a one-off prompt to re-run the current text through."""
+        if self._rerun_disabled:
+            return
+        menu = self._picker_menu("rerun_prompt")
+        current = self.parent.current_prompt_name
+        for name in self.parent.prompt_names():
+            menu.add_command(
+                label=self._picker_item_label(name, name == current),
+                command=lambda n=name: self.parent.rerun_ai_edit(prompt_name=n))
+        self._popup_under(menu, anchor or self.button_rerun)
+
+    def _show_transcription_model_menu(self):
+        menu = self._picker_menu("transcription_picker")
+        current = self.parent.transcription_model
+        for model, model_type in TRANSCRIPTION_MODELS.items():
+            menu.add_command(
+                label=self._picker_item_label(model, model == current),
+                command=lambda m=model, t=model_type: self.parent.select_transcription_model(m, t))
+        if current not in TRANSCRIPTION_MODELS:
+            # A custom model set in the configuration dialog still has to show
+            # as the current selection, but is not re-selectable from here.
+            menu.add_separator()
+            menu.add_command(label=self._picker_item_label(current, True),
+                             command=self.parent.open_config)
+        menu.add_separator()
+        menu.add_command(label=_("More Model Settings..."), command=self.parent.open_config)
+        self._popup_under(menu, self._picker_transcription)
+
+    def _show_ai_model_menu(self):
+        menu = self._picker_menu("ai_picker")
+        current = self.parent.ai_model
+        for model in AI_MODELS:
+            menu.add_command(label=self._picker_item_label(model, model == current),
+                             command=lambda m=model: self.parent.select_ai_model(m))
+        if current not in AI_MODELS:
+            menu.add_separator()
+            menu.add_command(label=self._picker_item_label(current, True),
+                             command=self.parent.open_config)
+        menu.add_separator()
+        menu.add_command(label=_("More Model Settings..."), command=self.parent.open_config)
+        self._popup_under(menu, self._picker_ai)
 
     def _reserve_status_width(self):
         """Reserve room for the longest status message plus the live readout.
@@ -1532,18 +1771,25 @@ class UIManager:
         """
         if not self._widget_alive(self.status_row):
             return
+        font = self._measuring_font('xs')
+        if font is None:
+            return
         try:
-            font = tkfont.Font(font=get_font('xs'))
-            # Reserve for the widest status message the app can show, so no
-            # status change ever clips the meter or the clock out of the row.
-            text_width = max(font.measure(text) for text in (
+            # The meter and clock are only on screen while recording, and the
+            # only status shown then is "Recording..." - every longer message
+            # ("Processing...", "Error during transcription") appears with the
+            # readout already hidden. Reserving for both maxima at once cost
+            # around 110px that the two can never actually need together, and
+            # that space is what the model and prompt pickers live in.
+            recording_text = font.measure(_("Recording..."))
+            idle_text = max(font.measure(text) for text in (
                 _("Idle"),
-                _("Recording..."),
                 _("Processing - Audio File..."),
                 _("Processing - Transcript..."),
                 _("Processing - AI Editing..."),
                 _("Retrying transcription..."),
                 _("Error during transcription"),
+                _("Clipboard unavailable"),
             ))
             elapsed_width = font.measure("00:00")
         except Exception:
@@ -1553,8 +1799,31 @@ class UIManager:
         _seg_w, _gap, _height, meter_width = self._meter_metrics()
         dot_width = get_font_size('status_dot') + get_spacing('sm')
         readout = (meter_width + elapsed_width + get_spacing('sm') * 2) if self._level_meter_enabled else 0
-        self._status_min_width = dot_width + text_width + readout + get_spacing('md')
+        widest = max(recording_text + readout, idle_text)
+        self._status_min_width = dot_width + widest + get_spacing('md')
         self.status_row.columnconfigure(0, minsize=self._status_min_width)
+
+    def _measuring_font(self, size_key):
+        """A cached tkfont for measuring text, or None if fonts are unavailable.
+
+        These are used from resize handlers, so building a fresh Tk font object
+        every time would churn named Tcl fonts on every frame of a window drag.
+        The cache is cleared whenever the theme or language changes the fonts.
+        """
+        cached = self._measure_fonts.get(size_key)
+        if cached is not None:
+            return cached
+        try:
+            font = tkfont.Font(font=get_font(size_key))
+        except Exception:
+            logger.debug("Could not build a measuring font for %s", size_key, exc_info=True)
+            return None
+        self._measure_fonts[size_key] = font
+        return font
+
+    def _clear_measuring_fonts(self):
+        """Drop the cached fonts after a theme or language change."""
+        self._measure_fonts.clear()
 
     def _schedule_model_label_fit(self):
         """Debounced re-fit of the model label (also on resize)."""
@@ -1563,46 +1832,92 @@ class UIManager:
         self._model_fit_after_id = self._after(60, self._fit_model_label)
 
     def _fit_model_label(self):
-        """Shorten the model label so it can never squeeze the live readout.
+        """Fit the pickers into the status row without squeezing the readout.
 
         The status row is narrow; the recording level meter and clock are the
-        part that must stay readable, so the (secondary) model information is
-        the thing that gives way.
+        part that must stay readable, so the model information gives way first.
+        Segments are dropped whole rather than truncated mid-word - a picker
+        showing "gpt-4o-min..." is not something anyone can click with
+        confidence. The prompt is never dropped: it is the segment people
+        actually change.
         """
         self._model_fit_after_id = None
-        if not self._widget_alive(self.model_label) or not self._widget_alive(self.status_row):
+        if not self._widget_alive(self.status_pickers) or not self._widget_alive(self.status_row):
             return
-        full = self._model_label_full or str(self.model_label.cget('text'))
+
         row_width = self.status_row.winfo_width()
         if row_width <= 1:
-            # Not laid out yet - try again shortly, keeping the full text.
-            self.model_label.configure(text=full)
+            # Not laid out yet - try again shortly.
             self._model_fit_after_id = self._after(200, self._fit_model_label)
             return
 
         left_width = self.status_left.winfo_reqwidth() if self._widget_alive(self.status_left) else 0
         left_width = max(left_width, self._status_min_width)
-        available = row_width - left_width - get_spacing('md')
-        available = max(available, 40)
+        available = max(row_width - left_width - get_spacing('md'), 40)
 
-        try:
-            font = tkfont.Font(font=get_font('xxs'))
-        except Exception:
-            self.model_label.configure(text=full)
+        font = self._measuring_font('xxs')
+        if font is None:
             return
 
-        variants = self._model_label_variants or [full]
-        for variant in variants:
-            if font.measure(variant) <= available:
-                self.model_label.configure(text=variant)
-                return
+        def width_of(text):
+            # Matches the padx used when the segments are packed.
+            return font.measure(text) + PICKER_PADX
 
-        # Nothing fits - truncate the shortest variant with an ellipsis
-        ellipsis = "…"
-        text = variants[-1]
-        while text and font.measure(text + ellipsis) > available:
-            text = text[:-1]
-        self.model_label.configure(text=(text + ellipsis) if text else ellipsis)
+        prompt_long, _prompt_short = self._picker_text.get(self._picker_prompt, ("", ""))
+        separator_width = width_of("·")
+
+        # Prefer keeping a segment in a shorter form over dropping it, so a
+        # moderately narrow window loses "(GPT, Auto)" rather than losing the
+        # transcription model entirely. Only when neither form fits is the
+        # segment dropped.
+        for drop in range(len(self._picker_segments) + 1):
+            for use_short in (False, True):
+                total = width_of(prompt_long)
+                for index, (label, _sep) in enumerate(self._picker_segments):
+                    if index < drop:
+                        continue
+                    long_form, short_form = self._picker_text.get(label, ("", ""))
+                    total += width_of(short_form if use_short else long_form) + separator_width
+                if total <= available:
+                    self._apply_picker_layout(drop, use_short)
+                    return
+
+        # Nothing fits: show the prompt on its own.
+        self._apply_picker_layout(len(self._picker_segments), True)
+
+    def _apply_picker_layout(self, drop_count, use_short):
+        """Show the segments that fit, hiding the rest along with separators.
+
+        Everything is unpacked and re-packed in order, because packing a
+        previously hidden segment would otherwise put it at the end of the row.
+        """
+        layout = (drop_count, use_short)
+        if layout == self._picker_layout:
+            return
+        self._picker_layout = layout
+
+        ordered = []
+        for index, (label, separator) in enumerate(self._picker_segments):
+            if index >= drop_count:
+                long_form, short_form = self._picker_text.get(label, ("", ""))
+                if self._widget_alive(label):
+                    label.configure(text=short_form if use_short else long_form)
+                ordered.extend((label, separator))
+        ordered.append(self._picker_prompt)
+
+        for widget in self._all_picker_widgets():
+            if self._widget_alive(widget):
+                widget.pack_forget()
+        for widget in ordered:
+            if self._widget_alive(widget):
+                widget.pack(side=tk.LEFT, padx=(0, PICKER_PADX))
+
+    def _all_picker_widgets(self):
+        widgets = []
+        for label, separator in self._picker_segments:
+            widgets.extend((label, separator))
+        widgets.append(self._picker_prompt)
+        return widgets
         
     def _update_nav_button_appearance(self):
         """Update navigation button colors based on disabled state and theme."""
@@ -1667,10 +1982,42 @@ class UIManager:
     def update_transcription_text(self):
         if 0 <= self.parent.history_index < len(self.parent.history):
             self.transcription_text.delete("1.0", tk.END)
-            self.transcription_text.insert("1.0", self.parent.history[self.parent.history_index])
+            self.transcription_text.insert("1.0", self.parent.history_text(self.parent.history_index))
             # Update scrollbar visibility after content change
             self._after(10, self._update_scrollbar_visibility)
         self.update_rerun_state()
+        self.update_text_stats()
+
+    def update_text_stats(self):
+        """Refresh the word count / spoken length caption under the transcript."""
+        if not self._widget_alive(getattr(self, 'text_stats_label', None)):
+            return
+        try:
+            text = self.transcription_text.get("1.0", "end-1c")
+        except Exception:
+            return
+
+        words = len(text.split())
+        if not words:
+            self.text_stats_label.configure(text="")
+            return
+
+        parts = [_n("{n} word", "{n} words", words).format(n=words)]
+
+        # Only the entry currently being shown can be labelled with a length -
+        # once the text has been edited by hand it no longer describes the
+        # recording, so the length is dropped rather than made misleading.
+        entry = self.parent.history_entry(self.parent.history_index)
+        if entry and entry.get("duration") and entry.get("text") == text:
+            parts.append(self._format_duration(entry["duration"]))
+
+        self.text_stats_label.configure(text="  ·  ".join(parts))
+
+    @staticmethod
+    def _format_duration(seconds):
+        """Render a spoken length as m:ss."""
+        total = int(round(float(seconds)))
+        return f"{total // 60}:{total % 60:02d}"
             
 
     # ═════════════════════════════════════════════════════════════════════════
@@ -1898,6 +2245,19 @@ class UIManager:
             else:
                 widget.pack_forget()
 
+    def apply_level_meter_setting(self, enabled):
+        """Turn the live level readout on or off without a restart."""
+        enabled = bool(enabled)
+        if enabled == self._level_meter_enabled:
+            return
+        self._level_meter_enabled = enabled
+        if not enabled:
+            self.stop_level_monitor()
+            self._set_readout_visible(False)
+        elif getattr(getattr(self.parent, 'audio_manager', None), 'recording', False):
+            # Switched on mid-recording: start showing it straight away.
+            self.start_level_monitor()
+
     def start_level_monitor(self):
         """Begin polling the audio manager for level and elapsed time."""
         if not self._level_meter_enabled or not self._widget_alive(self.level_meter):
@@ -2044,6 +2404,7 @@ class UIManager:
         if callable(getattr(self, '_update_scrollbar_visibility', None)):
             self._update_scrollbar_visibility()
         self.update_rerun_state()
+        self.update_text_stats()
 
     def update_rerun_state(self):
         """Enable the re-run link only when there is text to re-edit."""
@@ -2129,8 +2490,22 @@ class UIManager:
         """Copy the entire transcription text to clipboard."""
         text = self.transcription_text.get("1.0", "end-1c")
         if text.strip():
-            pyperclip.copy(text)
-            self._show_toast(_("Copied to clipboard"))
+            # Route through the app so the copy is verified the same way as
+            # every other clipboard write.
+            self.parent.copy_to_clipboard(text)
+
+    def show_toast(self, message, duration=1500, anchor=None):
+        """Show a toast from any thread, tolerating a torn-down window."""
+        def _show():
+            try:
+                self._show_toast(message, duration=duration, anchor=anchor)
+            except Exception as e:
+                logger.debug("Could not show toast '%s': %s", message, e)
+
+        try:
+            self.parent.after(0, _show)
+        except Exception as e:
+            logger.debug("Could not schedule toast '%s': %s", message, e)
 
     def _show_toast(self, message, duration=1500, anchor=None):
         """Show a toast notification that fades away."""
@@ -2161,9 +2536,14 @@ class UIManager:
         toast_width = toast.winfo_reqwidth()
         toast_height = toast.winfo_reqheight()
         
-        # Position below the anchor widget (the Copy link by default)
-        if anchor is None or not self._widget_alive(anchor):
+        # Position below the anchor widget (the Copy link by default). A
+        # picker segment dropped because the window is narrow still exists but
+        # is unmapped, and its screen position would be stale.
+        if anchor is None or not self._widget_alive(anchor) or not anchor.winfo_ismapped():
             anchor = self.button_copy
+        if not self._widget_alive(anchor) or not anchor.winfo_ismapped():
+            toast.destroy()
+            return
 
         btn_x = anchor.winfo_rootx()
         btn_y = anchor.winfo_rooty()
@@ -2314,6 +2694,8 @@ class UIManager:
         # Update navigation, re-run and copy buttons
         if hasattr(self, 'button_copy'):
             self.button_copy.configure(text=f"  {_('Copy')}")
+        if self._widget_alive(getattr(self, 'button_history', None)):
+            self.button_history.configure(text=f"  {_('History')}")
         if self._widget_alive(self.button_rerun):
             self.button_rerun.configure(text=f"  \u21ba {_('AI Edit')}")
         if self._widget_alive(self.device_refresh_link):
@@ -2348,6 +2730,14 @@ class UIManager:
             else:
                 self.record_button_transcribe.configure(text=_("Stop and Process"))
                 self.record_button_edit.configure(text=_("Stop and Process"))
+
+        # Translated status text is measured with these, and the strings have
+        # just changed underneath them.
+        self._clear_measuring_fonts()
+
+        # The picker tooltips name the cycle shortcuts, so they change too.
+        if self._widget_alive(self._picker_transcription):
+            self.update_model_label()
 
         # Status widths change with the language - re-reserve and re-fit
         self._reserve_status_width()
@@ -2422,9 +2812,20 @@ class UIManager:
             except (ValueError, TypeError):
                 self.set_elapsed(0.0)
 
+        # Styles were rebuilt, so any font they resolved to may have changed.
+        self._clear_measuring_fonts()
+
         # Update navigation button colors for the new theme
         if hasattr(self, 'button_first_page') and self.button_first_page:
             self._update_nav_button_appearance()
+
+        # The picker segments carry an explicit foreground, so they do not
+        # follow the ttk style when the theme changes.
+        if self._widget_alive(self._picker_prompt):
+            self._refresh_picker_colours()
+            for separator in (self._picker_sep_1, self._picker_sep_2):
+                if self._widget_alive(separator):
+                    separator.configure(foreground=self.theme.TEXT_MUTED)
 
         # Update powered by link color (light blue in dark mode, purple in light mode)
         if hasattr(self, 'powered_by_label') and self.powered_by_label:

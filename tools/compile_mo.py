@@ -16,106 +16,112 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Python's tools/msgfmt.py from the standard library
 # We'll implement a simple version here
 
+def _unescape(text):
+    """Turn the escape sequences a .po file uses back into real characters."""
+    return (text.replace('\\n', '\n').replace('\\t', '\t')
+                .replace('\\"', '"').replace('\\\\', '\\'))
+
+
+def parse_po(po_path: Path):
+    """Read a .po file into {msgid: msgstr} ready for the .mo tables.
+
+    Plural entries are stored the way the .mo format expects them: the key is
+    "singular\\x00plural" and the value is every plural form joined by NULs.
+    Without this a catalogue compiled here silently loses every _n() string and
+    the application falls back to English for them.
+
+    A "#, fuzzy" flag means msgmerge guessed this translation from a similar
+    string and a human has not confirmed it. The guesses are frequently wrong -
+    msgmerge paired "Save Failed" with the French for "Retry failed" - so
+    gettext's own msgfmt excludes them by default and falls back to the English
+    source. This compiler does the same.
+    """
+    messages = {}
+    fuzzy_skipped = 0
+
+    # Current entry being accumulated.
+    msgid = msgid_plural = None
+    msgstr = None            # singular translation
+    plurals = {}             # index -> translation, for plural entries
+    target = None            # which field continuation lines belong to
+    is_fuzzy = pending_fuzzy = False
+
+    def flush():
+        nonlocal msgid, msgid_plural, msgstr, plurals, target, is_fuzzy, fuzzy_skipped
+        if msgid is None:
+            return
+        if is_fuzzy and msgid:
+            fuzzy_skipped += 1
+        elif msgid_plural is not None:
+            forms = [plurals[i] for i in sorted(plurals)]
+            if any(forms):
+                key = _unescape(msgid) + "\x00" + _unescape(msgid_plural)
+                messages[key] = "\x00".join(_unescape(f) for f in forms)
+        elif msgstr is not None:
+            # The header (empty msgid) carries the charset and plural rules and
+            # has to be kept.
+            messages[_unescape(msgid)] = _unescape(msgstr)
+        msgid = msgid_plural = msgstr = None
+        plurals = {}
+        target = None
+        is_fuzzy = False
+
+    with open(po_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    for raw in lines:
+        line = raw.strip()
+
+        if line.startswith('msgid_plural "'):
+            msgid_plural = line[14:-1]
+            target = 'msgid_plural'
+        elif line.startswith('msgid "'):
+            flush()
+            msgid = line[7:-1]
+            target = 'msgid'
+            is_fuzzy = pending_fuzzy
+            pending_fuzzy = False
+        elif line.startswith('msgstr["') or line.startswith('msgstr['):
+            index = int(line[line.index('[') + 1:line.index(']')])
+            msgstr_start = line.index('"')
+            plurals[index] = line[msgstr_start + 1:-1]
+            target = ('plural', index)
+        elif line.startswith('msgstr "'):
+            msgstr = line[8:-1]
+            target = 'msgstr'
+        elif line.startswith('"') and line.endswith('"'):
+            # Continuation of whichever field we are in.
+            content = line[1:-1]
+            if target == 'msgid':
+                msgid += content
+            elif target == 'msgid_plural':
+                msgid_plural += content
+            elif target == 'msgstr':
+                msgstr += content
+            elif isinstance(target, tuple):
+                plurals[target[1]] += content
+        elif not line or line.startswith('#'):
+            if line.startswith('#,') and 'fuzzy' in line:
+                pending_fuzzy = True
+            if not line:
+                flush()
+
+    flush()
+
+    if fuzzy_skipped:
+        print(f"    ({fuzzy_skipped} fuzzy entries skipped - need translator review)")
+
+    # Only non-empty translations belong in the catalogue; an empty msgstr
+    # means "not translated" and must fall back to the source string.
+    return {msgid: msgstr for msgid, msgstr in messages.items() if msgstr}
+
+
 def compile_po_to_mo(po_path: Path, mo_path: Path) -> bool:
     """Compile a .po file to .mo format."""
     try:
         import struct
 
-        # Parse .po file
-        messages = {}
-        current_msgid = None
-        current_msgstr = None
-        in_msgid = False
-        in_msgstr = False
-        # A "#, fuzzy" flag means msgmerge guessed this translation from a
-        # similar string and a human has not confirmed it. The guesses are
-        # frequently wrong - msgmerge paired "Save Failed" with the French for
-        # "Retry failed" - so gettext's own msgfmt excludes them by default and
-        # falls back to the English source. This compiler did not, and shipped
-        # them. Skip them.
-        current_is_fuzzy = False
-        fuzzy_skipped = 0
-
-        pending_fuzzy = False
-
-        with open(po_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        for line in lines:
-            line = line.strip()
-
-            if line.startswith('msgid "'):
-                if current_msgid is not None and current_msgstr is not None:
-                    if current_is_fuzzy and current_msgid:
-                        fuzzy_skipped += 1
-                    else:
-                        # Include ALL messages including header (empty msgid has charset info)
-                        messages[current_msgid] = current_msgstr
-                current_msgid = line[7:-1]  # Remove 'msgid "' and trailing '"'
-                current_msgstr = None
-                in_msgid = True
-                in_msgstr = False
-                current_is_fuzzy = pending_fuzzy
-                pending_fuzzy = False
-            elif line.startswith('msgstr "'):
-                current_msgstr = line[8:-1]  # Remove 'msgstr "' and trailing '"'
-                in_msgid = False
-                in_msgstr = True
-            elif line.startswith('"') and line.endswith('"'):
-                # Continuation line
-                content = line[1:-1]  # Remove surrounding quotes
-                if in_msgid:
-                    current_msgid += content
-                elif in_msgstr:
-                    current_msgstr += content
-            elif not line or line.startswith('#'):
-                # A flags comment applies to the entry that follows it.
-                if line.startswith('#,') and 'fuzzy' in line:
-                    pending_fuzzy = True
-                # Empty line or comment - save current message
-                if current_msgid is not None and current_msgstr is not None:
-                    if current_is_fuzzy and current_msgid:
-                        fuzzy_skipped += 1
-                    else:
-                        # Include ALL messages including header (empty msgid has charset info)
-                        messages[current_msgid] = current_msgstr
-                    current_msgid = None
-                    current_msgstr = None
-                    in_msgid = False
-                    in_msgstr = False
-                    current_is_fuzzy = False
-
-        # Don't forget the last message
-        if current_msgid is not None and current_msgstr is not None:
-            if current_is_fuzzy and current_msgid:
-                fuzzy_skipped += 1
-            else:
-                messages[current_msgid] = current_msgstr
-
-        if fuzzy_skipped:
-            print(f"    ({fuzzy_skipped} fuzzy entries skipped - need translator review)")
-
-        # Process escape sequences
-        def unescape(s):
-            return s.replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"').replace('\\\\', '\\')
-
-        processed_messages = {}
-        for msgid, msgstr in messages.items():
-            msgid = unescape(msgid)
-            msgstr = unescape(msgstr)
-            # Only include non-empty translations
-            if msgstr:
-                processed_messages[msgid] = msgstr
-
-        # Generate .mo file
-        # .mo file format (little-endian):
-        # - magic number: 0x950412de
-        # - version: 0
-        # - number of strings
-        # - offset of table with original strings
-        # - offset of table with translation strings
-        # - size of hashing table (0)
-        # - offset of hashing table (0)
+        processed_messages = parse_po(po_path)
 
         # Sort messages by msgid for binary search
         sorted_keys = sorted(processed_messages.keys())

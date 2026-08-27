@@ -60,7 +60,7 @@ brew install portaudio
 | `UIManager` | All Tkinter widgets, Sun Valley theme (sv_ttk), custom `GradientButton` component |
 | `ConfigManager` | JSON-based settings (`config/settings.json`) and encrypted credentials (`config/credentials.json`) |
 | `TTSManager` | Text-to-speech for prompt name announcements |
-| `TrayManager` | System tray icon via `pystray` |
+| `TrayManager` | System tray icon via `pystray`, including the red recording-state variant generated from the app icon |
 | `VersionUpdateManager` | GitHub release checking |
 | `paths` | Central path resolution (config, prompts, logs, recordings) - anchored to the app, never the working directory |
 | `app_logging` | Rotating log file + console logging; `get_logger(__name__)` in every module |
@@ -87,6 +87,7 @@ Factory functions: `get_hotkey_manager_class()`, `get_system_event_listener_clas
 - `Ctrl+Alt+X` - Cancel recording
 - `Ctrl+Alt+R` - Retry last recording
 - `Alt+Left/Right` - Cycle through prompts
+- `Escape` - Cancel recording (when the window has focus)
 
 **macOS:**
 - `Cmd+Alt+J` - Record + AI Edit
@@ -94,6 +95,30 @@ Factory functions: `get_hotkey_manager_class()`, `get_system_event_listener_clas
 - `Cmd+X` - Cancel recording
 - `Cmd+Alt+R` - Retry last recording
 - `Cmd+[/]` - Cycle through prompts
+- `Escape` - Cancel recording (when the window has focus)
+
+### Recording Modes
+`behavior.recording_mode` selects how the record shortcuts behave:
+- `toggle` (default) - press to start, press again to stop
+- `push_to_talk` - hold the shortcut, release to stop and process
+
+Push-to-talk is implemented in `HotkeyManagerBase._dispatch_record` /
+`_note_key_released`; every platform listener calls `_note_key_released` from
+its own key-release handler. The buttons in the main window always toggle,
+whichever mode is selected.
+
+### Clipboard Handling
+Auto-paste simulates the paste shortcut, so the text has to be on the clipboard
+first and the write is verified before the keystroke is sent. When "Copy to
+clipboard" is off, the previous clipboard contents are restored shortly
+afterwards (`behavior.restore_clipboard`), and never when the user has copied
+something else in the meantime.
+
+### History
+`self.history` is a list of entry dicts (`text`, `timestamp`, `mode`, `prompt`,
+`duration`), persisted as `{"version": 2, "entries": [...]}`. Plain-string
+histories written by older versions still load. `utils/history_dialog.py`
+provides the searchable browser.
 
 ### Theming (`utils/theme/`)
 Centralized theming module with platform-aware HiDPI support. Uses Sun Valley ttk theme (`sv_ttk`) with custom styling.
@@ -188,7 +213,9 @@ set_language("fr")
 | `get_available_languages()` | Get languages with compiled .mo files |
 
 **Adding New Strings:**
-1. Wrap UI strings with `_()` in Python code
+1. Wrap UI strings with `_()` in Python code (`_n()` for plurals - `compile_mo.py`
+   emits proper plural catalogues, and its output is verified to match GNU
+   `msgfmt`)
 2. Run `python3 tools/i18n_tools.py extract` to update `.pot` template
 3. Run `python3 tools/i18n_tools.py update` to merge into existing `.po` files
 4. Translate the new strings in each `.po` file

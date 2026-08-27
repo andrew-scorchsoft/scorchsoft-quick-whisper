@@ -6,7 +6,6 @@ import wave
 from array import array
 from pathlib import Path
 from tkinter import messagebox
-from audioplayer import AudioPlayer
 import os
 import sys
 import time
@@ -16,6 +15,30 @@ from utils.app_logging import get_logger
 from utils.i18n import _
 
 logger = get_logger(__name__)
+
+# audioplayer is imported on demand. Importing it at module scope is unsafe on
+# Linux: it pulls in GStreamer through PyGObject and raises ValueError at import
+# time when the GStreamer namespace is missing, which took the whole
+# application down before a window was ever shown. Sound effects are a nicety -
+# a machine without them must still run the app. (pystray gets the same
+# treatment in utils/tray_manager.py, for the same reason.)
+_audio_player_cls = None  # None = not attempted yet, False = unavailable
+
+
+def _load_audio_player():
+    """Import audioplayer.AudioPlayer on demand, or None if unavailable."""
+    global _audio_player_cls
+    if _audio_player_cls is None:
+        try:
+            from audioplayer import AudioPlayer
+            _audio_player_cls = AudioPlayer
+        except Exception as e:
+            # ImportError, ValueError (missing GI namespace), and anything else
+            # a backend can throw on an unusual machine.
+            logger.warning("Sound effects unavailable - could not load audioplayer: %s", e)
+            _audio_player_cls = False
+    return _audio_player_cls or None
+
 
 # ``audioop`` is the cheap way to get an RMS out of a PCM buffer, but it was
 # removed from the standard library in Python 3.13. Fall back to a small
@@ -124,6 +147,9 @@ class AudioManager:
         self._record_start_time = None
         self._limit_reached = False
         self._limit_notice_pending = False
+        # Length of the last kept recording, so the transcript can be labelled
+        # with how long it took to say.
+        self.last_recording_duration = 0.0
 
         # Guards start/stop/cancel against re-entrancy (double hotkey presses,
         # the auto-stop firing while the user is already stopping, and so on).
@@ -147,6 +173,21 @@ class AudioManager:
             self._recording_event.set()
         else:
             self._recording_event.clear()
+        self._notify_tray(bool(value))
+
+    def _notify_tray(self, recording):
+        """Mirror the recording state onto the tray icon.
+
+        Every start, stop and cancel funnels through the recording setter, so
+        this is the one place that has to know. The tray is optional, so a
+        missing or broken tray is silently ignored.
+        """
+        try:
+            tray = getattr(self.parent, 'tray_manager', None)
+            if tray is not None:
+                tray.set_recording(recording)
+        except Exception as e:
+            logger.debug("Could not update the tray recording state: %s", e)
 
     # ------------------------------------------------------------------
     # Recording feedback (polled by UIManager)
@@ -508,6 +549,7 @@ class AudioManager:
                 self._show_info(_("Nothing to Transcribe"), discard_reason)
                 return None
 
+            self.last_recording_duration = duration
             self._ui('set_status', _("Processing - Audio File..."), "green")
 
             # Play stop recording sound
@@ -780,9 +822,13 @@ class AudioManager:
         Explicitly closes the AudioPlayer after playback to prevent
         resource leaks (COM handles on Windows, file descriptors on other platforms).
         """
+        player_cls = _load_audio_player()
+        if player_cls is None:
+            return
+
         player = None
         try:
-            player = AudioPlayer(self.resource_path(sound_file))
+            player = player_cls(self.resource_path(sound_file))
             player.play(block=True)
             _audio_diag['sounds_played'] += 1
         except Exception as e:
