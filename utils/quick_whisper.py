@@ -86,7 +86,10 @@ class QuickWhisper(tk.Tk):
         is_hidpi = getattr(self, 'hidpi_scale_factor', 1.0) > 1.0
         init_theme(is_hidpi=is_hidpi)
 
-        self.title(f"{_('Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)')} - v{self.version}")
+        # The title bar is wayfinding - it is what the taskbar, alt-tab and the
+        # window list show, and they truncate. The product name alone is what
+        # identifies it there; the strapline and version live in Help > About.
+        self.title(self._window_title())
 
         # Initialize prompts
         self.prompts = self.load_prompts()  # Assuming you have a method to load prompts
@@ -1031,12 +1034,12 @@ class QuickWhisper(tk.Tk):
 
         # Recording actions group
         self.actions_menu.add_command(
-            label=_("Record & Edit"),
+            label=_("Record + AI Edit"),
             command=lambda: self.toggle_recording("edit"),
             accelerator=self.shortcuts['record_edit']
         )
         self.actions_menu.add_command(
-            label=_("Record & Transcribe"),
+            label=_("Record + Transcribe"),
             command=lambda: self.toggle_recording("transcribe"),
             accelerator=self.shortcuts['record_transcribe']
         )
@@ -1208,6 +1211,41 @@ class QuickWhisper(tk.Tk):
             self.abandon_processing()
             return "break"
         return None
+
+    @staticmethod
+    def _friendly_api_error(error):
+        """Explain an API failure, keeping the raw text as a detail line.
+
+        Raw SDK exceptions are written for developers - a wall of JSON and a
+        stack of URLs - and tell the user nothing about what to do next.
+        """
+        detail = str(error).strip() or error.__class__.__name__
+        lowered = detail.lower()
+        name = error.__class__.__name__.lower()
+
+        if 'timeout' in lowered or 'timed out' in lowered or 'timeout' in name:
+            reason = _("The request took too long and was given up on. This is "
+                       "usually a slow or dropped connection.")
+        elif 'rate limit' in lowered or '429' in lowered or 'ratelimit' in name:
+            reason = _("Your OpenAI account is being rate limited. Wait a moment "
+                       "and try again.")
+        elif ('authentication' in lowered or 'api key' in lowered
+                or 'unauthorized' in lowered or '401' in lowered):
+            reason = _("Your OpenAI API key was rejected. Check it under "
+                       "Settings > Change API Key.")
+        elif ('quota' in lowered or 'insufficient_quota' in lowered
+                or 'billing' in lowered):
+            reason = _("Your OpenAI account has no available credit.")
+        elif ('connection' in lowered or 'network' in lowered
+              or 'getaddrinfo' in lowered or 'connection' in name):
+            reason = _("Could not reach OpenAI. Check your internet connection.")
+        else:
+            reason = _("Something went wrong talking to OpenAI.")
+
+        # Long API errors push the useful sentence off the dialog.
+        if len(detail) > 300:
+            detail = detail[:300] + "..."
+        return _("{reason}\n\nDetails: {detail}").format(reason=reason, detail=detail)
 
     def _is_abandoned(self, generation):
         """Whether the run that started at ``generation`` has been given up on."""
@@ -1559,7 +1597,7 @@ class QuickWhisper(tk.Tk):
             else:
                 self._show_error_async(
                     _("Transcription Error"),
-                    _("An error occurred while transcribing: {error}").format(error=e)
+                    self._friendly_api_error(e)
                 )
 
         finally:
@@ -1991,7 +2029,7 @@ class QuickWhisper(tk.Tk):
             logger.error("An error occurred while processing with the AI model: %s", e, exc_info=True)
             self._show_error_async(
                 _("AI Processing Error"),
-                _("An error occurred while processing with the AI model: {error}").format(error=e))
+                self._friendly_api_error(e))
             return None
         
 
@@ -3142,10 +3180,55 @@ class QuickWhisper(tk.Tk):
         self.ui_manager.apply_theme(is_dark)
         logger.info(f"Dark mode setting saved: {is_dark}")
 
+    def _window_title(self, recording=False):
+        """The window/taskbar title, optionally marked as recording."""
+        if recording:
+            return _("Quick Whisper - Recording...")
+        return _("Quick Whisper")
+
+    def set_title_recording(self, recording):
+        """Mirror the recording state into the title bar.
+
+        The tray icon already turns red; this is the same signal for anyone
+        who finds the app by its taskbar entry instead.
+        """
+        try:
+            self.title(self._window_title(recording))
+        except Exception as e:
+            logger.debug("Could not update the window title: %s", e)
+
+    def _rebuild_menus(self):
+        """Destroy and recreate the popup menus from current state."""
+        for name in ('file_menu', 'settings_menu', 'actions_menu', 'help_menu'):
+            menu = getattr(self, name, None)
+            if menu is not None:
+                try:
+                    menu.destroy()
+                except Exception:
+                    logger.debug("Could not destroy %s", name, exc_info=True)
+        self.create_menu()
+
+    def refresh_menu_accelerators(self):
+        """Re-read the shortcuts and rebuild the menus that display them.
+
+        The hotkey manager calls this after a rebind. It used to be missing
+        entirely - the call was guarded by callable(), so rebinding a shortcut
+        silently left every menu showing the old key.
+        """
+        try:
+            for name in self.shortcuts:
+                saved = self.config_manager.get_shortcut(name)
+                if saved:
+                    self.shortcuts[name] = saved
+            self._rebuild_menus()
+            logger.debug("Menu accelerators refreshed")
+        except Exception:
+            logger.error("Could not refresh the menu accelerators", exc_info=True)
+
     def _on_language_change(self):
         """Handle runtime language change by rebuilding menus and refreshing UI."""
         # Update window title
-        self.title(f"{_('Quick Whisper by Scorchsoft.com (Speech to Copy Edited Text)')} - v{self.version}")
+        self.title(self._window_title())
 
         # Rebuild menus with new translations
         # Destroy old menus first

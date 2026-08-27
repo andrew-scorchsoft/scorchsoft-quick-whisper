@@ -178,11 +178,11 @@ class AudioManager:
         self._notify_tray(bool(value))
 
     def _notify_tray(self, recording):
-        """Mirror the recording state onto the tray icon.
+        """Mirror the recording state onto the tray icon and title bar.
 
         Every start, stop and cancel funnels through the recording setter, so
-        this is the one place that has to know. The tray is optional, so a
-        missing or broken tray is silently ignored.
+        this is the one place that has to know. Both surfaces are optional, so
+        a missing or broken one is silently ignored.
         """
         try:
             tray = getattr(self.parent, 'tray_manager', None)
@@ -190,6 +190,12 @@ class AudioManager:
                 tray.set_recording(recording)
         except Exception as e:
             logger.debug("Could not update the tray recording state: %s", e)
+        try:
+            set_title = getattr(self.parent, 'set_title_recording', None)
+            if callable(set_title):
+                set_title(recording)
+        except Exception as e:
+            logger.debug("Could not update the title recording state: %s", e)
 
     # ------------------------------------------------------------------
     # Recording feedback (polled by UIManager)
@@ -316,8 +322,12 @@ class AudioManager:
 
             # Check if we have valid audio devices
             if selected_name == "No audio devices found" or not selected_name:
+                # Telling the user to restart is wrong: Refresh next to the
+                # device list picks up a newly connected microphone in place.
                 messagebox.showerror(_("No Audio Device"),
-                    _("No audio input device available. Please connect a microphone and restart the application."))
+                    _("No microphone was found.\n\nConnect one, then click Refresh "
+                      "next to Input Device to pick it up."))
+                self._ui('refresh_device_list')
                 return False
 
             logger.debug("Getting device index for: '%s'", selected_name)

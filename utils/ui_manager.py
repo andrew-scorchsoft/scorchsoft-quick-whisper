@@ -567,13 +567,19 @@ class StyledPopupMenu:
 class GradientButton(tk.Canvas):
     """Custom button with gradient background (cyan -> blue -> purple like logo)."""
 
+    # Caption colour for the shortcut line. A canvas cannot draw translucent
+    # text, so this is a fixed near-white that reads as dimmed over the cyan,
+    # purple and red fills alike.
+    SUBTEXT_TINT = "#dfe6f2"
+
     def __init__(self, parent, text="", command=None, width=200, height=50,
                  corner_radius=25, font=None,
                  gradient_start="#06b6d4", gradient_mid="#3b82f6", gradient_end="#8b5cf6",
                  hover_start="#22d3ee", hover_mid="#60a5fa", hover_end="#a78bfa",
                  solid_color=None, solid_hover=None,
                  border_color="#6d9dc5", border_width=1,
-                 text_color="#0d0d0d", bg_color="#0d0d0d", **kwargs):
+                 text_color="#0d0d0d", bg_color="#0d0d0d",
+                 subtext="", subtext_font=None, subtext_color=None, **kwargs):
 
         super().__init__(parent, width=width, height=height,
                         bg=bg_color, highlightthickness=0, cursor="hand2", **kwargs)
@@ -586,6 +592,12 @@ class GradientButton(tk.Canvas):
         # Use provided font or default to theme font
         self.font = font if font is not None else get_font('md', 'bold')
         self.text_color = text_color
+        # Secondary line under the label (the keyboard shortcut). Smaller and
+        # unbolded, and dimmed a little so it reads as a caption rather than
+        # competing with the action itself.
+        self.subtext = subtext
+        self.subtext_font = subtext_font if subtext_font is not None else get_font('xxs')
+        self.subtext_color = subtext_color or self.SUBTEXT_TINT
         self.bg_color = bg_color
         self.border_color = border_color
         self.border_width = border_width
@@ -761,12 +773,40 @@ class GradientButton(tk.Canvas):
             img = self._hover_gradient_image if self._is_hovered else self._gradient_image
             self.create_image(0, 0, anchor="nw", image=img)
         
-        # Draw text
-        self.create_text(
-            self.width // 2, self.height // 2,
-            text=self.text, fill=self.text_color,
-            font=self.font, anchor="center"
-        )
+        # Draw the label, with the shortcut caption beneath it when there is
+        # one. The pair is centred as a block so the button stays optically
+        # balanced instead of the label simply shifting up.
+        if self.subtext:
+            main_size = self._font_pixel_size(self.font, 13)
+            sub_size = self._font_pixel_size(self.subtext_font, 10)
+            gap = max(2, sub_size // 3)
+            block = main_size + gap + sub_size
+            top = (self.height - block) // 2
+            self.create_text(
+                self.width // 2, top + main_size // 2,
+                text=self.text, fill=self.text_color,
+                font=self.font, anchor="center"
+            )
+            self.create_text(
+                self.width // 2, top + main_size + gap + sub_size // 2,
+                text=self.subtext, fill=self.subtext_color,
+                font=self.subtext_font, anchor="center"
+            )
+        else:
+            self.create_text(
+                self.width // 2, self.height // 2,
+                text=self.text, fill=self.text_color,
+                font=self.font, anchor="center"
+            )
+
+    @staticmethod
+    def _font_pixel_size(font, fallback):
+        """Approximate line height for a theme font tuple."""
+        try:
+            size = abs(int(font[1]))
+            return size if size else fallback
+        except (TypeError, ValueError, IndexError):
+            return fallback
     
     def _on_enter(self, event):
         self._is_hovered = True
@@ -823,6 +863,15 @@ class GradientButton(tk.Canvas):
             redraw = True
         if 'font' in kwargs:
             self.font = kwargs.pop('font')
+            redraw = True
+        if 'subtext' in kwargs:
+            self.subtext = kwargs.pop('subtext')
+            redraw = True
+        if 'subtext_color' in kwargs:
+            self.subtext_color = kwargs.pop('subtext_color') or self.SUBTEXT_TINT
+            redraw = True
+        if 'subtext_font' in kwargs:
+            self.subtext_font = kwargs.pop('subtext_font')
             redraw = True
         if 'border_color' in kwargs:
             self.border_color = kwargs.pop('border_color')
@@ -932,6 +981,7 @@ class UIManager:
         self._status_state = "idle"
         self._status_msgid = None
         self._recording_hint = None
+        self._picker_fonts = {}
         self._processing_since = None
         self._processing_base_message = None
         self._processing_after_id = None
@@ -1375,29 +1425,39 @@ class UIManager:
         # OPTIONS - Toggle switches (Sun Valley style)
         # ─────────────────────────────────────────────────────────────────────
 
-        options_frame = ttk.LabelFrame(content, text="", padding=(16, 10))
+        # Titling the group says what the two switches apply to, and stops the
+        # box reading as an unexplained border.
+        self.options_frame = options_frame = ttk.LabelFrame(
+            content, text=_("After transcription"), padding=(16, 10))
         options_frame.pack(fill=tk.X, pady=(0, 12))
 
         # Center container for toggles
         switches_container = ttk.Frame(options_frame)
         switches_container.pack(expand=True)
 
-        # Sun Valley provides "Switch.TCheckbutton" style for toggle switches
+        # Sun Valley provides "Switch.TCheckbutton" style for toggle switches.
+        # "Auto-copy result" rather than "Copy to clipboard": the latter read
+        # identically to the Copy link above and to the "Copied to clipboard"
+        # toast, so three different things shared one set of words.
         self.auto_copy_switch = ttk.Checkbutton(
             switches_container,
-            text=_("Copy to clipboard"),
+            text=_("Auto-copy result"),
             variable=self.parent.auto_copy,
             style="Switch.TCheckbutton"
         )
         self.auto_copy_switch.pack(side=tk.LEFT, padx=(0, 32))
+        ToolTip(self.auto_copy_switch,
+                _("Put the finished text on the clipboard automatically"))
 
         self.auto_paste_switch = ttk.Checkbutton(
             switches_container,
-            text=_("Auto-paste"),
+            text=_("Auto-paste result"),
             variable=self.parent.auto_paste,
             style="Switch.TCheckbutton"
         )
         self.auto_paste_switch.pack(side=tk.LEFT)
+        ToolTip(self.auto_paste_switch,
+                _("Paste the finished text into whichever app you are using"))
         
         # ─────────────────────────────────────────────────────────────────────
         # ACTION BUTTONS (Keep custom gradient buttons)
@@ -1453,19 +1513,25 @@ class UIManager:
         )
         self.record_button_edit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(btn_gap, 0))
         
-        # Shortcut tooltips only (no visible labels - tooltips show on hover)
-        shortcut_transcribe = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
-        shortcut_edit = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
-        
+        # The shortcuts are the product; the buttons are the training wheels.
+        # Printing each shortcut on its button is what teaches the transition -
+        # a tooltip only reaches someone who already hovered and waited.
+        shortcut_transcribe = self._record_shortcut('record_transcribe')
+        shortcut_edit = self._record_shortcut('record_edit')
+        self.record_button_transcribe.configure(subtext=shortcut_transcribe)
+        self.record_button_edit.configure(subtext=shortcut_edit)
+
         # Store references for update_button_shortcuts (set to None since we removed the labels)
         self.shortcut_label_left = None
         self.shortcut_label_right = None
-        
+
         # Add tooltips to buttons
-        ToolTip(self.record_button_transcribe,
-                _("Record and transcribe audio ({shortcut})").format(shortcut=shortcut_transcribe))
-        ToolTip(self.record_button_edit,
-                _("Record and AI-edit transcription ({shortcut})").format(shortcut=shortcut_edit))
+        self._tooltip_transcribe = ToolTip(
+            self.record_button_transcribe,
+            _("Record and transcribe audio ({shortcut})").format(shortcut=shortcut_transcribe))
+        self._tooltip_edit = ToolTip(
+            self.record_button_edit,
+            _("Record and AI-edit transcription ({shortcut})").format(shortcut=shortcut_edit))
         
         # ─────────────────────────────────────────────────────────────────────
         # BANNER
@@ -1587,11 +1653,32 @@ class UIManager:
         label.bind("<Enter>", lambda e, w=label: self._set_picker_hover(w, True), add="+")
         label.bind("<Leave>", lambda e, w=label: self._set_picker_hover(w, False), add="+")
 
+    def _picker_font(self, underline):
+        """The picker font, cached, with or without an underline."""
+        key = 'picker_underline' if underline else 'picker'
+        cached = self._picker_fonts.get(key)
+        if cached is None:
+            family, size = get_font('xxs')[:2]
+            cached = tkfont.Font(family=family, size=size, underline=underline)
+            self._picker_fonts[key] = cached
+        return cached
+
     def _set_picker_hover(self, label, hovering):
+        """Colour and underline a picker segment on hover.
+
+        These segments name the transcription model, the edit model and the
+        prompt, and every one of them is a menu - but nothing said so. The
+        underline is what says "this is a control", added to the colour shift
+        that was already here. It is deliberately a hover-only cue: at rest the
+        row stays a quiet caption rather than becoming a line of links.
+        """
         if not self._widget_alive(label):
             return
         colour = self.theme.ACCENT_PRIMARY if hovering else self.theme.TEXT_TERTIARY
-        label.configure(foreground=colour)
+        try:
+            label.configure(foreground=colour, font=self._picker_font(hovering))
+        except tk.TclError:
+            label.configure(foreground=colour)
 
     def _refresh_picker_colours(self):
         for label in (self._picker_transcription, self._picker_ai, self._picker_prompt):
@@ -1837,6 +1924,7 @@ class UIManager:
     def _clear_measuring_fonts(self):
         """Drop the cached fonts after a theme or language change."""
         self._measure_fonts.clear()
+        self._picker_fonts.clear()
 
     def _schedule_model_label_fit(self):
         """Debounced re-fit of the model label (also on resize)."""
@@ -2756,6 +2844,11 @@ class UIManager:
             # BOTH buttons turn red gradient and show "Stop and Process"
             self.record_button_transcribe.configure(
                 text=_("Stop and Process"),
+                # The record shortcut only doubles as "stop" in toggle mode;
+                # in push-to-talk it is release that stops. Rather than print
+                # a key that is right half the time, drop the caption - the
+                # status line carries the cancel shortcut while recording.
+                subtext="",
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -2769,6 +2862,11 @@ class UIManager:
             )
             self.record_button_edit.configure(
                 text=_("Stop and Process"),
+                # The record shortcut only doubles as "stop" in toggle mode;
+                # in push-to-talk it is release that stops. Rather than print
+                # a key that is right half the time, drop the caption - the
+                # status line carries the cancel shortcut while recording.
+                subtext="",
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -2783,21 +2881,29 @@ class UIManager:
         else:
             self.update_button_shortcuts()
     
+    def _record_shortcut(self, name):
+        """Display form of a record shortcut, with a platform-correct default."""
+        if name == 'record_edit':
+            default = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
+        else:
+            default = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
+        try:
+            return self.parent.hotkey_manager.display_shortcut(name, default)
+        except Exception:
+            return default
+
     def update_button_shortcuts(self, transcribe_shortcut=None, edit_shortcut=None):
         # Guard: buttons may not exist yet during initialization
         if not self.record_button_transcribe or not self.record_button_edit:
             return
-            
-        if hasattr(self.parent, 'hotkey_manager') and hasattr(self.parent.hotkey_manager, 'shortcuts'):
-            edit_shortcut = edit_shortcut or self.parent.hotkey_manager.shortcuts.get('record_edit', 'Ctrl+Alt+J')
-            transcribe_shortcut = transcribe_shortcut or self.parent.hotkey_manager.shortcuts.get('record_transcribe', 'Ctrl+Alt+Shift+J')
-        else:
-            edit_shortcut = edit_shortcut or ("Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J")
-            transcribe_shortcut = transcribe_shortcut or ("Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J")
-        
+
+        edit_shortcut = edit_shortcut or self._record_shortcut('record_edit')
+        transcribe_shortcut = transcribe_shortcut or self._record_shortcut('record_transcribe')
+
         # Reset to original gradient mode with white text
         self.record_button_transcribe.configure(
             text=_("Record + Transcribe"),
+            subtext=transcribe_shortcut,
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -2811,6 +2917,7 @@ class UIManager:
         )
         self.record_button_edit.configure(
             text=_("Record + AI Edit"),
+            subtext=edit_shortcut,
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -2828,6 +2935,16 @@ class UIManager:
             self.shortcut_label_left.configure(text=transcribe_shortcut)
         if hasattr(self, 'shortcut_label_right') and self.shortcut_label_right:
             self.shortcut_label_right.configure(text=edit_shortcut)
+
+        # Keep the tooltips honest after a rebind too.
+        for tooltip, template, shortcut in (
+            (getattr(self, '_tooltip_transcribe', None),
+             _("Record and transcribe audio ({shortcut})"), transcribe_shortcut),
+            (getattr(self, '_tooltip_edit', None),
+             _("Record and AI-edit transcription ({shortcut})"), edit_shortcut),
+        ):
+            if tooltip is not None:
+                tooltip.set_text(template.format(shortcut=shortcut))
 
     def refresh_translations(self):
         """Refresh all UI labels with current translations.
@@ -2869,11 +2986,13 @@ class UIManager:
                 translated = self._processing_message()
             self.status_label.configure(text=translated)
 
-        # Update option switches
+        # Update option switches and the group that holds them
+        if self._widget_alive(getattr(self, 'options_frame', None)):
+            self.options_frame.configure(text=_("After transcription"))
         if hasattr(self, 'auto_copy_switch'):
-            self.auto_copy_switch.configure(text=_("Copy to clipboard"))
+            self.auto_copy_switch.configure(text=_("Auto-copy result"))
         if hasattr(self, 'auto_paste_switch'):
-            self.auto_paste_switch.configure(text=_("Auto-paste"))
+            self.auto_paste_switch.configure(text=_("Auto-paste result"))
 
         # Update action buttons (only if not in recording state)
         if hasattr(self, 'record_button_transcribe') and hasattr(self, 'record_button_edit'):

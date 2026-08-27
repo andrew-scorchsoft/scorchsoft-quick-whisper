@@ -433,19 +433,22 @@ class HotkeyManagerBase(ABC):
 
     def update_shortcut_displays(self):
         """Update all UI elements that display keyboard shortcuts."""
+        # Pass the display form: shortcuts are stored lowercase for matching,
+        # and these end up printed on the buttons.
+        transcribe = self.display_shortcut('record_transcribe')
+        edit = self.display_shortcut('record_edit')
+
         if hasattr(self.parent.ui_manager, 'update_button_shortcuts'):
             self.parent.ui_manager.update_button_shortcuts(
-                transcribe_shortcut=self.shortcuts['record_transcribe'],
-                edit_shortcut=self.shortcuts['record_edit']
+                transcribe_shortcut=transcribe,
+                edit_shortcut=edit
             )
         else:
             self.parent.ui_manager.record_button_edit.configure(
-                text=_("Record + AI Edit ({shortcut})").format(
-                    shortcut=self.shortcuts['record_edit'])
+                text=_("Record + AI Edit ({shortcut})").format(shortcut=edit)
             )
             self.parent.ui_manager.record_button_transcribe.configure(
-                text=_("Record + Transcribe ({shortcut})").format(
-                    shortcut=self.shortcuts['record_transcribe'])
+                text=_("Record + Transcribe ({shortcut})").format(shortcut=transcribe)
             )
 
         # The menu label used to be located by searching for the English string
