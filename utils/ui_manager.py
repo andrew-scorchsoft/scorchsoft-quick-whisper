@@ -572,9 +572,6 @@ class GradientButton(tk.Canvas):
     # purple and red fills alike.
     SUBTEXT_TINT = "#dfe6f2"
 
-    # Width of the always-reserved focus ring.
-    FOCUS_RING_WIDTH = 2
-
     def __init__(self, parent, text="", command=None, width=200, height=50,
                  corner_radius=25, font=None,
                  gradient_start="#06b6d4", gradient_mid="#3b82f6", gradient_end="#8b5cf6",
@@ -584,11 +581,11 @@ class GradientButton(tk.Canvas):
                  text_color="#0d0d0d", bg_color="#0d0d0d",
                  subtext="", subtext_font=None, subtext_color=None, **kwargs):
 
-        # The focus ring is always reserved and only made visible on focus, so
-        # gaining focus cannot shift the layout or trigger a gradient redraw.
+        # Tk's highlight is a rectangle. A reserved highlightthickness around
+        # a pill clips the rounded corners into square ones - worse on HiDPI
+        # where the canvas is taller - so the focus ring is drawn rounded.
         super().__init__(parent, width=width, height=height,
-                         bg=bg_color, highlightthickness=self.FOCUS_RING_WIDTH,
-                         highlightbackground=bg_color, highlightcolor=bg_color,
+                         bg=bg_color, highlightthickness=0, bd=0,
                          takefocus=1, cursor="hand2", **kwargs)
 
         self.text = text
@@ -623,11 +620,14 @@ class GradientButton(tk.Canvas):
         
         self._is_hovered = False
         self._is_pressed = False
+        self._is_focused = False
         self.focus_ring_color = theme_colors().ACCENT_PRIMARY
         self._gradient_image = None
         self._hover_gradient_image = None
+        self._focus_ring_image = None
         self._resize_pending = None  # For debouncing resize events
         self._initial_render_done = False  # Skip initial render, wait for correct size
+        self._line_height_cache = {}
 
         # Don't create gradient images here - wait for Configure event with actual size
         # This prevents the "flash" where buttons render small then resize
@@ -669,6 +669,43 @@ class GradientButton(tk.Canvas):
         self._hover_gradient_image = self._create_rounded_gradient(
             w, h, r, self.hover_start, self.hover_mid, self.hover_end
         )
+        self._focus_ring_image = None
+
+    def _ring_width(self):
+        """Pixel width of the keyboard focus ring.
+
+        Scales with the theme so HiDPI is not left with a hairline on a
+        90px-tall pill.
+        """
+        return max(2, get_border_width('lg'))
+
+    def _create_focus_ring_image(self):
+        """Rounded annulus matching the pill, used while the button has focus."""
+        w, h = self.width, self.height
+        if w < 4 or h < 4:
+            self._focus_ring_image = None
+            return
+
+        ring = self._ring_width()
+        r = min(self.corner_radius, h // 2)
+        scale = 2
+        sw, sh = w * scale, h * scale
+        sr = r * scale
+        sring = ring * scale
+
+        color = (*self._hex_to_rgb(self.focus_ring_color), 255)
+        mask = Image.new('L', (sw, sh), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.rounded_rectangle([(0, 0), (sw - 1, sh - 1)], radius=sr, fill=255)
+        inner_r = max(0, sr - sring)
+        mask_draw.rounded_rectangle(
+            [(sring, sring), (sw - 1 - sring, sh - 1 - sring)],
+            radius=inner_r, fill=0
+        )
+        img = Image.new('RGBA', (sw, sh), (0, 0, 0, 0))
+        img.paste(Image.new('RGBA', (sw, sh), color), (0, 0), mask)
+        img = img.resize((w, h), Image.LANCZOS)
+        self._focus_ring_image = ImageTk.PhotoImage(img)
     
     def _create_rounded_gradient(self, w, h, r, color_start, color_mid, color_end):
         """Create a 3-stop horizontal gradient with border, highlight and rounded corners."""
@@ -791,14 +828,20 @@ class GradientButton(tk.Canvas):
             # Gradient mode
             img = self._hover_gradient_image if lit else self._gradient_image
             self.create_image(0, 0, anchor="nw", image=img)
+
+        if self._is_focused:
+            if self._focus_ring_image is None:
+                self._create_focus_ring_image()
+            if self._focus_ring_image is not None:
+                self.create_image(0, 0, anchor="nw", image=self._focus_ring_image)
         
         # Draw the label, with the shortcut caption beneath it when there is
         # one. The pair is centred as a block so the button stays optically
         # balanced instead of the label simply shifting up.
         if self.subtext:
-            main_size = self._font_pixel_size(self.font, 13)
-            sub_size = self._font_pixel_size(self.subtext_font, 10)
-            gap = max(2, sub_size // 3)
+            main_size = self._font_line_height(self.font, 13)
+            sub_size = self._font_line_height(self.subtext_font, 10)
+            gap = 2
             block = main_size + gap + sub_size
             top = (self.height - block) // 2
             self.create_text(
@@ -826,6 +869,24 @@ class GradientButton(tk.Canvas):
             return size if size else fallback
         except (TypeError, ValueError, IndexError):
             return fallback
+
+    def _font_line_height(self, font, fallback):
+        """Rendered line height, not the font's point size.
+
+        On HiDPI the point size under-counts, so a gap based on it collapses
+        and the shortcut sits on the label.
+        """
+        key = tuple(font) if isinstance(font, (tuple, list)) else font
+        cached = self._line_height_cache.get(key)
+        if cached is not None:
+            return cached
+        try:
+            measured = tkfont.Font(self, font=font).metrics('linespace')
+            height = int(measured) if measured else fallback
+        except (tk.TclError, TypeError, ValueError, AttributeError):
+            height = self._font_pixel_size(font, fallback)
+        self._line_height_cache[key] = height
+        return height
     
     def _on_enter(self, event):
         self._is_hovered = True
@@ -868,18 +929,24 @@ class GradientButton(tk.Canvas):
             self.command()
 
     def _on_focus_in(self, _event=None):
-        self.configure(highlightbackground=self.focus_ring_color,
-                       highlightcolor=self.focus_ring_color)
+        self._is_focused = True
+        self._draw()
 
     def _on_focus_out(self, _event=None):
-        self.configure(highlightbackground=self.bg_color,
-                       highlightcolor=self.bg_color)
+        self._is_focused = False
+        self._draw()
     
     def _on_resize(self, event):
         """Handle resize with debouncing to prevent expensive operations during drag."""
-        if event.width != self.width or event.height != self.height:
-            self.width = event.width
-            self.height = event.height
+        # Configure reports the widget's allocated size, which includes any
+        # highlightthickness. The rounded image must match the interior or
+        # the pill is clipped into square corners.
+        extra = int(self.cget('highlightthickness') or 0) + int(self.cget('bd') or 0)
+        width = max(1, event.width - 2 * extra)
+        height = max(1, event.height - 2 * extra)
+        if width != self.width or height != self.height:
+            self.width = width
+            self.height = height
 
             # First render: create images immediately at correct size (no debounce)
             # This prevents the "flash" where buttons appear small then resize
@@ -958,13 +1025,9 @@ class GradientButton(tk.Canvas):
         if 'command' in kwargs:
             self.command = kwargs.pop('command')
         if 'bg' in kwargs:
-            # The unfocused ring is painted in the surrounding background, so
-            # it has to follow a theme change with it.
             self.bg_color = kwargs['bg']
-            if self.focus_get() is not self:
-                kwargs.setdefault('highlightbackground', self.bg_color)
-                kwargs.setdefault('highlightcolor', self.bg_color)
             self.focus_ring_color = theme_colors().ACCENT_PRIMARY
+            self._focus_ring_image = None
 
         if regenerate_gradients:
             self._create_gradient_images()

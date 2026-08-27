@@ -87,9 +87,8 @@ class QuickWhisper(tk.Tk):
         is_hidpi = getattr(self, 'hidpi_scale_factor', 1.0) > 1.0
         init_theme(is_hidpi=is_hidpi)
 
-        # The title bar is wayfinding - it is what the taskbar, alt-tab and the
-        # window list show, and they truncate. The product name alone is what
-        # identifies it there; the strapline and version live in Help > About.
+        # Product name first so the taskbar still identifies the window;
+        # version follows so it is visible in the header bar.
         self.title(self._window_title())
 
         # Initialize prompts
@@ -3268,8 +3267,9 @@ class QuickWhisper(tk.Tk):
     def _window_title(self, recording=False):
         """The window/taskbar title, optionally marked as recording."""
         if recording:
-            return _("Quick Whisper - Recording...")
-        return _("Quick Whisper")
+            return _("Quick Whisper v{version} - Recording...").format(
+                version=self.version)
+        return _("Quick Whisper v{version}").format(version=self.version)
 
     def set_title_recording(self, recording):
         """Mirror the recording state into the title bar.

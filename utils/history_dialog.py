@@ -6,13 +6,14 @@ about the invoice on Tuesday". This dialog lists everything at once, filters as
 you type, and can put any entry back into the main window.
 """
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import ttk, messagebox
 from datetime import datetime, date, timedelta
 
 from utils.app_logging import get_logger
 from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.i18n import _
-from utils.theme import get_font, get_window_size, get_spacing, theme_colors
+from utils.theme import FONT_SIZES, get_font, get_font_size, get_window_size, get_spacing, theme_colors
 
 logger = get_logger(__name__)
 
@@ -40,7 +41,11 @@ class HistoryDialog:
 
         width, height = get_window_size('history_dialog')
         self.dialog.geometry(f"{width}x{height}")
-        self.dialog.minsize(560, 380)
+        # minsize was designed at the base (non-HiDPI) layout; scale it with
+        # the same font jump the rest of the dialog uses so the window cannot
+        # be squeezed smaller than the now-larger type.
+        scale = get_font_size('sm') / FONT_SIZES['base']['sm']
+        self.dialog.minsize(int(560 * scale), int(380 * scale))
         self.dialog.resizable(True, True)
         self.dialog.transient(parent)
 
@@ -84,7 +89,43 @@ class HistoryDialog:
         except Exception as e:
             logger.debug("Could not centre the history dialog: %s", e)
 
+    def _apply_styles(self):
+        """Give ttk widgets the HiDPI fonts Sun Valley will not pick up itself.
+
+        ttk.Treeview / TButton / TEntry read their type from the style, not
+        from a widget-level ``font=`` option, so without this the table and
+        buttons stay at the theme's default 10pt while the preview (a plain
+        ``tk.Text``) scales correctly.
+        """
+        body = get_font('sm')
+        heading = get_font('sm', 'bold')
+        body_font = tkfont.Font(font=body)
+        heading_font = tkfont.Font(font=heading)
+        # rowheight is ignored on derived Treeview styles on Windows, so this
+        # has to land on the base style. This dialog is the only Treeview.
+        rowheight = body_font.metrics('linespace') + get_spacing('xs') * 2
+
+        style = ttk.Style()
+        style.configure('Dialog.TButton', font=body)
+        style.configure('Dialog.TLabel', font=body)
+        style.configure('History.TLabel', font=heading)
+        style.configure('HistoryMuted.TLabel', font=get_font('xs'),
+                        foreground=theme_colors().TEXT_MUTED)
+        style.configure('History.TEntry', font=body)
+        style.configure('Treeview', font=body, rowheight=rowheight)
+        style.configure('Treeview.Heading', font=heading)
+        return body_font, heading_font
+
+    def _column_width(self, body_font, heading_font, *strings):
+        """Pixel width that fits the widest of ``strings`` at the current font."""
+        pad = get_spacing('md') * 2
+        return max(
+            max(body_font.measure(s), heading_font.measure(s))
+            for s in strings
+        ) + pad
+
     def _build(self):
+        body_font, heading_font = self._apply_styles()
         pad = get_spacing('md')
         container = ttk.Frame(self.dialog, padding=(pad, pad))
         container.pack(fill=tk.BOTH, expand=True)
@@ -93,9 +134,11 @@ class HistoryDialog:
         search_row = ttk.Frame(container)
         search_row.pack(fill=tk.X, pady=(0, get_spacing('sm')))
 
-        ttk.Label(search_row, text=_("Search"), font=get_font('sm', 'bold')).pack(side=tk.LEFT)
+        ttk.Label(
+            search_row, text=_("Search"), style='History.TLabel').pack(side=tk.LEFT)
 
-        self.search_entry = ttk.Entry(search_row, textvariable=self._search_var, font=get_font('sm'))
+        self.search_entry = ttk.Entry(
+            search_row, textvariable=self._search_var, style='History.TEntry')
         self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(get_spacing('sm'), 0))
         self._search_var.trace_add("write", lambda *a: self._schedule_filter())
         # Down arrow from the search box moves into the results, so the whole
@@ -104,7 +147,7 @@ class HistoryDialog:
         self.search_entry.bind("<Return>", self._focus_results)
 
         self.clear_search = ttk.Label(
-            search_row, text="✕", cursor="hand2", font=get_font('sm'))
+            search_row, text="✕", cursor="hand2", style='Dialog.TLabel')
         self.clear_search.pack(side=tk.LEFT, padx=(get_spacing('sm'), 0))
         self.clear_search.bind("<Button-1>", lambda e: self._search_var.set(""))
 
@@ -119,10 +162,26 @@ class HistoryDialog:
         self.tree.heading("type", text=_("Type"))
         self.tree.heading("prompt", text=_("Prompt"))
         self.tree.heading("preview", text=_("Text"))
-        self.tree.column("when", width=140, minwidth=110, stretch=False)
-        self.tree.column("type", width=90, minwidth=70, stretch=False)
-        self.tree.column("prompt", width=110, minwidth=80, stretch=False)
-        self.tree.column("preview", width=380, minwidth=160, stretch=True)
+        when_w = self._column_width(
+            body_font, heading_font,
+            _("When"),
+            _("Today {time}").format(time="23:59"),
+            _("Yesterday {time}").format(time="23:59"),
+            "31 Dec 23:59",
+        )
+        type_w = self._column_width(
+            body_font, heading_font,
+            _("Type"), _("Transcript"), _("AI edit"),
+        )
+        prompt_w = max(
+            self._column_width(body_font, heading_font, _("Prompt")),
+            body_font.measure("M" * 10) + get_spacing('md') * 2,
+        )
+        preview_min = body_font.measure("M" * 16) + get_spacing('md') * 2
+        self.tree.column("when", width=when_w, minwidth=when_w, stretch=False)
+        self.tree.column("type", width=type_w, minwidth=type_w, stretch=False)
+        self.tree.column("prompt", width=prompt_w, minwidth=prompt_w, stretch=False)
+        self.tree.column("preview", width=preview_min * 2, minwidth=preview_min, stretch=True)
 
         tree_scroll = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=tree_scroll.set)
@@ -137,8 +196,7 @@ class HistoryDialog:
         self.tree.bind("<Delete>", lambda e: self.delete_selected())
 
         # ── Preview ──────────────────────────────────────────────────────
-        self.status_label = ttk.Label(container, text="", font=get_font('xxs'),
-                                      foreground=theme_colors().TEXT_MUTED)
+        self.status_label = ttk.Label(container, text="", style='HistoryMuted.TLabel')
         self.status_label.pack(anchor="w", pady=(get_spacing('sm'), 2))
 
         preview_frame = ttk.Frame(container)
@@ -147,7 +205,8 @@ class HistoryDialog:
         self.preview = tk.Text(
             preview_frame, height=6, wrap="word", font=get_font('sm'),
             relief="flat", borderwidth=0, highlightthickness=1,
-            highlightbackground=theme_colors().BORDER, padx=10, pady=8)
+            highlightbackground=theme_colors().BORDER,
+            padx=get_spacing('md'), pady=get_spacing('sm'))
         preview_scroll = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=self.preview.yview)
         self.preview.configure(yscrollcommand=preview_scroll.set, state="disabled")
         self.preview.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -161,16 +220,21 @@ class HistoryDialog:
 
         # Delete sits on the left, away from the actions people mean to press.
         self.delete_button = ttk.Button(
-            button_row, text=_("Delete"), command=self.delete_selected)
+            button_row, text=_("Delete"), command=self.delete_selected,
+            style='Dialog.TButton')
         self.delete_button.pack(side=tk.LEFT)
 
         self.load_button = ttk.Button(
-            button_row, text=_("Show in Main Window"), command=self.load_selected)
+            button_row, text=_("Show in Main Window"), command=self.load_selected,
+            style='Dialog.TButton')
         self.load_button.pack(side=tk.RIGHT)
         self.copy_button = ttk.Button(
-            button_row, text=_("Copy"), command=self.copy_selected)
+            button_row, text=_("Copy"), command=self.copy_selected,
+            style='Dialog.TButton')
         self.copy_button.pack(side=tk.RIGHT, padx=(0, get_spacing('sm')))
-        ttk.Button(button_row, text=_("Close"), command=self.close).pack(
+        ttk.Button(
+            button_row, text=_("Close"), command=self.close,
+            style='Dialog.TButton').pack(
             side=tk.RIGHT, padx=(0, get_spacing('sm')))
         self._set_buttons_enabled(False)
 

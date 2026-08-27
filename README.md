@@ -233,8 +233,8 @@ python tools/build.py --console    # console-enabled diagnostic build
 Output is written to `dist/` using the same version as the app (from `utils/app_version.py`):
 
 ```
-dist/quick_whisper-2.3.0-windows-x86_64.exe
-dist/quick_whisper-2.3.0-windows-x86_64-console_enabled.exe
+dist/quick_whisper-2.4.1-windows-x86_64.exe
+dist/quick_whisper-2.4.1-windows-x86_64-console_enabled.exe
 ```
 
 The spec file detects your platform, includes the right hidden imports, and names the file `quick_whisper-{version}-{os}-{arch}` (plus `-console_enabled` for the diagnostic build).

@@ -7,8 +7,8 @@ Usage:
     python tools/build.py --console    # console-enabled diagnostic build
 
 Output names follow the GitHub release pattern, using the same version as the app:
-    dist/quick_whisper-2.3.0-windows-x86_64.exe
-    dist/quick_whisper-2.3.0-windows-x86_64-console_enabled.exe
+    dist/quick_whisper-2.4.1-windows-x86_64.exe
+    dist/quick_whisper-2.4.1-windows-x86_64-console_enabled.exe
 """
 
 import argparse
