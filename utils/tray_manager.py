@@ -123,7 +123,7 @@ class TrayManager:
             Item(lambda item: _('Show/Hide Window'), self._toggle_window, default=True),
             Item(lambda item: _('Refresh Hotkeys Now'), self._refresh_hotkeys),
             Menu.SEPARATOR,
-            Item(lambda item: _('Auto-Refresh Hotkeys (Every 30s)'),
+            Item(lambda item: _('Auto-Refresh Hotkeys'),
                  self._toggle_auto_refresh,
                  checked=lambda item: self._auto_refresh_enabled()),
             Menu.SEPARATOR,

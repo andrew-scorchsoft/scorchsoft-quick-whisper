@@ -150,7 +150,7 @@ class TTSManager:
         try:
             ui = getattr(self.parent, 'ui_manager', None)
             if ui is not None and hasattr(ui, 'set_status'):
-                self.parent.after(0, lambda: ui.set_status(reason, "orange"))
+                self.parent.after(0, lambda: ui.set_status(reason, "warning"))
         except Exception:
             pass  # A status update must never break speech handling
 

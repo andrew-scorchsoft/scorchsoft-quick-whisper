@@ -58,6 +58,12 @@ logger = get_logger(__name__)
 
 
 class QuickWhisper(tk.Tk):
+
+    # Ceiling on any single OpenAI call. Without one a hung request pins the
+    # status line on "Processing..." forever with nothing the user can do; the
+    # value is generous enough for a full-length recording to upload.
+    API_TIMEOUT_SECONDS = 180.0
+
     def __init__(self):
         # Logging first: the packaged build has no console, so anything logged
         # before this point would be lost entirely.
@@ -155,7 +161,7 @@ class QuickWhisper(tk.Tk):
             return
 
         openai.api_key = self.api_key
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key, timeout=self.API_TIMEOUT_SECONDS)
         self.selected_device = tk.StringVar()
         self.auto_copy = tk.BooleanVar(value=True)
         self.auto_paste = tk.BooleanVar(value=True)
@@ -169,6 +175,15 @@ class QuickWhisper(tk.Tk):
         self.load_history()
         self.current_button_mode = "transcribe" # "transcribe" or "edit"
         self._rerun_in_progress = False
+        # True from the moment a recording stops until its transcription (and
+        # any AI edit) finishes, so a second record request can be answered
+        # instead of silently racing the one in flight.
+        self._processing = False
+        # Bumped whenever processing is abandoned, so a late result from a
+        # thread the user already gave up on is discarded rather than pasted.
+        self._processing_generation = 0
+        # Guards the completion receipt against clobbering a newer status.
+        self._receipt_token = 0
         # Serialises the read/write/restore sequence around auto-paste so two
         # transcriptions finishing close together cannot interleave.
         self._clipboard_lock = threading.Lock()
@@ -199,8 +214,12 @@ class QuickWhisper(tk.Tk):
         # Setup periodic memory diagnostics (logs every 60s to console)
         self._setup_memory_diagnostics()
         
-        # Register hotkeys
-        self.hotkey_manager.register_hotkeys()
+        # Register hotkeys. The result is kept rather than discarded: on
+        # Wayland, on macOS without Accessibility permission, or behind a failed
+        # Windows hook, registration fails and the app would otherwise look
+        # perfectly healthy while every shortcut silently did nothing. The
+        # status bar does not exist yet, so the notice waits until it does.
+        self._initial_hotkeys_ok = self.hotkey_manager.register_hotkeys()
 
         self.create_menu()
         
@@ -228,6 +247,11 @@ class QuickWhisper(tk.Tk):
 
         # After loading the prompt from env, update the model label
         self.update_model_label()
+
+        # Now that the status bar exists, say so if the shortcuts never came up.
+        if not self._initial_hotkeys_ok:
+            logger.warning("Global hotkeys did not register at startup")
+            self.hotkey_manager.report_hotkeys_unavailable()
 
         # Add binding for window state changes
         self.bind('<Unmap>', self._handle_minimize)
@@ -678,7 +702,7 @@ class QuickWhisper(tk.Tk):
             # Rebuild the client so the new key takes effect immediately
             # instead of only after a restart.
             openai.api_key = new_key
-            self.client = OpenAI(api_key=new_key)
+            self.client = OpenAI(api_key=new_key, timeout=self.API_TIMEOUT_SECONDS)
             messagebox.showinfo(_("API Key Updated"),
                                 _("The OpenAI API Key has been updated successfully."))
 
@@ -992,7 +1016,7 @@ class QuickWhisper(tk.Tk):
         self.settings_menu.add_checkbutton(label=_("Automatically Check for Updates"),
                                     variable=self.version_manager.auto_update_check,
                                     command=self.version_manager.save_auto_update_setting)
-        self.settings_menu.add_checkbutton(label=_("Auto-Refresh Hotkeys (Every 30s)"),
+        self.settings_menu.add_checkbutton(label=_("Auto-Refresh Hotkeys"),
                                     variable=self.auto_hotkey_refresh,
                                     command=self.save_auto_hotkey_refresh)
         self.settings_menu.add_checkbutton(label=_("Dark Mode"),
@@ -1086,9 +1110,27 @@ class QuickWhisper(tk.Tk):
         """Test keyboard shortcuts and show status."""
         self.hotkey_manager.check_keyboard_shortcuts()
 
+    def _reject_if_processing(self):
+        """Answer a record request that arrives mid-transcription.
+
+        Starting a second recording while one is still being transcribed races
+        the in-flight job over current_button_mode and the status line. Say so
+        and point at the way out rather than starting silently.
+        """
+        if not self._processing:
+            return False
+        logger.info("Record request ignored - still processing the previous recording")
+        try:
+            self.ui_manager.show_toast(_("Still processing - press Esc to abandon"))
+        except Exception as e:
+            logger.debug("Could not show the still-processing toast: %s", e)
+        return True
+
     def toggle_recording(self, mode="transcribe"):
         if not self.audio_manager.recording:
-            # Set globally so the app knows when recording stops whether 
+            if self._reject_if_processing():
+                return
+            # Set globally so the app knows when recording stops whether
             # transcript or edit mode was selected
             self.current_button_mode = mode
             logger.info("About to start recording. mode = %s", mode)
@@ -1121,6 +1163,8 @@ class QuickWhisper(tk.Tk):
         if self.audio_manager.recording:
             logger.debug("Push-to-talk press ignored - already recording")
             return
+        if self._reject_if_processing():
+            return
         self.current_button_mode = mode
         logger.info("Push-to-talk recording started (mode=%s)", mode)
         self.start_recording()
@@ -1142,6 +1186,7 @@ class QuickWhisper(tk.Tk):
         """Stop recording and process audio."""
         audio_file = self.audio_manager.stop_recording()
         if audio_file:
+            self._processing = True
             # Start transcription in a separate thread (daemon so a hung
             # request can never keep the application alive after close)
             threading.Thread(target=self.transcribe_audio, daemon=True,
@@ -1153,12 +1198,38 @@ class QuickWhisper(tk.Tk):
         self.hotkey_manager.update_shortcut_displays()
 
     def _handle_escape(self, _event=None):
-        """Cancel an in-progress recording when Escape is pressed."""
-        if not self.audio_manager.recording:
-            return None
-        logger.info("Recording cancelled with Escape")
-        self.cancel_recording()
-        return "break"
+        """Cancel an in-progress recording, or abandon a stuck transcription."""
+        if self.audio_manager.recording:
+            logger.info("Recording cancelled with Escape")
+            self.cancel_recording()
+            return "break"
+        if self._processing:
+            logger.info("Processing abandoned with Escape")
+            self.abandon_processing()
+            return "break"
+        return None
+
+    def _is_abandoned(self, generation):
+        """Whether the run that started at ``generation`` has been given up on."""
+        return generation != self._processing_generation
+
+    def abandon_processing(self):
+        """Give up on the transcription in flight and free the UI.
+
+        The request itself cannot be cancelled once the SDK has it, so the
+        generation counter is bumped instead: the thread runs to completion but
+        its result is discarded rather than pasted somewhere unexpected minutes
+        later.
+        """
+        if not self._processing:
+            return
+        self._processing_generation += 1
+        self._processing = False
+        self._set_status(_("Stopped"), "idle")
+        try:
+            self.ui_manager.show_toast(_("Stopped waiting for the result"))
+        except Exception as e:
+            logger.debug("Could not show the abandon toast: %s", e)
     
     def retry_last_recording(self, mode=None):
         """Retry processing the last recording.
@@ -1212,7 +1283,7 @@ class QuickWhisper(tk.Tk):
 
         effective_prompt = prompt_name or self.current_prompt_name
         self._rerun_in_progress = True
-        self._set_status(_("Processing - AI Editing..."), "green")
+        self._set_status(_("Processing - AI Editing..."), "processing")
         logger.info("Re-running AI edit on %d characters using prompt '%s'",
                     len(source_text), effective_prompt)
 
@@ -1226,13 +1297,13 @@ class QuickWhisper(tk.Tk):
             edited_text = self.process_with_gpt_model(source_text, prompt_name=prompt_name)
             if edited_text is None:
                 # process_with_gpt_model has already told the user what failed.
-                self._ui_status(_("AI edit failed"), "red")
+                self._ui_status(_("AI edit failed"), "error")
                 return
 
             edited_text = edited_text.rstrip()
             if not edited_text:
                 logger.warning("AI edit returned empty text; leaving the original in place")
-                self._ui_status(_("AI edit returned no text"), "red")
+                self._ui_status(_("AI edit returned no text"), "error")
                 return
 
             self.last_edit = edited_text
@@ -1246,36 +1317,77 @@ class QuickWhisper(tk.Tk):
             if self.auto_paste.get():
                 self.auto_paste_text(edited_text)
 
-            self._ui_status(_("Idle"), "blue")
+            self._ui_status(_("Idle"), "idle")
             logger.info("Re-run AI edit complete (%d characters)", len(edited_text))
         except Exception as e:
             logger.error("Re-run AI edit failed: %s", e, exc_info=True)
-            self._ui_status(_("AI edit failed"), "red")
+            self._ui_status(_("AI edit failed"), "error")
             self._show_error_async(_("AI Edit Error"),
                                    _("An error occurred while re-running the AI edit: {error}").format(error=e))
         finally:
             self._rerun_in_progress = False
 
-    def _set_status(self, message, color="blue", pulsing=False):
+    def _set_status(self, message, state="idle", pulsing=None):
         """Set the status text on the main thread.
 
-        ``pulsing`` is passed explicitly so the status dot never has to be
-        decided by matching on (translated) message text.
+        ``state`` names what is happening (``idle``, ``processing``,
+        ``success``, ``recording``, ``error``) rather than a colour, so the
+        palette stays the status line's own business.
         """
         try:
-            self.ui_manager.set_status(message, color, pulsing=pulsing)
+            self.ui_manager.set_status(message, state, pulsing=pulsing)
         except TypeError:
             # UIManager without the explicit pulsing argument.
-            self.ui_manager.set_status(message, color)
+            self.ui_manager.set_status(message, state)
         except Exception as e:
             logger.debug("Could not set status '%s': %s", message, e)
 
-    def _ui_status(self, message, color="blue", pulsing=False):
+    def _ui_status(self, message, state="idle", pulsing=None):
         """Set the status text from any thread."""
         try:
-            self.after(0, lambda: self._set_status(message, color, pulsing))
+            self.after(0, lambda: self._set_status(message, state, pulsing))
         except Exception as e:
             logger.debug("Could not set status '%s': %s", message, e)
+
+    RECEIPT_DURATION_MS = 4000
+
+    def _show_completion_receipt(self, text, spoken_seconds=None):
+        """Confirm what was just delivered, then fall back to Idle.
+
+        Success previously snapped straight to "Idle" with only a sound to mark
+        it, which left "did that actually paste?" unanswered at exactly the
+        moment the user is looking away at their target app.
+        """
+        chars = len(text or "")
+        duration = None
+        if spoken_seconds:
+            try:
+                total = int(round(float(spoken_seconds)))
+                duration = f"{total // 60}:{total % 60:02d}"
+            except (TypeError, ValueError):
+                duration = None
+
+        if duration:
+            message = _("Done - {chars} chars - {duration} spoken").format(
+                chars=chars, duration=duration)
+        else:
+            message = _("Done - {chars} chars").format(chars=chars)
+
+        self._receipt_token += 1
+        token = self._receipt_token
+        self._ui_status(message, "success")
+
+        def revert():
+            # Only clear our own receipt: anything that happened since (a new
+            # recording, an error) owns the status line now.
+            if token != self._receipt_token:
+                return
+            self._set_status(_("Idle"), "idle")
+
+        try:
+            self.after(self.RECEIPT_DURATION_MS, revert)
+        except Exception as e:
+            logger.debug("Could not schedule the completion receipt reset: %s", e)
 
     def _show_error_async(self, title, message):
         """Show an error dialog from any thread without blocking the caller."""
@@ -1324,9 +1436,12 @@ class QuickWhisper(tk.Tk):
     def transcribe_audio(self):
         file_path = self.audio_manager.audio_file
         succeeded = False
+        # Snapshot the generation so an abandoned run can tell it is no longer
+        # the one the user is waiting for.
+        generation = self._processing_generation
 
         try:
-            self._ui_status(_("Processing - Transcript..."), "green")
+            self._ui_status(_("Processing - Transcript..."), "processing")
 
             if not self.transcription_model or not self.transcription_model.strip():
                 self._show_error_async(
@@ -1371,9 +1486,13 @@ class QuickWhisper(tk.Tk):
             # Remove any trailing newlines/spaces to avoid moving the caret to a new line on paste
             transcription_text = (transcription_text or "").rstrip()
 
+            if self._is_abandoned(generation):
+                logger.info("Discarding transcription - the user stopped waiting for it")
+                return
+
             if not transcription_text:
                 logger.warning("Transcription returned no text")
-                self._ui_status(_("No speech detected"), "red")
+                self._ui_status(_("No speech detected"), "error")
                 self._show_error_async(
                     _("Nothing Transcribed"),
                     _("No speech was detected in that recording.")
@@ -1389,7 +1508,7 @@ class QuickWhisper(tk.Tk):
             # Process transcription with or without GPT as per the checkbox setting
             if self.current_button_mode == "edit":
                 logger.info("AI editing transcription")
-                self._ui_status(_("Processing - AI Editing..."), "green")
+                self._ui_status(_("Processing - AI Editing..."), "processing")
 
                 edited_text = self.process_with_gpt_model(transcription_text)
                 if edited_text is None or not edited_text.strip():
@@ -1419,11 +1538,15 @@ class QuickWhisper(tk.Tk):
             self._play_sound_async("assets/double-pop-down.wav")
 
         except Exception as e:
+            if self._is_abandoned(generation):
+                logger.info("Transcription failed after being abandoned: %s", e)
+                return
+
             # Play failure sound
             self._play_sound_async("assets/wrong-short.wav")
 
             logger.error("An error occurred during transcription: %s", e, exc_info=True)
-            self._ui_status(_("Error during transcription"), "red")
+            self._ui_status(_("Error during transcription"), "error")
 
             # Provide a clearer hint for known unsupported/renamed models
             known_models = ("gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1")
@@ -1440,10 +1563,17 @@ class QuickWhisper(tk.Tk):
                 )
 
         finally:
-            # Only reset to Idle when things went well - otherwise the error
-            # status the user needs to see would be wiped out immediately.
-            if succeeded:
-                self._ui_status(_("Idle"), "blue")
+            # An abandoned run has already handed the status line over to
+            # whatever the user did next; it must not clear the flag either,
+            # since a newer recording may own it by now.
+            if not self._is_abandoned(generation):
+                self._processing = False
+                # Only replace the processing status when things went well -
+                # otherwise the error the user needs to see would be wiped out
+                # immediately.
+                if succeeded:
+                    self.after(0, lambda t=play_text, d=spoken_seconds:
+                               self._show_completion_receipt(t, d))
 
     def copy_last_transcription(self):
         self.copy_to_clipboard(self.last_transcription)
@@ -1577,6 +1707,22 @@ class QuickWhisper(tk.Tk):
 
         threading.Thread(target=_restore, daemon=True, name="clipboard-restore").start()
 
+    def _is_foreground_window(self):
+        """Whether Quick Whisper itself currently holds the keyboard focus."""
+        try:
+            if platform.system() == 'Windows':
+                import ctypes
+                foreground = ctypes.windll.user32.GetForegroundWindow()
+                # winfo_id() is the child HWND; walk up to the toplevel.
+                own = ctypes.windll.user32.GetAncestor(self.winfo_id(), 2)  # GA_ROOT
+                return bool(foreground) and foreground == own
+            # Elsewhere, Tk knowing which of our widgets has focus is the
+            # signal: focus_get() returns None when another app is in front.
+            return self.focus_displayof() is not None
+        except Exception as e:
+            logger.debug("Could not determine the foreground window: %s", e)
+            return False
+
     def auto_paste_text(self, text):
         """Auto-paste text by putting it on the clipboard and sending Ctrl+V.
 
@@ -1585,6 +1731,25 @@ class QuickWhisper(tk.Tk):
         paste whatever the user happened to have copied earlier.
         """
         try:
+            # A paste is aimed at whatever holds the OS focus. When the user
+            # started the recording from the buttons in this window - the
+            # discoverable path for anyone new - that is Quick Whisper itself,
+            # so the keystroke would land in our own transcript box and read as
+            # "auto-paste is broken". Put the text on the clipboard and say
+            # where to put it instead.
+            if self._is_foreground_window():
+                logger.info("Skipping auto-paste - Quick Whisper has focus")
+                if not self._write_clipboard(text):
+                    logger.error("Could not place the text on the clipboard")
+                    self._ui_status(_("Clipboard unavailable"), "error")
+                    return
+                try:
+                    self.ui_manager.show_toast(
+                        _("Copied - click into your app and press paste"))
+                except Exception as e:
+                    logger.debug("Could not show the focus-guard toast: %s", e)
+                return
+
             # The text has to be on the clipboard for Ctrl+V to mean anything.
             # When auto-copy is on it is already there and the user wants it to
             # stay; otherwise it is placed there just long enough to paste.
@@ -1601,7 +1766,7 @@ class QuickWhisper(tk.Tk):
                     # Kept short: the status column reserves room for the
                     # longest message it can ever show, and that reservation
                     # comes out of the space the model/prompt pickers use.
-                    self._ui_status(_("Clipboard unavailable"), "red")
+                    self._ui_status(_("Clipboard unavailable"), "error")
                     self._show_error_async(
                         _("Auto-Paste Error"),
                         _("The text could not be placed on the clipboard, so it was not "
@@ -2751,7 +2916,7 @@ class QuickWhisper(tk.Tk):
         """Set up periodic health checks and refreshes for hotkeys.
         
         Health checks run every 5 seconds for diagnostic visibility.
-        Refreshes happen every 30 seconds when minimized (or on health failures).
+        Refreshes happen every 2 minutes when minimized (or on health failures).
         
         The health check tracks:
         - Total key events received
@@ -3043,9 +3208,9 @@ class QuickWhisper(tk.Tk):
                            "closing the window will exit the application")
             self.tray_available = False
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
-            self._set_status(_("System tray unavailable"), "orange")
+            self._set_status(_("System tray unavailable"), "warning")
             # Leave the message up briefly, then return to the normal status.
-            self.after(6000, lambda: self._set_status(_("Idle"), "blue"))
+            self.after(6000, lambda: self._set_status(_("Idle"), "idle"))
             return
 
         success = self.tray_manager.show_tray()
@@ -3057,8 +3222,8 @@ class QuickWhisper(tk.Tk):
             logger.warning("Could not create the system tray icon; "
                            "closing the window will exit the application")
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
-            self._set_status(_("System tray unavailable"), "orange")
-            self.after(6000, lambda: self._set_status(_("Idle"), "blue"))
+            self._set_status(_("System tray unavailable"), "warning")
+            self.after(6000, lambda: self._set_status(_("Idle"), "idle"))
         else:
             # Set up close button behavior based on user preference
             self.update_close_behavior()

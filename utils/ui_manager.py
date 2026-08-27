@@ -926,6 +926,15 @@ class UIManager:
         self._pulse_after_id = None
         self._pulse_active = False
         self._pulse_state = True
+        self._pulse_color = None
+
+        # Status line state and the processing elapsed counter
+        self._status_state = "idle"
+        self._status_msgid = None
+        self._recording_hint = None
+        self._processing_since = None
+        self._processing_base_message = None
+        self._processing_after_id = None
 
         # Device list state (QW-07)
         self._has_audio_devices = False
@@ -1749,12 +1758,20 @@ class UIManager:
             return
         try:
             # The meter and clock are only on screen while recording, and the
-            # only status shown then is "Recording..." - every longer message
+            # statuses shown then are the recording ones - every longer message
             # ("Processing...", "Error during transcription") appears with the
             # readout already hidden. Reserving for both maxima at once cost
             # around 110px that the two can never actually need together, and
             # that space is what the model and prompt pickers live in.
-            recording_text = font.measure(_("Recording..."))
+            #
+            # The reservation is recomputed when recording starts and stops
+            # rather than being sized for the worst case of either: the
+            # recording hint is much wider than "Idle", and holding room for it
+            # while idle would permanently squeeze the pickers.
+            recording_text = max(font.measure(text) for text in (
+                _("Recording..."),
+                self._cancel_hint_text(),
+            ))
             idle_text = max(font.measure(text) for text in (
                 _("Idle"),
                 _("Processing - Audio File..."),
@@ -1772,9 +1789,32 @@ class UIManager:
         _seg_w, _gap, _height, meter_width = self._meter_metrics()
         dot_width = get_font_size('status_dot') + get_spacing('sm')
         readout = (meter_width + elapsed_width + get_spacing('sm') * 2) if self._level_meter_enabled else 0
-        widest = max(recording_text + readout, idle_text)
+        if self._status_state == "recording":
+            widest = max(recording_text + readout, idle_text)
+        else:
+            widest = idle_text
         self._status_min_width = dot_width + widest + get_spacing('md')
         self.status_row.columnconfigure(0, minsize=self._status_min_width)
+
+    def _cancel_shortcut(self):
+        """Display form of the global cancel shortcut."""
+        default = "Cmd+X" if getattr(self.parent, 'is_mac', False) else "Ctrl+Alt+X"
+        try:
+            return self.parent.hotkey_manager.display_shortcut(
+                'cancel_recording', default)
+        except Exception:
+            return default
+
+    def _cancel_hint_text(self):
+        """Recording status naming the way out.
+
+        Cancel previously existed only as an unlabelled global shortcut, so a
+        user who started a bad take had no visible way to discard it. The
+        global shortcut is named rather than Escape: Escape only reaches us
+        while the window has focus, and during dictation it usually does not.
+        """
+        return _("Recording - {shortcut} to cancel").format(
+            shortcut=self._cancel_shortcut())
 
     def _measuring_font(self, size_key):
         """A cached tkfont for measuring text, or None if fonts are unavailable.
@@ -2150,6 +2190,34 @@ class UIManager:
             color = self.theme.TEXT_MUTED
 
         self.elapsed_label.configure(text=f"{minutes}:{secs:02d}", foreground=color)
+        self._update_recording_hint(state)
+
+    def _update_recording_hint(self, limit_state):
+        """Swap the cancel hint for a limit warning as the ceiling approaches.
+
+        The clock turning amber was previously the only sign that recording was
+        about to stop by itself, which says nothing to a user who is not
+        looking at it or does not know a limit exists.
+        """
+        if self._status_state != "recording":
+            return
+        wanted = "limit" if limit_state in ("warning", "critical") else "cancel"
+        if wanted == self._recording_hint:
+            return
+        self._recording_hint = wanted
+
+        if wanted == "limit":
+            try:
+                max_minutes = int(getattr(get_config(), 'max_recording_minutes', 0) or 0)
+            except Exception:
+                max_minutes = 0
+            text = _("Recording - stops at {minutes}:00").format(minutes=max_minutes)
+        else:
+            text = self._cancel_hint_text()
+
+        if self._widget_alive(self.status_label):
+            self.status_label.configure(text=text)
+            self._schedule_model_label_fit()
 
     def _limit_state_from_elapsed(self, seconds):
         """Derive a limit-warning state from the configured maximum length."""
@@ -2394,22 +2462,113 @@ class UIManager:
         except Exception:
             logger.error("Re-run AI edit failed", exc_info=True)
 
-    def set_status(self, message, color="blue", pulsing=None):
-        color_map = {
-            "blue": (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY),
-            "green": (self.theme.STATUS_SUCCESS, self.theme.STATUS_SUCCESS),
-            "red": (self.theme.RECORDING_TEXT, self.theme.RECORDING_TEXT),
-            "orange": (self.theme.STATUS_PROCESSING, self.theme.STATUS_PROCESSING)
-        }
-        dot_color, text_color = color_map.get(color, (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY))
+    # Semantic status states. Callers name what is happening rather than a
+    # colour, so "in progress" cannot drift back to the success colour: green
+    # has to keep meaning finished, or the status line answers nothing at the
+    # one moment the user is waiting on it.
+    _STATUS_STATES = {
+        "idle": ("STATUS_IDLE", "TEXT_TERTIARY"),
+        "processing": ("STATUS_PROCESSING", "STATUS_PROCESSING"),
+        # Same amber as processing, but a standing condition rather than work
+        # in flight, so it must not pulse or run an elapsed counter.
+        "warning": ("STATUS_PROCESSING", "STATUS_PROCESSING"),
+        "success": ("STATUS_SUCCESS", "STATUS_SUCCESS"),
+        "recording": ("STATUS_RECORDING", "RECORDING_TEXT"),
+        "error": ("RECORDING_TEXT", "RECORDING_TEXT"),
+    }
+
+    # Colour names accepted by older call sites. Amber maps to the non-pulsing
+    # warning state: a caller that only knew about colours cannot have meant
+    # "work is in progress".
+    _LEGACY_STATUS_STATES = {
+        "blue": "idle",
+        "green": "success",
+        "red": "error",
+        "orange": "warning",
+    }
+
+    # Every fixed status message the app can show, as its untranslated msgid.
+    # set_status is handed text that has already been through _(), so it maps
+    # that back to the msgid here; a later language change then re-translates
+    # from the msgid instead of trying to match the displayed text against
+    # English, which never worked when switching between two other languages.
+    STATUS_MSGIDS = (
+        "Idle",
+        "Stopped",
+        "Recording...",
+        "Processing - Audio File...",
+        "Processing - Transcript...",
+        "Processing - AI Editing...",
+        "Retrying transcription...",
+        "No speech detected",
+        "Error during transcription",
+        "AI edit failed",
+        "AI edit returned no text",
+        "Clipboard unavailable",
+        "System tray unavailable",
+        "Success",
+        "Error",
+    )
+
+    def _remember_status_msgid(self, message):
+        """Record which known status this text is, for later re-translation."""
+        for msgid in self.STATUS_MSGIDS:
+            if message == msgid or message == _(msgid):
+                self._status_msgid = msgid
+                return
+        # A one-off or parameterised message (the completion receipt); it is
+        # short-lived, so leaving it untranslated on a language switch is fine.
+        self._status_msgid = None
+
+    def set_status(self, message, state="idle", pulsing=None):
+        """Update the status line.
+
+        Args:
+            message: Text to show.
+            state: One of ``idle``, ``processing``, ``success``, ``recording``
+                or ``error``. Legacy colour names are still accepted.
+            pulsing: Force the dot to pulse. Defaults to pulsing whenever the
+                state is ``recording`` or ``processing``.
+        """
+        state = self._LEGACY_STATUS_STATES.get(state, state)
+        dot_attr, text_attr = self._STATUS_STATES.get(
+            state, self._STATUS_STATES["idle"]
+        )
+        dot_color = getattr(self.theme, dot_attr)
+        text_color = getattr(self.theme, text_attr)
 
         # Decide whether the dot should pulse from explicit state, never from
         # the message text - that comparison fails in every non-English locale
-        # (QW-18a). Callers that have not been updated yet fall back to the
-        # recording flag on the audio manager, which is language independent.
+        # (QW-18a).
         if pulsing is None:
-            pulsing = bool(getattr(getattr(self.parent, 'audio_manager', None),
-                                   'recording', False))
+            pulsing = state in ("recording", "processing")
+
+        previous_state = self._status_state
+        self._status_state = state
+        self._remember_status_msgid(message)
+
+        if state == "recording":
+            # Replace the bare "Recording..." with one that names the way out.
+            message = self._cancel_hint_text()
+            self._recording_hint = "cancel"
+        else:
+            self._recording_hint = None
+
+        # Entering or leaving recording changes how much room column 0 needs.
+        if (previous_state == "recording") != (state == "recording"):
+            self._reserve_status_width()
+        # Only recording drives the level meter; processing pulses the dot but
+        # the microphone is already closed by then.
+        recording = state == "recording"
+
+        if state == "processing":
+            self._processing_base_message = message
+            if self._processing_since is None:
+                self._processing_since = time.time()
+                self._schedule_processing_tick()
+            message = self._processing_message()
+        else:
+            self._stop_processing_timer()
 
         # TTK labels use configure with foreground
         self.status_label.configure(text=message, foreground=text_color)
@@ -2418,16 +2577,49 @@ class UIManager:
         self._schedule_model_label_fit()
 
         if pulsing:
-            self._start_pulse()
-            if not self._level_monitoring:
-                self.start_level_monitor()
+            self._start_pulse(dot_color)
         else:
             self._stop_pulse()
-            if self._level_monitoring:
-                self.stop_level_monitor()
 
-    def _start_pulse(self):
-        """Start (or keep) the recording dot pulsing - never stacks loops."""
+        if recording:
+            if not self._level_monitoring:
+                self.start_level_monitor()
+        elif self._level_monitoring:
+            self.stop_level_monitor()
+
+    # ── Processing elapsed counter ───────────────────────────────────────────
+
+    def _processing_message(self):
+        """The processing status text with its elapsed seconds appended."""
+        base = self._processing_base_message or ""
+        if self._processing_since is None:
+            return base
+        seconds = int(time.time() - self._processing_since)
+        if seconds < 1:
+            return base
+        return _("{message} {seconds}s").format(message=base, seconds=seconds)
+
+    def _schedule_processing_tick(self):
+        self._processing_after_id = self._after(1000, self._processing_tick)
+
+    def _processing_tick(self):
+        self._processing_after_id = None
+        if self._processing_since is None or not self._widget_alive(self.status_label):
+            return
+        self.status_label.configure(text=self._processing_message())
+        self._schedule_model_label_fit()
+        self._schedule_processing_tick()
+
+    def _stop_processing_timer(self):
+        self._processing_since = None
+        self._processing_base_message = None
+        self._cancel_after(self._processing_after_id)
+        self._processing_after_id = None
+
+    def _start_pulse(self, color=None):
+        """Start (or keep) the status dot pulsing - never stacks loops."""
+        if color is not None:
+            self._pulse_color = color
         if self._pulse_active:
             return
         self._pulse_active = True
@@ -2445,8 +2637,9 @@ class UIManager:
         if not self._pulse_active or not self._widget_alive(self.status_dot):
             return
         self._pulse_state = not self._pulse_state
+        lit = self._pulse_color or self.theme.STATUS_RECORDING
         self.status_dot.configure(
-            foreground=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_MUTED
+            foreground=lit if self._pulse_state else self.theme.TEXT_MUTED
         )
         self._pulse_after_id = self._after(500, self._pulse_recording)
 
@@ -2667,20 +2860,14 @@ class UIManager:
         if self._widget_alive(self.device_refresh_link):
             self.device_refresh_link.configure(text=f"\u21bb  {_('Refresh')}")
 
-        # Update status label (only if showing "Idle")
-        if hasattr(self, 'status_label'):
-            current_text = str(self.status_label.cget('text'))
-            # Only update if it's a translatable status
-            status_translations = {
-                "Idle": _("Idle"),
-                "Recording...": _("Recording..."),
-                "Success": _("Success"),
-                "Error": _("Error"),
-            }
-            for orig, trans in status_translations.items():
-                if current_text == orig or current_text == trans:
-                    self.status_label.configure(text=trans)
-                    break
+        # Re-translate the status line from the msgid recorded when it was set,
+        # so this works for any language pair rather than only from English.
+        if self._widget_alive(getattr(self, 'status_label', None)) and self._status_msgid:
+            translated = _(self._status_msgid)
+            if self._status_state == "processing":
+                self._processing_base_message = translated
+                translated = self._processing_message()
+            self.status_label.configure(text=translated)
 
         # Update option switches
         if hasattr(self, 'auto_copy_switch'):

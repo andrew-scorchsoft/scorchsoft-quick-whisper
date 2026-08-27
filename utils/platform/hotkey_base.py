@@ -368,7 +368,7 @@ class HotkeyManagerBase(ABC):
             self._report_refresh_failure()
             return False
 
-    def _report_refresh_failure(self):
+    def report_hotkeys_unavailable(self):
         """Tell the user hotkeys are down - once, not once per retry.
 
         The health checker retries every few seconds, so a modal here used to
@@ -379,9 +379,12 @@ class HotkeyManagerBase(ABC):
         self._refresh_failure_reported = True
         try:
             self.parent.ui_manager.set_status(
-                _("Global shortcuts unavailable - buttons still work"), "orange")
+                _("Global shortcuts unavailable - buttons still work"), "warning")
         except Exception:
             logger.warning("Could not surface hotkey failure in the status bar")
+
+    # Kept under the old private name for existing internal callers.
+    _report_refresh_failure = report_hotkeys_unavailable
 
     def pause(self):
         """Temporarily disable all hotkeys."""
@@ -462,6 +465,45 @@ class HotkeyManagerBase(ABC):
         regular_keys = [k for k in keys if k not in modifier_order]
         sorted_modifiers = sorted(modifiers, key=lambda x: modifier_order.index(x))
         return "+".join(sorted_modifiers + sorted(regular_keys))
+
+    # How each stored key name is written when shown to a user. Anything not
+    # listed is title-cased, which covers the letter and arrow keys.
+    _KEY_DISPLAY_NAMES = {
+        'ctrl': 'Ctrl',
+        'alt': 'Alt',
+        'shift': 'Shift',
+        'win': 'Win',
+        'command': 'Cmd',
+        'left': 'Left',
+        'right': 'Right',
+        'up': 'Up',
+        'down': 'Down',
+        'space': 'Space',
+        'esc': 'Esc',
+        'escape': 'Esc',
+        'tab': 'Tab',
+        'enter': 'Enter',
+        'return': 'Enter',
+    }
+
+    def display_shortcut(self, shortcut_name, default=""):
+        """A shortcut written the way a user expects to read it.
+
+        Shortcuts are stored lowercase ("ctrl+alt+x") because that is what the
+        key listeners match on. Anywhere one is shown - button labels, the
+        status line, tooltips - it needs to be capitalised instead.
+        """
+        combo = ""
+        try:
+            combo = self.shortcuts.get(shortcut_name, "") or ""
+        except Exception:
+            logger.debug("Could not read the %s shortcut", shortcut_name)
+        if not combo:
+            return default
+        return "+".join(
+            self._KEY_DISPLAY_NAMES.get(part.lower(), part.title())
+            for part in combo.split("+") if part
+        )
 
     def reset_shortcuts_to_default(self, shortcuts_window=None):
         """Reset all keyboard shortcuts to their default values."""
