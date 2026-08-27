@@ -1,16 +1,17 @@
 import tkinter as tk
 
 from utils.app_logging import get_logger
-from utils.theme import get_font
+from utils.theme import get_font, theme_colors
 
 logger = get_logger(__name__)
 
 
 class ToolTip():
-    """Minimal tooltip matching the dark theme."""
+    """Minimal tooltip that follows the active theme.
 
-    BG_COLOR = "#1a1a1a"
-    TEXT_COLOR = "#ffffff"
+    Colours are read when the tooltip is shown rather than captured at import
+    time, so a tooltip opened after a theme switch matches the new palette.
+    """
 
     def __init__(self, widget, text):
         self.widget = widget
@@ -21,6 +22,10 @@ class ToolTip():
         # styling, for example) is not silently replaced by the tooltip.
         widget.bind("<Enter>", self.show_tooltip, add="+")
         widget.bind("<Leave>", self.hide_tooltip, add="+")
+        # Keyboard users reach these controls by Tab, never by hover, so the
+        # tooltip has to follow focus as well to stay readable to them.
+        widget.bind("<FocusIn>", self.show_tooltip, add="+")
+        widget.bind("<FocusOut>", self.hide_tooltip, add="+")
         # A click usually opens something on top of us; get out of the way.
         widget.bind("<ButtonPress>", self.hide_tooltip, add="+")
         # Never outlive the widget we are attached to.
@@ -43,21 +48,29 @@ class ToolTip():
             x = self.widget.winfo_rootx() + 10
             y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
 
+            colors = theme_colors()
+
             self.tooltip_window = tk.Toplevel(self.widget)
             self.tooltip_window.wm_overrideredirect(True)
             self.tooltip_window.wm_geometry(f"+{x}+{y}")
             self.tooltip_window.attributes("-topmost", True)
-            self.tooltip_window.configure(bg=self.BG_COLOR)
+            # The border is what keeps the chip readable in light mode, where
+            # its fill is close to the window behind it.
+            self.tooltip_window.configure(
+                bg=colors.BORDER,
+                highlightthickness=0,
+            )
 
             label = tk.Label(
                 self.tooltip_window,
                 text=self.text,
-                background=self.BG_COLOR,
-                foreground=self.TEXT_COLOR,
+                background=colors.BG_TERTIARY,
+                foreground=colors.TEXT_PRIMARY,
                 font=get_font('xxs'),
                 padx=8, pady=4
             )
-            label.pack()
+            # 1px of the Toplevel's background shows through as the border.
+            label.pack(padx=1, pady=1)
         except tk.TclError as e:
             # The widget (or the whole app) went away mid-hover.
             logger.debug("Could not show tooltip: %s", e)

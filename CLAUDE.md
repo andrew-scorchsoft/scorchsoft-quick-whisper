@@ -107,6 +107,39 @@ Push-to-talk is implemented in `HotkeyManagerBase._dispatch_record` /
 its own key-release handler. The buttons in the main window always toggle,
 whichever mode is selected.
 
+### Settings Dialog (`utils/config_dialog.py`)
+
+Six categories, listed in `ConfigDialog.CATEGORIES`: Recording, Output &
+Clipboard, AI Models, Appearance, History & Storage, System. Panels are
+composed from `_section_*` methods, so moving a setting between categories is
+moving one line. `_panel(title)` returns a scrollable body to fill.
+
+Settings that also appear on a menu (dark mode, auto-refresh hotkeys, update
+checks) share the menu's own variable and handler, so both places are one
+switch. All tk variables are created and loaded up front; only widgets are
+built lazily, and anything reading a widget must go through `_alive()` -
+`hasattr` stays true after a panel is destroyed.
+
+### Status Line States (`UIManager.set_status`)
+
+Callers name a semantic state - `idle`, `processing`, `warning`, `success`,
+`recording`, `error` - rather than a colour, so "in progress" cannot drift
+back to the success green. Processing pulses amber and counts its seconds;
+`warning` is the same amber without the pulse. Legacy colour names still map
+through `_LEGACY_STATUS_STATES`. Any fixed status string must be listed in
+`STATUS_MSGIDS` so a language change can re-translate it from its msgid.
+
+### Dialog Conventions (`utils/dialog_utils.py`)
+
+- `position_dialog(window, w, h, parent)` - centres on the parent when it can
+  be trusted, else on screen, always clamped fully on-screen.
+- `bind_dialog_keys(window, on_cancel, on_accept)` - Escape cancels, Return
+  activates the primary action (ignored while a `tk.Text` has focus).
+- `focus_first(widget)` - put the caret in the first field.
+
+Routine confirmations use `ui_manager.show_toast()`, not a modal: every modal
+steals focus from the app the user is dictating into.
+
 ### Clipboard Handling
 Auto-paste simulates the paste shortcut, so the text has to be on the clipboard
 first and the write is verified before the keystroke is sent. When "Copy to
@@ -126,7 +159,7 @@ Centralized theming module with platform-aware HiDPI support. Uses Sun Valley tt
 **Module Structure:**
 | File | Purpose |
 |------|---------|
-| `colors.py` | `ThemeColors` class with Scorchsoft brand colors |
+| `colors.py` | `ThemeColors` (dark) and `LightThemeColors`, plus the `theme_colors()` accessor |
 | `fonts.py` | `FontProvider` with platform-specific font sizes (base + HiDPI per platform) |
 | `spacing.py` | `SpacingProvider` for spacing, radius, button heights, border widths |
 | `windows.py` | `WindowSizeProvider` for dialog dimensions per platform/HiDPI mode |
@@ -138,25 +171,37 @@ from utils.theme import (
     get_spacing, get_radius,            # Padding and corner radius
     get_button_height, get_border_width, # Button dimensions
     get_window_size,                    # Dialog sizes
-    ThemeColors,                        # Color constants
+    theme_colors,                       # Active palette (dark or light)
+    set_theme_mode,                     # Select the palette
 )
 
 # Examples
 font = get_font('md', 'bold')           # ("Segoe UI", 14, "bold") on Windows HiDPI
 padding = get_spacing('md')             # 14 on HiDPI, 12 on base
 width, height = get_window_size('main') # Platform/HiDPI-aware dimensions
+fg = theme_colors().TEXT_PRIMARY        # Resolves per active theme
 ```
+
+**Palettes:** `ThemeColors` (dark) and `LightThemeColors` define the same
+attribute names. Read colours through `theme_colors()` rather than importing a
+palette, so a theme switch reaches every widget. Both light and dark values
+clear WCAG AA (4.5:1) against their backgrounds. `TEXT_ON_ACCENT` and the
+`BUTTON_*` tokens are deliberately theme-independent: they sit on saturated
+fills that are identical in both themes.
 
 **Initialization:** Call `init_theme(is_hidpi=True/False)` after Tk root is created, before UI setup.
 
 **Font size keys:** `xxs`, `xs`, `sm`, `md`, `lg`, `xl`, plus semantic names like `nav_arrow`, `copy_link`, `menu_button`
 
-**Legacy:** `ModernTheme` class in `ui_manager.py` delegates to `ThemeColors` for backward compatibility.
+**Legacy:** `ModernTheme` in `ui_manager.py` proxies colour lookups to the
+active palette via a metaclass, so existing `self.theme.COLOUR` call sites are
+theme-aware without change. Colour attributes must NOT be defined on the class
+- Python would resolve them before `__getattr__` and freeze them at import.
 
 ## Key Technical Notes
 
 - **Thread safety**: All keyboard callbacks are marshaled to main Tkinter thread via `self.parent.after(0, ...)` to prevent UI glitches
-- **Hotkey reliability**: Hotkeys can become unregistered after Windows lock/unlock - the app has health checking and auto-refresh (every 30s when enabled)
+- **Hotkey reliability**: Hotkeys can become unregistered after Windows lock/unlock - the app health-checks every 5s and refreshes after repeated failures, or every 2 minutes while minimised. Initial registration failure is surfaced in the status bar.
 - **Transcription models**: Two types supported - `gpt` (default `gpt-transcribe`, also `gpt-4o-transcribe`/`gpt-4o-mini-transcribe`) and `whisper` (whisper-1) with different API parameters
 - **Copy-editing model**: Defaults to `gpt-5.6-luna` via the Responses API with `reasoning.effort="low"`; older `gpt-5*` models use `effort="minimal"`, non-GPT-5 models use Chat Completions
 - **Recording storage**: Configurable location - alongside app, AppData/config folder, or custom path

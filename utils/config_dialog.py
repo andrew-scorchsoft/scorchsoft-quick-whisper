@@ -6,12 +6,13 @@ import os
 import platform
 import time
 from utils.config_manager import get_config, TRANSCRIPTION_MODELS, AI_MODELS
-from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing, theme_colors
 from utils.platform import open_url
 from utils.i18n import (
     _, _n, set_language, get_current_language, detect_os_locale,
     get_detected_locale_display, get_available_languages, SUPPORTED_LANGUAGES
 )
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.app_logging import get_logger
 
 logger = get_logger(__name__)
@@ -83,7 +84,13 @@ class ScrollableSettingsFrame(ttk.Frame):
         self._canvas.bind_all("<Button-4>", self._on_wheel)
         self._canvas.bind_all("<Button-5>", self._on_wheel)
 
-    def _unbind_wheel(self, _event=None):
+    def _unbind_wheel(self, event=None):
+        # The body frame is a child of the canvas, so moving the pointer onto
+        # any setting fires <Leave> on the canvas with detail NotifyInferior.
+        # Unbinding then would kill the wheel the moment the pointer reached
+        # something worth scrolling to. Only a real exit counts.
+        if event is not None and str(getattr(event, 'detail', '')) == 'NotifyInferior':
+            return
         for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             try:
                 self._canvas.unbind_all(sequence)
@@ -126,12 +133,7 @@ class ConfigDialog:
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('config_dialog')
-        self.dialog.geometry(f"{window_width}x{window_height}")
-
-        # Center the window
-        position_x = parent.winfo_x() + (parent.winfo_width() - window_width) // 2
-        position_y = parent.winfo_y() + (parent.winfo_height() - window_height) // 2
-        self.dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(self.dialog, window_width, window_height, parent)
 
         self.dialog.transient(parent)
 
@@ -167,6 +169,7 @@ class ConfigDialog:
         self.persist_history_var = tk.BooleanVar()
         self.history_limit_var = tk.StringVar()
         self.show_level_meter_var = tk.BooleanVar()
+        self.play_sounds_var = tk.BooleanVar()
         self.restore_clipboard_var = tk.BooleanVar()
 
         # Track original HiDPI setting for restart prompt
@@ -255,6 +258,13 @@ class ConfigDialog:
         self.create_dialog()
         logger.info("[CONFIG DIALOG] create_dialog() done: %sms", (time.perf_counter() - _t0)*1000)
 
+        # Baseline for the unsaved-changes check, taken once the settings are
+        # in their variables and before the user can touch anything.
+        self._baseline = self._settings_snapshot()
+        bind_dialog_keys(self.dialog,
+                         on_cancel=self._close_dialog,
+                         on_accept=self.save_settings)
+
         # Force Tkinter to process all widget geometry before showing
         # This prevents the black flash by ensuring widgets are rendered
         self.dialog.update_idletasks()
@@ -334,6 +344,7 @@ class ConfigDialog:
         self.persist_history_var.set(self.config.persist_history)
         self.history_limit_var.set(str(self.config.history_limit))
         self.show_level_meter_var.set(self.config.show_level_meter)
+        self.play_sounds_var.set(self.config.play_sounds)
         self.restore_clipboard_var.set(self.config.restore_clipboard)
         
     def create_dialog(self):
@@ -396,14 +407,19 @@ class ConfigDialog:
     # Category key -> (translated label, panel builder attribute name).
     # Keeping this in one table means a new settings tab is one entry, not a
     # hand-copied button plus a branch in switch_category.
+    #
+    # Grouped by what a setting does, not by how advanced it is. "Advanced"
+    # had become a nine-item drawer holding the recording mode - the most
+    # behaviour-changing choice in the app - while "Display" and "Behavior"
+    # held one setting each. It no longer exists; everything in it had a
+    # natural home.
     CATEGORIES = (
         ("Recording", lambda: _("Recording"), "show_recording_settings"),
-        ("Display", lambda: _("Display"), "show_display_settings"),
-        ("Language", lambda: _("Language"), "show_language_settings"),
-        ("Output", lambda: _("Output"), "show_output_settings"),
+        ("Output", lambda: _("Output & Clipboard"), "show_output_settings"),
         ("AI Models", lambda: _("AI Models"), "show_ai_models_settings"),
-        ("Behavior", lambda: _("Behavior"), "show_behavior_settings"),
-        ("Advanced", lambda: _("Advanced"), "show_advanced_settings"),
+        ("Appearance", lambda: _("Appearance"), "show_display_settings"),
+        ("History", lambda: _("History & Storage"), "show_history_settings"),
+        ("System", lambda: _("System"), "show_behavior_settings"),
     )
 
     def create_navigation_panel(self, parent):
@@ -450,8 +466,8 @@ class ConfigDialog:
             corner_radius=corner_radius,
             height=button_height,
             width=180,
-            fg_color="#666666",
-            hover_color="#444444",
+            fg_color=theme_colors().BUTTON_SECONDARY,
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self._close_dialog
@@ -464,8 +480,8 @@ class ConfigDialog:
             corner_radius=corner_radius,
             height=button_height,
             width=200,
-            fg_color="#058705",
-            hover_color="#046a38",
+            fg_color=theme_colors().BUTTON_PRIMARY,
+            hover_color=theme_colors().BUTTON_PRIMARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self.save_settings
@@ -497,19 +513,34 @@ class ConfigDialog:
                 # Unselected: normal style
                 button.configure(style='Nav.TButton')
                 
-    def show_recording_settings(self):
-        """Show the recording settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("Recording Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+    def _panel(self, title):
+        """Start a settings panel: a title plus a scrollable body to fill.
 
+        Panels are scrollable as a matter of course now that settings are
+        grouped by what they do rather than by how advanced they are - a
+        category can hold more than fits at base scaling.
+        """
+        ttk.Label(
+            self.content_frame,
+            text=title,
+            font=get_font('lg', 'bold')
+        ).pack(anchor="w", pady=(0, 16))
+        scroll = ScrollableSettingsFrame(self.content_frame)
+        scroll.pack(fill=tk.BOTH, expand=True)
+        return scroll.body
+
+    def show_recording_settings(self):
+        """Everything about capturing audio: how to trigger it, and its limits."""
+        body = self._panel(_("Recording"))
+        self._section_recording_mode(body)
+        self._section_recording_limits(body)
+        self._section_recording_feedback(body)
+
+    def _section_recording_location(self, parent):
+        """Where recording files are written."""
         # Recording Location Section
         location_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("Recording Location"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -578,9 +609,11 @@ class ConfigDialog:
         )
         self.browse_button.pack(side=tk.RIGHT)
 
+    def _section_file_handling(self, parent):
+        """Overwrite one file, or keep every take."""
         # File Handling Section
         handling_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("File Handling"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -632,104 +665,65 @@ class ConfigDialog:
         self.browse_button.configure(state="normal" if is_custom else "disabled")
 
     def show_output_settings(self):
-        """Show the output settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("Output Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+        """What happens to the transcription once it exists."""
+        body = self._panel(_("Output & Clipboard"))
+        self._section_clipboard(body)
+        self._section_paste_method(body)
 
-        # Auto-Paste Method Section (Windows only shows all options, others show subset)
-        paste_frame = ttk.LabelFrame(
-            self.content_frame,
-            text=_("Auto-Paste Method"),
-            padding="15",
-            style='Dialog.TLabelframe'
-        )
-        paste_frame.pack(fill="x", pady=(0, 20))
+    # Auto-paste methods, described by what they do rather than by the library
+    # that implements them. The technical name is kept in brackets because it
+    # is what users quote in bug reports.
+    #   (value, label, windows_only)
+    PASTE_METHODS = (
+        ("auto", lambda: _("Automatic (recommended)"), False),
+        ("sendinput", lambda: _("Most reliable on Windows (SendInput)"), True),
+        ("win32api", lambda: _("For older Windows apps (win32api)"), True),
+        ("pynput", lambda: _("For slow apps, with delays (pynput)"), False),
+        ("pynput_legacy", lambda: _("Fastest, no delays (pynput legacy)"), False),
+        ("pyautogui", lambda: _("If nothing else works (pyautogui)"), False),
+    )
+
+    def _section_paste_method(self, parent):
+        """How the paste keystroke is simulated."""
+        paste_frame = self._advanced_section(parent, _("Auto-Paste Method"))
+
+        # The troubleshooting line is why anyone opens this section, so it
+        # leads rather than trailing the list.
+        self._hint_label(
+            paste_frame,
+            _("Only change this if auto-paste misbehaves - for example if it types "
+              "'v' instead of pasting."))
 
         ttk.Label(
             paste_frame,
-            text=_("Choose the keyboard simulation method for auto-paste:"),
+            text=_("How the paste keystroke is sent:"),
             style='Dialog.TLabel'
-        ).pack(anchor="w", pady=(0, 10))
+        ).pack(anchor="w", pady=(10, 6))
 
-        ttk.Radiobutton(
-            paste_frame,
-            text=_("Auto (recommended) - Uses best method for your system"),
-            variable=self.paste_method_var,
-            value="auto",
-            style='Dialog.TRadiobutton'
-        ).pack(anchor="w", pady=2)
-
-        # Windows-specific options
-        if platform.system() == "Windows":
+        is_windows = platform.system() == "Windows"
+        for value, label, windows_only in self.PASTE_METHODS:
+            if windows_only and not is_windows:
+                continue
             ttk.Radiobutton(
                 paste_frame,
-                text=_("SendInput - Native Windows API (most reliable)"),
+                text=label(),
                 variable=self.paste_method_var,
-                value="sendinput",
+                value=value,
                 style='Dialog.TRadiobutton'
             ).pack(anchor="w", pady=2)
-
-            ttk.Radiobutton(
-                paste_frame,
-                text=_("win32api - Older Windows API (keybd_event)"),
-                variable=self.paste_method_var,
-                value="win32api",
-                style='Dialog.TRadiobutton'
-            ).pack(anchor="w", pady=2)
-
-        ttk.Radiobutton(
-            paste_frame,
-            text=_("pynput - Cross-platform with timing delays"),
-            variable=self.paste_method_var,
-            value="pynput",
-            style='Dialog.TRadiobutton'
-        ).pack(anchor="w", pady=2)
-
-        ttk.Radiobutton(
-            paste_frame,
-            text=_("pynput (legacy) - Original method, no delays"),
-            variable=self.paste_method_var,
-            value="pynput_legacy",
-            style='Dialog.TRadiobutton'
-        ).pack(anchor="w", pady=2)
-
-        ttk.Radiobutton(
-            paste_frame,
-            text=_("pyautogui - Alternative automation library"),
-            variable=self.paste_method_var,
-            value="pyautogui",
-            style='Dialog.TRadiobutton'
-        ).pack(anchor="w", pady=2)
-
-        # Info note
-        info_frame = ttk.Frame(paste_frame)
-        info_frame.pack(fill="x", pady=(10, 0))
-
-        ttk.Label(
-            info_frame,
-            text=_("Try a different method if auto-paste types 'v' instead of pasting."),
-            font=get_font('xxs'),
-            foreground="#909090"
-        ).pack(anchor="w")
 
     def show_display_settings(self):
-        """Show the display settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("Display Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+        """How the app looks: theme, scaling and interface language."""
+        body = self._panel(_("Appearance"))
+        self._section_theme(body)
+        self._section_hidpi(body)
+        self._section_app_language(body)
 
+    def _section_hidpi(self, parent):
+        """Scaling for high-resolution displays."""
         # HiDPI Scaling Section
         hidpi_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("HiDPI Scaling"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -803,18 +797,16 @@ class ConfigDialog:
         ).pack(anchor="w")
 
     def show_behavior_settings(self):
-        """Show the behavior settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("Behavior Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+        """How the app behaves as a running program."""
+        body = self._panel(_("System"))
+        self._section_close_behavior(body)
+        self._section_background(body)
 
+    def _section_close_behavior(self, parent):
+        """What the X button does."""
         # Window Close Behavior Section
         close_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("Window Close Behavior"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -903,32 +895,54 @@ class ConfigDialog:
         self._hint_label(parent, hint)
         return entry
 
-    def _advanced_check(self, parent, label, variable, hint):
-        """A checkbox with an explanatory line beneath it."""
+    def _advanced_check(self, parent, label, variable, hint, command=None):
+        """A checkbox with an explanatory line beneath it.
+
+        ``command`` is for settings that are also on a menu and apply the
+        moment they change: passing the menu's own handler keeps the two in
+        step rather than making them two sources of truth.
+        """
         ttk.Checkbutton(
-            parent, text=label, variable=variable, style='Switch.TCheckbutton'
+            parent, text=label, variable=variable, style='Switch.TCheckbutton',
+            command=command
         ).pack(anchor="w", pady=(0, 2))
         self._hint_label(parent, hint, indent=6)
 
-    def show_advanced_settings(self):
-        """Show the advanced settings panel.
+    def _section_theme(self, parent):
+        """Light or dark.
 
-        These all existed as settings.json keys before they had any interface,
-        which meant the app quietly enforced limits nobody could see. Anything
-        that silently discards a recording or deletes a file belongs here.
+        Shares the main window's BooleanVar, so the menu item and this
+        checkbox are the same switch rather than two sources of truth.
         """
-        ttk.Label(
-            self.content_frame,
-            text=_("Advanced Settings"),
-            font=get_font('lg', 'bold')
-        ).pack(anchor="w", pady=(0, 16))
+        frame = self._advanced_section(parent, _("Theme"))
+        self._advanced_check(
+            frame, _("Dark mode"), self.parent.dark_mode,
+            _("Applies immediately. Also available from the Settings menu."),
+            command=self.parent.toggle_dark_mode)
 
-        scroll = ScrollableSettingsFrame(self.content_frame)
-        scroll.pack(fill=tk.BOTH, expand=True)
-        body = scroll.body
+    def _section_background(self, parent):
+        """Options that govern the app running in the background."""
+        frame = self._advanced_section(parent, _("Background Behaviour"))
+        self._advanced_check(
+            frame, _("Keep global shortcuts working automatically"),
+            self.parent.auto_hotkey_refresh,
+            _("Re-registers the global shortcuts periodically. Windows can drop them "
+              "after locking and unlocking the screen, and this puts them back "
+              "without you noticing."),
+            command=self.parent.save_auto_hotkey_refresh)
+        self._advanced_check(
+            frame, _("Check for updates on startup"),
+            self.parent.version_manager.auto_update_check,
+            _("Looks for a newer release of Quick Whisper when the app starts."),
+            command=self.parent.version_manager.save_auto_update_setting)
 
-        # ── How recording is triggered ───────────────────────────────────
-        mode_frame = self._advanced_section(body, _("Recording Shortcut Behaviour"))
+    def _section_recording_mode(self, parent):
+        """Toggle vs push-to-talk.
+
+        This lived in "Advanced" - the single most behaviour-changing choice
+        in the app, filed where settings go to die.
+        """
+        mode_frame = self._advanced_section(parent, _("Recording Shortcut Behaviour"))
         ttk.Label(
             mode_frame,
             text=_("Choose how the record shortcuts behave:"),
@@ -962,8 +976,9 @@ class ConfigDialog:
               "is selected."),
             indent=20)
 
-        # ── Recording limits ─────────────────────────────────────────────
-        limits_frame = self._advanced_section(body, _("Recording Limits"))
+    def _section_recording_limits(self, parent):
+        """How long a take may run, and when one is not worth sending."""
+        limits_frame = self._advanced_section(parent, _("Recording Limits"))
         self._advanced_field(
             limits_frame, _("Maximum length (minutes):"), self.max_minutes_var,
             _("Recording stops automatically at this length so the audio stays within "
@@ -979,16 +994,31 @@ class ConfigDialog:
             _("Skip uploading a recording when no speech was detected in it. Turn this "
               "off if quiet dictation is being discarded by mistake."))
 
-        # ── Stored recordings ────────────────────────────────────────────
-        files_frame = self._advanced_section(body, _("Stored Recordings"))
+    def _section_recording_feedback(self, parent):
+        """What the app shows and plays while recording."""
+        feedback_frame = self._advanced_section(parent, _("While Recording"))
+        self._advanced_check(
+            feedback_frame, _("Show the input level meter while recording"),
+            self.show_level_meter_var,
+            _("Displays a live microphone level and timer next to the status, so you "
+              "can see that your voice is being picked up."))
+        self._advanced_check(
+            feedback_frame, _("Play sound effects"), self.play_sounds_var,
+            _("Short sounds mark the start and end of a recording and confirm when a "
+              "transcription is ready. Turn this off to work silently."))
+
+    def _section_retention(self, parent):
+        """Automatic clean-up of saved audio."""
+        files_frame = self._advanced_section(parent, _("Stored Recordings"))
         self._advanced_field(
             files_frame, _("Delete recordings after (days):"), self.retention_days_var,
             _("Audio files older than this are deleted automatically. Only applies when "
               "recordings are saved with a date and time in the filename. "
               "Use 0 to keep them forever."))
 
-        # ── History ──────────────────────────────────────────────────────
-        history_frame = self._advanced_section(body, _("Transcription History"))
+    def _section_history(self, parent):
+        """How much dictation history is kept, and for how long."""
+        history_frame = self._advanced_section(parent, _("Transcription History"))
         self._advanced_check(
             history_frame, _("Remember history between sessions"), self.persist_history_var,
             _("Keep your transcriptions on disk so they are still there next time the "
@@ -998,33 +1028,36 @@ class ConfigDialog:
             _("How many transcriptions are kept in the history before the oldest are "
               "dropped."))
 
-        # ── Feedback and clipboard ───────────────────────────────────────
-        feedback_frame = self._advanced_section(body, _("Feedback and Clipboard"))
+    def _section_clipboard(self, parent):
+        """What happens to the result once it is ready."""
+        frame = self._advanced_section(parent, _("After Transcription"))
         self._advanced_check(
-            feedback_frame, _("Show the input level meter while recording"),
-            self.show_level_meter_var,
-            _("Displays a live microphone level and timer next to the status, so you "
-              "can see that your voice is being picked up."))
+            frame, _("Auto-copy result"), self.parent.auto_copy,
+            _("Put the finished text on the clipboard automatically. The same switch "
+              "appears under the transcript in the main window."))
         self._advanced_check(
-            feedback_frame, _("Restore the previous clipboard after auto-paste"),
+            frame, _("Auto-paste result"), self.parent.auto_paste,
+            _("Paste the finished text straight into whichever app you were using."))
+        self._advanced_check(
+            frame, _("Restore the previous clipboard after auto-paste"),
             self.restore_clipboard_var,
-            _("When 'Copy to clipboard' is switched off, the transcription is put on "
+            _("When auto-copy is switched off, the transcription is put on "
               "the clipboard only long enough to paste it, then whatever you had "
               "copied before is put back."))
 
-    def show_language_settings(self):
-        """Show the language settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("Language Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+    def show_history_settings(self):
+        """Where dictation and its audio are kept."""
+        body = self._panel(_("History & Storage"))
+        self._section_history(body)
+        self._section_recording_location(body)
+        self._section_file_handling(body)
+        self._section_retention(body)
 
+    def _section_app_language(self, parent):
+        """The language the interface is shown in."""
         # Application Language Section
         language_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("Application Language"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -1132,10 +1165,17 @@ class ConfigDialog:
         # Update visibility based on current mode
         self._on_language_mode_change()
 
+    def _section_speech_language(self, parent):
+        """Which language the speech is in.
+
+        This used to sit in a panel titled "Language" next to the interface
+        language, where the two unrelated meanings were easy to confuse. It
+        belongs with the transcription model that consumes it.
+        """
         # AI Language Settings Section (for transcription)
         ai_language_frame = ttk.LabelFrame(
-            self.content_frame,
-            text=_("AI Language Settings"),
+            parent,
+            text=_("Speech Language"),
             padding="15",
             style='Dialog.TLabelframe'
         )
@@ -1167,6 +1207,10 @@ class ConfigDialog:
         current_ai_lang = self.whisper_language_var.get()
         current_ai_lang_name = self.languages.get(current_ai_lang, "Auto Detect")
         self.ai_language_combo.set(f"{current_ai_lang_name} ({current_ai_lang})")
+        # Keep the variable authoritative: it is what save reads, and it
+        # survives the panel being destroyed when the category changes.
+        self.ai_language_combo.bind(
+            "<<ComboboxSelected>>", lambda _e: self._sync_speech_language())
 
         ttk.Label(
             ai_language_frame,
@@ -1196,18 +1240,16 @@ class ConfigDialog:
             self.language_var.set(lang_code)
 
     def show_ai_models_settings(self):
-        """Show the AI models settings panel."""
-        # Main title
-        title_label = ttk.Label(
-            self.content_frame,
-            text=_("AI Model Settings"),
-            font=get_font('lg', 'bold')
-        )
-        title_label.pack(anchor="w", pady=(0, 20))
+        """The models used to transcribe and to copy-edit, and the spoken language."""
+        body = self._panel(_("AI Models"))
+        self._section_models(body)
+        self._section_speech_language(body)
 
+    def _section_models(self, parent):
+        """Transcription and copy-editing model choices."""
         # Model Settings Frame
         models_frame = ttk.LabelFrame(
-            self.content_frame,
+            parent,
             text=_("AI Model Settings"),
             padding="15",
             style='Dialog.TLabelframe'
@@ -1316,33 +1358,34 @@ class ConfigDialog:
 
         # Link to OpenAI Pricing
         link = tk.Label(
-            self.content_frame,
+            parent,
             text=_("View Available OpenAI Models and Pricing"),
-            fg=THEME_ACCENT,
+            fg=theme_colors().ACCENT_PRIMARY,
+            bg=theme_colors().BG_PRIMARY,
             cursor="hand2",
             font=get_font('copy_link', 'underline')
         )
         link.pack(anchor="w", pady=(10, 0))
         link.bind("<Button-1>", lambda e: open_url("https://openai.com/api/pricing/"))
-        link.bind("<Enter>", lambda e: link.config(fg=THEME_ACCENT_HOVER))
-        link.bind("<Leave>", lambda e: link.config(fg=THEME_ACCENT))
+        link.bind("<Enter>", lambda e: link.config(fg=theme_colors().ACCENT_HOVER))
+        link.bind("<Leave>", lambda e: link.config(fg=theme_colors().ACCENT_PRIMARY))
 
     def _on_transcription_model_change(self, *args):
         """Handle transcription model dropdown change."""
-        if hasattr(self, 'custom_trans_frame'):
+        if self._alive(getattr(self, 'custom_trans_frame', None)):
             if self.transcription_model_var.get() == "other":
                 self.custom_trans_frame.pack(fill="x", pady=(5, 0))
-                if hasattr(self, 'custom_trans_entry'):
+                if self._alive(getattr(self, 'custom_trans_entry', None)):
                     self.custom_trans_entry.focus()
             else:
                 self.custom_trans_frame.pack_forget()
 
     def _on_llm_model_change(self, *args):
         """Handle LLM model dropdown change."""
-        if hasattr(self, 'custom_llm_frame'):
+        if self._alive(getattr(self, 'custom_llm_frame', None)):
             if self.llm_model_var.get() == "other":
                 self.custom_llm_frame.pack(fill="x", pady=(5, 0))
-                if hasattr(self, 'custom_llm_entry'):
+                if self._alive(getattr(self, 'custom_llm_entry', None)):
                     self.custom_llm_entry.focus()
             else:
                 self.custom_llm_frame.pack_forget()
@@ -1391,11 +1434,9 @@ class ConfigDialog:
 
         # Validate AI Models settings
         # Get selected AI language code from combo box (if Language category was visited)
-        if hasattr(self, 'ai_language_combo'):
-            selected_language = self.ai_language_combo.get()
-            whisper_language_code = selected_language.split('(')[-1].strip(')')
-        else:
-            whisper_language_code = self.whisper_language_var.get()
+        if self._alive(getattr(self, 'ai_language_combo', None)):
+            self._sync_speech_language()
+        whisper_language_code = self.whisper_language_var.get()
 
         # Get the selected transcription model
         if self.transcription_model_var.get() == "other":
@@ -1451,6 +1492,7 @@ class ConfigDialog:
             self.config.persist_history = advanced['persist_history']
             self.config.history_limit = advanced['history_limit']
             self.config.show_level_meter = advanced['show_level_meter']
+            self.config.play_sounds = advanced['play_sounds']
             self.config.restore_clipboard = advanced['restore_clipboard']
 
             # Save to file
@@ -1493,20 +1535,24 @@ class ConfigDialog:
                     icon='question'
                 )
                 if restart_now:
-                    self._close_dialog()
+                    self._close_dialog(check_unsaved=False)
                     self.parent.restart_application()
                     return
                 else:
+                    # Kept as a dialog: this one carries a consequence the user
+                    # has to act on later, unlike a plain "saved" confirmation.
                     messagebox.showinfo(
                         _("Settings Saved"),
                         _("Configuration settings saved successfully!") + "\n\n" +
                         _("The HiDPI scaling change will take effect after you restart the application.")
                     )
-                    self._close_dialog()
+                    self._close_dialog(check_unsaved=False)
                     return
 
-            messagebox.showinfo(_("Success"), _("Configuration settings saved and applied successfully!"))
-            self._close_dialog()
+            # A toast rather than a modal: a successful save needs
+            # acknowledging, not dismissing.
+            self._close_dialog(check_unsaved=False)
+            self._notify_parent(_("Settings saved"))
 
         except Exception as e:
             messagebox.showerror(_("Error"), _("Could not save settings: {error}").format(error=e)) 
@@ -1568,10 +1614,74 @@ class ConfigDialog:
             'persist_history': bool(self.persist_history_var.get()),
             'history_limit': int(history_limit),
             'show_level_meter': bool(self.show_level_meter_var.get()),
+            'play_sounds': bool(self.play_sounds_var.get()),
             'restore_clipboard': bool(self.restore_clipboard_var.get()),
         }
 
-    def _close_dialog(self):
+    def _sync_speech_language(self):
+        """Copy the speech-language combobox selection into its variable."""
+        try:
+            selected = self.ai_language_combo.get()
+            self.whisper_language_var.set(selected.split('(')[-1].strip(')'))
+        except Exception:
+            logger.debug("Could not read the speech language selection", exc_info=True)
+
+    @staticmethod
+    def _alive(widget):
+        """Whether a widget reference still points at a live widget.
+
+        Switching category destroys the current panel but leaves the
+        attributes pointing at its widgets, so hasattr() alone reports a
+        destroyed combobox as present and reading it raises TclError.
+        """
+        try:
+            return widget is not None and bool(widget.winfo_exists())
+        except Exception:
+            return False
+
+    def _notify_parent(self, message):
+        """Show a toast on the main window (the dialog is on its way out)."""
+        try:
+            self.parent.ui_manager.show_toast(message)
+        except Exception as e:
+            logger.debug("Could not show the '%s' toast: %s", message, e)
+
+    def _settings_snapshot(self):
+        """Current value of every settings variable on this dialog.
+
+        Collected by introspection rather than a hand-written list, so a
+        setting added later is covered by the unsaved-changes check without
+        anyone having to remember to add it here.
+        """
+        snapshot = {}
+        for name, value in vars(self).items():
+            if isinstance(value, (tk.StringVar, tk.BooleanVar,
+                                  tk.IntVar, tk.DoubleVar)):
+                try:
+                    snapshot[name] = value.get()
+                except Exception:
+                    continue
+        return snapshot
+
+    def _has_unsaved_changes(self):
+        baseline = getattr(self, '_baseline', None)
+        if not baseline:
+            return False
+        current = self._settings_snapshot()
+        return any(current.get(k) != v for k, v in baseline.items())
+
+    def _close_dialog(self, check_unsaved=True):
+        """Close the dialog, asking first if edits would be thrown away.
+
+        Cancel and the X button used to discard everything silently.
+        """
+        if check_unsaved and self._has_unsaved_changes():
+            keep_open = not messagebox.askyesno(
+                _("Discard Changes?"),
+                _("You have unsaved changes. Discard them?"),
+                parent=self.dialog, default='no')
+            if keep_open:
+                return
         try:
             self.dialog.destroy()
         finally:

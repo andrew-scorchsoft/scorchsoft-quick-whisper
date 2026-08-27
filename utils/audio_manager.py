@@ -147,6 +147,8 @@ class AudioManager:
         self._record_start_time = None
         self._limit_reached = False
         self._limit_notice_pending = False
+        self._device_lost_notice_pending = False
+        self._device_lost_error = None
         # Length of the last kept recording, so the transcript can be labelled
         # with how long it took to say.
         self.last_recording_duration = 0.0
@@ -176,11 +178,11 @@ class AudioManager:
         self._notify_tray(bool(value))
 
     def _notify_tray(self, recording):
-        """Mirror the recording state onto the tray icon.
+        """Mirror the recording state onto the tray icon and title bar.
 
         Every start, stop and cancel funnels through the recording setter, so
-        this is the one place that has to know. The tray is optional, so a
-        missing or broken tray is silently ignored.
+        this is the one place that has to know. Both surfaces are optional, so
+        a missing or broken one is silently ignored.
         """
         try:
             tray = getattr(self.parent, 'tray_manager', None)
@@ -188,6 +190,19 @@ class AudioManager:
                 tray.set_recording(recording)
         except Exception as e:
             logger.debug("Could not update the tray recording state: %s", e)
+        # The title bar is Tk. This setter is on the main thread in every
+        # normal path, so it is called directly there; only the error paths
+        # can reach it from the capture thread, and those marshal instead.
+        # (The tray above is pystray, which is safe from any thread.)
+        try:
+            set_title = getattr(self.parent, 'set_title_recording', None)
+            if callable(set_title):
+                if threading.current_thread() is threading.main_thread():
+                    set_title(recording)
+                else:
+                    self.parent.after(0, set_title, recording)
+        except Exception as e:
+            logger.debug("Could not update the title recording state: %s", e)
 
     # ------------------------------------------------------------------
     # Recording feedback (polled by UIManager)
@@ -207,6 +222,8 @@ class AudioManager:
         self.limit_warning_active = False
         self._limit_reached = False
         self._limit_notice_pending = False
+        self._device_lost_notice_pending = False
+        self._device_lost_error = None
         self._record_start_time = None
 
     # ------------------------------------------------------------------
@@ -312,8 +329,12 @@ class AudioManager:
 
             # Check if we have valid audio devices
             if selected_name == "No audio devices found" or not selected_name:
+                # Telling the user to restart is wrong: Refresh next to the
+                # device list picks up a newly connected microphone in place.
                 messagebox.showerror(_("No Audio Device"),
-                    _("No audio input device available. Please connect a microphone and restart the application."))
+                    _("No microphone was found.\n\nConnect one, then click Refresh "
+                      "next to Input Device to pick it up."))
+                self._ui('refresh_device_list')
                 return False
 
             logger.debug("Getting device index for: '%s'", selected_name)
@@ -348,7 +369,7 @@ class AudioManager:
                 self.recording = False
                 self._reset_level_state()
                 self._ui('update_button_states', recording=False)
-                self._ui('set_status', _("Idle"), "blue")
+                self._ui('set_status', _("Idle"), "idle")
                 self._ui('refresh_device_list')
                 messagebox.showerror(
                     _("Microphone Unavailable"),
@@ -371,7 +392,7 @@ class AudioManager:
 
             # Update UI in parent - now through ui_manager
             self._ui('update_button_states', recording=True)
-            self._ui('set_status', _("Recording..."), "red")
+            self._ui('set_status', _("Recording..."), "recording")
             self._ui('start_level_monitor')
 
             _audio_diag['recordings_started'] += 1
@@ -443,17 +464,53 @@ class AudioManager:
                 # Stream was closed - this is expected when stopping
                 if not self._recording_event.is_set():
                     break
-                logger.warning("Recording OSError: %s", e)
+                # The device went away mid-take (a Bluetooth headset dropping
+                # out, a USB mic unplugged). Left alone this would strand the
+                # UI showing "Recording..." against a dead microphone while the
+                # user kept talking, so hand back to the main thread and stop
+                # for real - keeping whatever was captured up to this point.
+                logger.warning("Recording OSError - input device lost: %s", e)
+                self._end_capture_on_device_loss(e)
                 break
             except Exception as e:
                 logger.error("Recording error: %s", e, exc_info=True)
                 # Only show error dialog if we're still supposed to be recording
                 if self._recording_event.is_set():
-                    self._show_error(_("Recording Error"),
-                                     _("An error occurred while recording: {error}").format(error=e))
+                    self._end_capture_on_device_loss(e)
                 break
 
         self.current_level = 0.0
+
+    def _end_capture_on_device_loss(self, error):
+        """Recording thread: the input device died, so stop on the main thread.
+
+        Runs on the capture thread, so it must not touch Tk itself. The frames
+        captured before the device went are still good and are processed as a
+        normal (short) take; if there are too few to be worth sending,
+        stop_recording's own discard check reports that instead.
+        """
+        self._device_lost_notice_pending = True
+        self._device_lost_error = error
+        try:
+            self.parent.after(0, self._stop_due_to_device_loss)
+        except Exception as e:
+            # No main loop to hand back to - at least do not leave the flag
+            # claiming a recording is still running.
+            logger.error("Could not schedule the device-loss stop: %s", e, exc_info=True)
+            self.recording = False
+
+    def _stop_due_to_device_loss(self):
+        """Main-thread callback: stop after the input device disappeared."""
+        if not self.recording:
+            return
+        try:
+            stop = getattr(self.parent, 'stop_recording', None)
+            if callable(stop):
+                stop()
+                return
+        except Exception as e:
+            logger.error("Parent stop_recording failed after device loss: %s", e, exc_info=True)
+        self.stop_recording()
 
     def _stop_due_to_limit(self):
         """Main-thread callback: stop at the size limit but keep the audio."""
@@ -537,6 +594,9 @@ class AudioManager:
             total_bytes = sum(len(f) for f in frames)
             duration = total_bytes / float(SAMPLE_RATE * SAMPLE_WIDTH) if total_bytes else 0.0
 
+            device_lost = self._device_lost_notice_pending
+            self._device_lost_notice_pending = False
+
             discard_reason = self._discard_reason(duration, peak, elapsed)
             if discard_reason:
                 _audio_diag['recordings_discarded'] += 1
@@ -544,18 +604,36 @@ class AudioManager:
                             discard_reason, duration, peak)
                 self.audio_file = None
                 self._reset_level_state()
-                self._ui('set_status', _("Idle"), "blue")
+                self._ui('set_status', _("Idle"), "idle")
                 self._play_async("assets/wrong-short.wav")
-                self._show_info(_("Nothing to Transcribe"), discard_reason)
+                if device_lost:
+                    # The device dying is why there is nothing usable; say that
+                    # rather than implying the user said nothing.
+                    self._show_error(
+                        _("Microphone Disconnected"),
+                        _("The input device stopped responding during recording, "
+                          "and too little audio was captured to transcribe.\n\n"
+                          "Check the device is connected, then use Refresh next "
+                          "to Input Device and try again."))
+                else:
+                    self._show_info(_("Nothing to Transcribe"), discard_reason)
                 return None
 
             self.last_recording_duration = duration
-            self._ui('set_status', _("Processing - Audio File..."), "green")
+            self._ui('set_status', _("Processing - Audio File..."), "processing")
 
             # Play stop recording sound
             self._play_async("assets/pop-down.wav")
 
             saved = self._write_wave(frames)
+            if device_lost and saved is not None:
+                # Enough was captured to be worth transcribing - process it,
+                # but be clear the take was cut short by the hardware.
+                self._show_info(
+                    _("Microphone Disconnected"),
+                    _("The input device stopped responding, so recording ended "
+                      "early. What was captured before that is being processed "
+                      "now."))
             notify_limit = self._limit_notice_pending and saved is not None
             limit_minutes = 0
             if notify_limit:
@@ -614,7 +692,7 @@ class AudioManager:
             tmp_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             logger.error("Could not create recording directory: %s", e, exc_info=True)
-            self._ui('set_status', _("Idle"), "blue")
+            self._ui('set_status', _("Idle"), "idle")
             self._show_error(_("Save Failed"),
                              _("Could not create the recording folder:\n{error}").format(error=e))
             self._play_async("assets/wrong-short.wav")
@@ -640,7 +718,7 @@ class AudioManager:
             # Full disk, read-only folder, path no longer valid, ...
             logger.error("Could not write recording to %s: %s", target, e, exc_info=True)
             self.audio_file = None
-            self._ui('set_status', _("Idle"), "blue")
+            self._ui('set_status', _("Idle"), "idle")
             self._show_error(
                 _("Save Failed"),
                 _("The recording could not be saved to:\n{path}\n\n"
@@ -678,7 +756,7 @@ class AudioManager:
             self._reset_level_state()
 
             # Reset status
-            self._ui('set_status', _("Idle"), "blue")
+            self._ui('set_status', _("Idle"), "idle")
 
             # Play failure sound
             self._play_async("assets/wrong-short.wav")
@@ -729,9 +807,11 @@ class AudioManager:
             self._play_async("assets/pop.wav")
 
             self.audio_file = last_recording
-            self._ui('set_status', _("Retrying transcription..."), "orange")
+            self._ui('set_status', _("Retrying transcription..."), "processing")
 
             # Re-attempt transcription in a separate thread
+            self.parent._processing = True
+            self.parent._set_tray_processing(True)
             threading.Thread(target=self.parent.transcribe_audio, daemon=True).start()
             return True
         else:
@@ -822,6 +902,15 @@ class AudioManager:
         Explicitly closes the AudioPlayer after playback to prevent
         resource leaks (COM handles on Windows, file descriptors on other platforms).
         """
+        # One switch covers all four earcons; someone working next to other
+        # people may want the app silent without losing anything else. Checked
+        # here because every path to a sound ends up in this method.
+        try:
+            if not self.config.play_sounds:
+                return
+        except Exception:
+            pass
+
         player_cls = _load_audio_player()
         if player_cls is None:
             return

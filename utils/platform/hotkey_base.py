@@ -14,9 +14,10 @@ import time
 
 from utils.config_manager import get_config
 from utils.i18n import _
-from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing, theme_colors
 from . import CURRENT_PLATFORM
 
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.app_logging import get_logger
 
 logger = get_logger(__name__)
@@ -237,6 +238,16 @@ class HotkeyManagerBase(ABC):
             self._on_main_thread(self.parent.toggle_recording, mode)
             return
 
+        # Only claim the hold if this press will actually start a recording.
+        # start_push_to_talk deliberately refuses when a recording is already
+        # running (the user may have started it from the buttons) or while the
+        # previous one is still processing - but the hold was being claimed
+        # before it got a say, so releasing the key then stopped a recording
+        # this press never started.
+        if self._press_would_be_refused():
+            logger.debug("Push-to-talk press ignored - the app is busy")
+            return
+
         with self._hold_lock:
             if self._held_combo is not None:
                 # Key auto-repeat while the combination is held. Already
@@ -246,6 +257,19 @@ class HotkeyManagerBase(ABC):
 
         logger.info("Push-to-talk started (mode=%s)", mode)
         self._on_main_thread(self.parent.start_push_to_talk, mode)
+
+    def _press_would_be_refused(self):
+        """Whether the app would ignore a new push-to-talk press right now.
+
+        Read from the listener thread, so it only touches thread-safe state:
+        ``recording`` is backed by an Event and ``_processing`` by a bool.
+        """
+        try:
+            if self.parent.audio_manager.recording:
+                return True
+            return bool(getattr(self.parent, '_processing', False))
+        except Exception:
+            return False
 
     def _note_key_released(self, key_name):
         """Tell the base class a key came up, so push-to-talk can end.
@@ -368,7 +392,7 @@ class HotkeyManagerBase(ABC):
             self._report_refresh_failure()
             return False
 
-    def _report_refresh_failure(self):
+    def report_hotkeys_unavailable(self):
         """Tell the user hotkeys are down - once, not once per retry.
 
         The health checker retries every few seconds, so a modal here used to
@@ -379,9 +403,12 @@ class HotkeyManagerBase(ABC):
         self._refresh_failure_reported = True
         try:
             self.parent.ui_manager.set_status(
-                _("Global shortcuts unavailable - buttons still work"), "orange")
+                _("Global shortcuts unavailable - buttons still work"), "warning")
         except Exception:
             logger.warning("Could not surface hotkey failure in the status bar")
+
+    # Kept under the old private name for existing internal callers.
+    _report_refresh_failure = report_hotkeys_unavailable
 
     def pause(self):
         """Temporarily disable all hotkeys."""
@@ -430,19 +457,22 @@ class HotkeyManagerBase(ABC):
 
     def update_shortcut_displays(self):
         """Update all UI elements that display keyboard shortcuts."""
+        # Pass the display form: shortcuts are stored lowercase for matching,
+        # and these end up printed on the buttons.
+        transcribe = self.display_shortcut('record_transcribe')
+        edit = self.display_shortcut('record_edit')
+
         if hasattr(self.parent.ui_manager, 'update_button_shortcuts'):
             self.parent.ui_manager.update_button_shortcuts(
-                transcribe_shortcut=self.shortcuts['record_transcribe'],
-                edit_shortcut=self.shortcuts['record_edit']
+                transcribe_shortcut=transcribe,
+                edit_shortcut=edit
             )
         else:
             self.parent.ui_manager.record_button_edit.configure(
-                text=_("Record + AI Edit ({shortcut})").format(
-                    shortcut=self.shortcuts['record_edit'])
+                text=_("Record + AI Edit ({shortcut})").format(shortcut=edit)
             )
             self.parent.ui_manager.record_button_transcribe.configure(
-                text=_("Record + Transcribe ({shortcut})").format(
-                    shortcut=self.shortcuts['record_transcribe'])
+                text=_("Record + Transcribe ({shortcut})").format(shortcut=transcribe)
             )
 
         # The menu label used to be located by searching for the English string
@@ -462,6 +492,45 @@ class HotkeyManagerBase(ABC):
         regular_keys = [k for k in keys if k not in modifier_order]
         sorted_modifiers = sorted(modifiers, key=lambda x: modifier_order.index(x))
         return "+".join(sorted_modifiers + sorted(regular_keys))
+
+    # How each stored key name is written when shown to a user. Anything not
+    # listed is title-cased, which covers the letter and arrow keys.
+    _KEY_DISPLAY_NAMES = {
+        'ctrl': 'Ctrl',
+        'alt': 'Alt',
+        'shift': 'Shift',
+        'win': 'Win',
+        'command': 'Cmd',
+        'left': 'Left',
+        'right': 'Right',
+        'up': 'Up',
+        'down': 'Down',
+        'space': 'Space',
+        'esc': 'Esc',
+        'escape': 'Esc',
+        'tab': 'Tab',
+        'enter': 'Enter',
+        'return': 'Enter',
+    }
+
+    def display_shortcut(self, shortcut_name, default=""):
+        """A shortcut written the way a user expects to read it.
+
+        Shortcuts are stored lowercase ("ctrl+alt+x") because that is what the
+        key listeners match on. Anywhere one is shown - button labels, the
+        status line, tooltips - it needs to be capitalised instead.
+        """
+        combo = ""
+        try:
+            combo = self.shortcuts.get(shortcut_name, "") or ""
+        except Exception:
+            logger.debug("Could not read the %s shortcut", shortcut_name)
+        if not combo:
+            return default
+        return "+".join(
+            self._KEY_DISPLAY_NAMES.get(part.lower(), part.title())
+            for part in combo.split("+") if part
+        )
 
     def reset_shortcuts_to_default(self, shortcuts_window=None):
         """Reset all keyboard shortcuts to their default values."""
@@ -544,12 +613,11 @@ class HotkeyManagerBase(ABC):
                 shortcut_window.destroy()
 
         shortcut_window.protocol("WM_DELETE_WINDOW", _on_dialog_close)
+        bind_dialog_keys(shortcut_window, on_cancel=_on_dialog_close)
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('hotkey_dialog')
-        position_x = self.parent.winfo_x() + (self.parent.winfo_width() - window_width) // 2
-        position_y = self.parent.winfo_y() + (self.parent.winfo_height() - window_height) // 2
-        shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(shortcut_window, window_width, window_height, self.parent)
 
         # Configure styles for consistent fonts
         style = ttk.Style()
@@ -611,8 +679,8 @@ class HotkeyManagerBase(ABC):
             corner_radius=corner_radius,
             height=button_height,
             width=220,
-            fg_color="#058705",
-            hover_color="#046a38",
+            fg_color=theme_colors().BUTTON_PRIMARY,
+            hover_color=theme_colors().BUTTON_PRIMARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self.force_hotkey_refresh
@@ -625,8 +693,8 @@ class HotkeyManagerBase(ABC):
             corner_radius=corner_radius,
             height=button_height,
             width=220,
-            fg_color="#666666",
-            hover_color="#444444",
+            fg_color=theme_colors().BUTTON_SECONDARY,
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=lambda: self.reset_shortcuts_to_default(shortcuts_window=shortcut_window)
@@ -650,7 +718,7 @@ class HotkeyManagerBase(ABC):
             text=note_text,
             justify=tk.CENTER,
             font=get_font('xxs'),
-            foreground="#666666"
+            foreground=theme_colors().BUTTON_SECONDARY
         ).pack(pady=get_spacing('sm'))
 
         # Close button using CTkButton for consistency
@@ -661,7 +729,7 @@ class HotkeyManagerBase(ABC):
             height=button_height,
             width=120,
             fg_color="#555555",
-            hover_color="#444444",
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=_on_dialog_close

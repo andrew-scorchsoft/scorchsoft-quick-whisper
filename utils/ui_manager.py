@@ -16,6 +16,9 @@ from utils.platform import open_url
 from utils.i18n import _, _n
 from utils.theme import (
     ThemeColors,
+    LightThemeColors,
+    theme_colors,
+    set_theme_mode,
     get_font,
     get_font_size,
     get_font_family,
@@ -71,65 +74,38 @@ def get_system_font():
 # SCORCHSOFT BRAND THEME
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class ModernTheme:
-    """Scorchsoft-branded dark theme with accessible typography.
+class _ThemeMeta(type):
+    """Resolves colour names against whichever palette is currently active.
 
-    This class provides backward compatibility by delegating to ThemeColors
-    and the new theme system. New code should use the theme module directly:
-
-        from utils.theme import ThemeColors, get_font, get_spacing, get_radius
+    Colour attributes are deliberately absent from the class body: Python only
+    consults ``__getattr__`` when normal lookup fails, so defining them as class
+    attributes would freeze them at import time and a theme switch would never
+    reach the ~90 ``self.theme.COLOUR`` call sites.
     """
 
-    # Background colors - delegate to ThemeColors
-    BG_PRIMARY = ThemeColors.BG_PRIMARY
-    BG_SECONDARY = ThemeColors.BG_SECONDARY
-    BG_TERTIARY = ThemeColors.BG_TERTIARY
-    BG_HOVER = ThemeColors.BG_HOVER
-    BG_MENU = ThemeColors.BG_MENU
+    def __getattr__(cls, name):
+        try:
+            return getattr(theme_colors(), name)
+        except AttributeError:
+            raise AttributeError(
+                f"{cls.__name__} has no attribute {name!r}"
+            ) from None
 
-    # Scorchsoft Red - reserved for recording/stop states
-    SCORCHSOFT_RED = ThemeColors.SCORCHSOFT_RED
-    SCORCHSOFT_RED_HOVER = ThemeColors.SCORCHSOFT_RED_HOVER
 
-    # Action buttons - gradient inspired by logo (cyan to purple)
-    ACCENT_PRIMARY = ThemeColors.ACCENT_PRIMARY
-    ACCENT_HOVER = ThemeColors.ACCENT_HOVER
+class ModernTheme(metaclass=_ThemeMeta):
+    """Scorchsoft-branded theme with accessible typography.
 
-    # Gradient colors (matching logo: cyan -> purple with glow)
-    GRADIENT_START = ThemeColors.GRADIENT_START
-    GRADIENT_MID = ThemeColors.GRADIENT_MID
-    GRADIENT_END = ThemeColors.GRADIENT_END
-    GRADIENT_HOVER_START = ThemeColors.GRADIENT_HOVER_START
-    GRADIENT_HOVER_MID = ThemeColors.GRADIENT_HOVER_MID
-    GRADIENT_HOVER_END = ThemeColors.GRADIENT_HOVER_END
+    Colour attributes are proxied to the active palette (``ThemeColors`` in
+    dark mode, ``LightThemeColors`` in light mode), so reading e.g.
+    ``theme.TEXT_PRIMARY`` always reflects the current theme. New code should
+    use the theme module directly:
 
-    # Recording status - lighter/brighter red for visibility
-    RECORDING_TEXT = ThemeColors.RECORDING_TEXT
+        from utils.theme import theme_colors, get_font, get_spacing, get_radius
+    """
 
-    # Recording button gradient (red tones)
-    RECORDING_GRADIENT_START = ThemeColors.RECORDING_GRADIENT_START
-    RECORDING_GRADIENT_MID = ThemeColors.RECORDING_GRADIENT_MID
-    RECORDING_GRADIENT_END = ThemeColors.RECORDING_GRADIENT_END
-    RECORDING_GRADIENT_HOVER_START = ThemeColors.RECORDING_GRADIENT_HOVER_START
-    RECORDING_GRADIENT_HOVER_MID = ThemeColors.RECORDING_GRADIENT_HOVER_MID
-    RECORDING_GRADIENT_HOVER_END = ThemeColors.RECORDING_GRADIENT_HOVER_END
-    RECORDING_BORDER = ThemeColors.RECORDING_BORDER
-
-    # Text - high contrast for accessibility
-    TEXT_PRIMARY = ThemeColors.TEXT_PRIMARY
-    TEXT_SECONDARY = ThemeColors.TEXT_SECONDARY
-    TEXT_TERTIARY = ThemeColors.TEXT_TERTIARY
-    TEXT_MUTED = ThemeColors.TEXT_MUTED
-
-    # Status
-    STATUS_IDLE = ThemeColors.STATUS_IDLE
-    STATUS_PROCESSING = ThemeColors.STATUS_PROCESSING
-    STATUS_RECORDING = ThemeColors.STATUS_RECORDING
-    STATUS_SUCCESS = ThemeColors.STATUS_SUCCESS
-
-    # Borders
-    BORDER = ThemeColors.BORDER
-    BORDER_STRONG = ThemeColors.BORDER_STRONG
+    def __getattr__(self, name):
+        # Instance lookups fall through to the metaclass proxy.
+        return getattr(type(self), name)
 
     # Typography - ACCESSIBLE SIZES (cross-platform font)
     # These are base sizes; the theme system handles HiDPI scaling
@@ -271,20 +247,14 @@ class StyledPopupMenu:
         if is_dark:
             set_dark_title_bar(self.popup)
         
-        # Theme-aware colors for the popup menu
-        if is_dark:
-            border_color = self.theme.BORDER
-            bg_color = self.theme.BG_SECONDARY
-            hover_color = self.theme.BG_HOVER
-            text_color = self.theme.TEXT_PRIMARY
-            text_muted = self.theme.TEXT_MUTED
-        else:
-            border_color = "#d0d0d0"
-            bg_color = "#ffffff"
-            hover_color = "#f0f0f0"
-            text_color = "#1c1c1c"
-            text_muted = "#666666"
-        
+        # Theme-aware colors for the popup menu. self.theme proxies the active
+        # palette, so the same names resolve correctly in either mode.
+        border_color = self.theme.BORDER
+        bg_color = self.theme.BG_SECONDARY
+        hover_color = self.theme.BG_HOVER
+        text_color = self.theme.TEXT_PRIMARY
+        text_muted = self.theme.TEXT_MUTED
+
         # Store colors for use in menu item creation
         self._current_bg = bg_color
         self._current_hover = hover_color
@@ -597,16 +567,29 @@ class StyledPopupMenu:
 class GradientButton(tk.Canvas):
     """Custom button with gradient background (cyan -> blue -> purple like logo)."""
 
+    # Caption colour for the shortcut line. A canvas cannot draw translucent
+    # text, so this is a fixed near-white that reads as dimmed over the cyan,
+    # purple and red fills alike.
+    SUBTEXT_TINT = "#dfe6f2"
+
+    # Width of the always-reserved focus ring.
+    FOCUS_RING_WIDTH = 2
+
     def __init__(self, parent, text="", command=None, width=200, height=50,
                  corner_radius=25, font=None,
                  gradient_start="#06b6d4", gradient_mid="#3b82f6", gradient_end="#8b5cf6",
                  hover_start="#22d3ee", hover_mid="#60a5fa", hover_end="#a78bfa",
                  solid_color=None, solid_hover=None,
                  border_color="#6d9dc5", border_width=1,
-                 text_color="#0d0d0d", bg_color="#0d0d0d", **kwargs):
+                 text_color="#0d0d0d", bg_color="#0d0d0d",
+                 subtext="", subtext_font=None, subtext_color=None, **kwargs):
 
+        # The focus ring is always reserved and only made visible on focus, so
+        # gaining focus cannot shift the layout or trigger a gradient redraw.
         super().__init__(parent, width=width, height=height,
-                        bg=bg_color, highlightthickness=0, cursor="hand2", **kwargs)
+                         bg=bg_color, highlightthickness=self.FOCUS_RING_WIDTH,
+                         highlightbackground=bg_color, highlightcolor=bg_color,
+                         takefocus=1, cursor="hand2", **kwargs)
 
         self.text = text
         self.command = command
@@ -616,6 +599,12 @@ class GradientButton(tk.Canvas):
         # Use provided font or default to theme font
         self.font = font if font is not None else get_font('md', 'bold')
         self.text_color = text_color
+        # Secondary line under the label (the keyboard shortcut). Smaller and
+        # unbolded, and dimmed a little so it reads as a caption rather than
+        # competing with the action itself.
+        self.subtext = subtext
+        self.subtext_font = subtext_font if subtext_font is not None else get_font('xxs')
+        self.subtext_color = subtext_color or self.SUBTEXT_TINT
         self.bg_color = bg_color
         self.border_color = border_color
         self.border_width = border_width
@@ -633,6 +622,8 @@ class GradientButton(tk.Canvas):
         self.solid_hover = solid_hover
         
         self._is_hovered = False
+        self._is_pressed = False
+        self.focus_ring_color = theme_colors().ACCENT_PRIMARY
         self._gradient_image = None
         self._hover_gradient_image = None
         self._resize_pending = None  # For debouncing resize events
@@ -644,8 +635,16 @@ class GradientButton(tk.Canvas):
         # Bind events
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Configure>", self._on_resize)
+
+        # These are the app's two primary actions; before this they could only
+        # be reached with a mouse or a global hotkey.
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        for sequence in ("<Return>", "<KP_Enter>", "<space>"):
+            self.bind(sequence, self._on_click)
     
     def _hex_to_rgb(self, hex_color):
         """Convert hex color to RGB tuple."""
@@ -777,10 +776,12 @@ class GradientButton(tk.Canvas):
         """Draw the button."""
         self.delete("all")
         
-        # Choose image based on state
+        # Choose image based on state. A press reads as the hover fill, which
+        # is the only lit variant a canvas has to hand.
+        lit = self._is_hovered or self._is_pressed
         if self.solid_color:
             # Solid color mode (recording state)
-            if self._is_hovered and self.solid_hover:
+            if lit and self.solid_hover:
                 img = self._create_solid_image(self.solid_hover)
             else:
                 img = self._create_solid_image(self.solid_color)
@@ -788,15 +789,43 @@ class GradientButton(tk.Canvas):
             self.create_image(0, 0, anchor="nw", image=img)
         else:
             # Gradient mode
-            img = self._hover_gradient_image if self._is_hovered else self._gradient_image
+            img = self._hover_gradient_image if lit else self._gradient_image
             self.create_image(0, 0, anchor="nw", image=img)
         
-        # Draw text
-        self.create_text(
-            self.width // 2, self.height // 2,
-            text=self.text, fill=self.text_color,
-            font=self.font, anchor="center"
-        )
+        # Draw the label, with the shortcut caption beneath it when there is
+        # one. The pair is centred as a block so the button stays optically
+        # balanced instead of the label simply shifting up.
+        if self.subtext:
+            main_size = self._font_pixel_size(self.font, 13)
+            sub_size = self._font_pixel_size(self.subtext_font, 10)
+            gap = max(2, sub_size // 3)
+            block = main_size + gap + sub_size
+            top = (self.height - block) // 2
+            self.create_text(
+                self.width // 2, top + main_size // 2,
+                text=self.text, fill=self.text_color,
+                font=self.font, anchor="center"
+            )
+            self.create_text(
+                self.width // 2, top + main_size + gap + sub_size // 2,
+                text=self.subtext, fill=self.subtext_color,
+                font=self.subtext_font, anchor="center"
+            )
+        else:
+            self.create_text(
+                self.width // 2, self.height // 2,
+                text=self.text, fill=self.text_color,
+                font=self.font, anchor="center"
+            )
+
+    @staticmethod
+    def _font_pixel_size(font, fallback):
+        """Approximate line height for a theme font tuple."""
+        try:
+            size = abs(int(font[1]))
+            return size if size else fallback
+        except (TypeError, ValueError, IndexError):
+            return fallback
     
     def _on_enter(self, event):
         self._is_hovered = True
@@ -804,11 +833,47 @@ class GradientButton(tk.Canvas):
     
     def _on_leave(self, event):
         self._is_hovered = False
+        # A press dragged off the button is abandoned, not fired.
+        self._is_pressed = False
         self._draw()
     
-    def _on_click(self, event):
+    def _on_click(self, event=None):
         if self.command:
             self.command()
+        return "break"
+
+    def _on_press(self, _event=None):
+        """Acknowledge the press before acting on it."""
+        self.focus_set()
+        self._is_pressed = True
+        self._draw()
+
+    def _on_release(self, event=None):
+        """Fire only if the pointer is still on the button.
+
+        The command used to run on press with no visual acknowledgement, so a
+        press dragged off the button still fired.
+        """
+        was_pressed = self._is_pressed
+        self._is_pressed = False
+        self._draw()
+        if not was_pressed:
+            return
+        if event is not None:
+            inside = (0 <= event.x <= self.winfo_width()
+                      and 0 <= event.y <= self.winfo_height())
+            if not inside:
+                return
+        if self.command:
+            self.command()
+
+    def _on_focus_in(self, _event=None):
+        self.configure(highlightbackground=self.focus_ring_color,
+                       highlightcolor=self.focus_ring_color)
+
+    def _on_focus_out(self, _event=None):
+        self.configure(highlightbackground=self.bg_color,
+                       highlightcolor=self.bg_color)
     
     def _on_resize(self, event):
         """Handle resize with debouncing to prevent expensive operations during drag."""
@@ -854,6 +919,15 @@ class GradientButton(tk.Canvas):
         if 'font' in kwargs:
             self.font = kwargs.pop('font')
             redraw = True
+        if 'subtext' in kwargs:
+            self.subtext = kwargs.pop('subtext')
+            redraw = True
+        if 'subtext_color' in kwargs:
+            self.subtext_color = kwargs.pop('subtext_color') or self.SUBTEXT_TINT
+            redraw = True
+        if 'subtext_font' in kwargs:
+            self.subtext_font = kwargs.pop('subtext_font')
+            redraw = True
         if 'border_color' in kwargs:
             self.border_color = kwargs.pop('border_color')
             regenerate_gradients = True
@@ -883,7 +957,15 @@ class GradientButton(tk.Canvas):
             regenerate_gradients = True
         if 'command' in kwargs:
             self.command = kwargs.pop('command')
-        
+        if 'bg' in kwargs:
+            # The unfocused ring is painted in the surrounding background, so
+            # it has to follow a theme change with it.
+            self.bg_color = kwargs['bg']
+            if self.focus_get() is not self:
+                kwargs.setdefault('highlightbackground', self.bg_color)
+                kwargs.setdefault('highlightcolor', self.bg_color)
+            self.focus_ring_color = theme_colors().ACCENT_PRIMARY
+
         if regenerate_gradients:
             self._create_gradient_images()
             redraw = True
@@ -956,6 +1038,16 @@ class UIManager:
         self._pulse_after_id = None
         self._pulse_active = False
         self._pulse_state = True
+        self._pulse_color = None
+
+        # Status line state and the processing elapsed counter
+        self._status_state = "idle"
+        self._status_msgid = None
+        self._recording_hint = None
+        self._picker_fonts = {}
+        self._processing_since = None
+        self._processing_base_message = None
+        self._processing_after_id = None
 
         # Device list state (QW-07)
         self._has_audio_devices = False
@@ -1047,14 +1139,21 @@ class UIManager:
         # Get dark mode setting from config
         config = get_config()
         is_dark = config.dark_mode
-        
+
+        # Select the palette before anything is styled or built, so every
+        # widget paints in the right colours on its first render rather than
+        # being created dark and corrected only when the theme is toggled.
+        set_theme_mode(is_dark)
+
         # Apply title bar styling based on theme
         if is_dark:
             set_dark_title_bar(self.parent)
-        
+        else:
+            self._set_light_title_bar(self.parent)
+
         # Apply Sun Valley theme based on setting
         sv_ttk.set_theme("dark" if is_dark else "light")
-        
+
         # Setup custom styles
         self._setup_styles()
         
@@ -1113,6 +1212,8 @@ class UIManager:
         )
         self.device_refresh_link.pack(side=tk.RIGHT, pady=(4, 0))
         self.device_refresh_link.bind("<Button-1>", lambda e: self.refresh_device_list(notify=True))
+        self.make_link_focusable(self.device_refresh_link,
+                                 lambda: self.refresh_device_list(notify=True))
         ToolTip(self.device_refresh_link, _("Re-scan for input devices"))
 
         devices = self._enumerate_devices()
@@ -1172,14 +1273,23 @@ class UIManager:
         self.button_first_page = ttk.Label(nav_frame, text="«", style="Nav.TLabel", cursor="hand2")
         self.button_first_page.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_first_page.bind("<Button-1>", lambda e: None if self._nav_button_disabled["first"] else self.parent.go_to_first_page())
+        self.make_link_focusable(self.button_first_page, self.parent.go_to_first_page,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["first"])
 
         self.button_arrow_left = ttk.Label(nav_frame, text="‹", style="Nav.TLabel", cursor="hand2")
         self.button_arrow_left.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_left.bind("<Button-1>", lambda e: None if self._nav_button_disabled["left"] else self.parent.navigate_left())
+        self.make_link_focusable(self.button_arrow_left, self.parent.navigate_left,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["left"])
 
         self.button_arrow_right = ttk.Label(nav_frame, text="›", style="Nav.TLabel", cursor="hand2")
         self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
+        self.make_link_focusable(self.button_arrow_right, self.parent.navigate_right,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["right"])
 
         # Separator, history, re-run and copy - with padding to align baselines
         separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
@@ -1192,6 +1302,7 @@ class UIManager:
             foreground=self.theme.TEXT_SECONDARY)
         self.button_history.pack(side=tk.LEFT, pady=(8, 0))
         self.button_history.bind("<Button-1>", lambda e: self.parent.show_history())
+        self.make_link_focusable(self.button_history, self.parent.show_history)
 
         separator_label0 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label0.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1205,6 +1316,8 @@ class UIManager:
         # Right-click applies a different prompt for this run only, so trying
         # three tones on one dictation does not change the selected prompt.
         self.button_rerun.bind("<Button-3>", lambda e: self.show_rerun_prompt_menu())
+        self.make_link_focusable(self.button_rerun, self._rerun_ai_edit,
+                                 is_enabled=lambda: not self._rerun_disabled)
 
         separator_label2 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label2.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1213,6 +1326,7 @@ class UIManager:
         self.button_copy = ttk.Label(nav_frame, text=f"  {_('Copy')}", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
         self.button_copy.pack(side=tk.LEFT, pady=(8, 0))
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
+        self.make_link_focusable(self.button_copy, self._copy_transcription)
         
         # Set initial disabled state (muted color)
         self.update_rerun_state()
@@ -1261,8 +1375,8 @@ class UIManager:
             relief="flat",
             borderwidth=0,
             highlightthickness=1,
-            highlightbackground="#404040",
-            highlightcolor="#505050",
+            highlightbackground=self.theme.BORDER,
+            highlightcolor=self.theme.BORDER_STRONG,
             padx=12,  # Internal horizontal padding
             pady=10,  # Internal vertical padding
             yscrollcommand=on_scroll_changed
@@ -1376,6 +1490,14 @@ class UIManager:
         self._bind_picker(self._picker_ai, self._show_ai_model_menu)
         self._bind_picker(self._picker_prompt, self._show_prompt_menu)
 
+        # The pickers are menus, so they belong in the tab order too.
+        self.make_link_focusable(self._picker_transcription,
+                                 self._show_transcription_model_menu, font_key='xxs')
+        self.make_link_focusable(self._picker_ai,
+                                 self._show_ai_model_menu, font_key='xxs')
+        self.make_link_focusable(self._picker_prompt,
+                                 self._show_prompt_menu, font_key='xxs')
+
         ToolTip(self._picker_transcription, _("Click to change the transcription model"))
         ToolTip(self._picker_ai, _("Click to change the AI copy-editing model"))
         self._prompt_tooltip = ToolTip(self._picker_prompt, self._prompt_tooltip_text())
@@ -1389,29 +1511,39 @@ class UIManager:
         # OPTIONS - Toggle switches (Sun Valley style)
         # ─────────────────────────────────────────────────────────────────────
 
-        options_frame = ttk.LabelFrame(content, text="", padding=(16, 10))
+        # Titling the group says what the two switches apply to, and stops the
+        # box reading as an unexplained border.
+        self.options_frame = options_frame = ttk.LabelFrame(
+            content, text=_("After transcription"), padding=(16, 10))
         options_frame.pack(fill=tk.X, pady=(0, 12))
 
         # Center container for toggles
         switches_container = ttk.Frame(options_frame)
         switches_container.pack(expand=True)
 
-        # Sun Valley provides "Switch.TCheckbutton" style for toggle switches
+        # Sun Valley provides "Switch.TCheckbutton" style for toggle switches.
+        # "Auto-copy result" rather than "Copy to clipboard": the latter read
+        # identically to the Copy link above and to the "Copied to clipboard"
+        # toast, so three different things shared one set of words.
         self.auto_copy_switch = ttk.Checkbutton(
             switches_container,
-            text=_("Copy to clipboard"),
+            text=_("Auto-copy result"),
             variable=self.parent.auto_copy,
             style="Switch.TCheckbutton"
         )
         self.auto_copy_switch.pack(side=tk.LEFT, padx=(0, 32))
+        ToolTip(self.auto_copy_switch,
+                _("Put the finished text on the clipboard automatically"))
 
         self.auto_paste_switch = ttk.Checkbutton(
             switches_container,
-            text=_("Auto-paste"),
+            text=_("Auto-paste result"),
             variable=self.parent.auto_paste,
             style="Switch.TCheckbutton"
         )
         self.auto_paste_switch.pack(side=tk.LEFT)
+        ToolTip(self.auto_paste_switch,
+                _("Paste the finished text into whichever app you are using"))
         
         # ─────────────────────────────────────────────────────────────────────
         # ACTION BUTTONS (Keep custom gradient buttons)
@@ -1424,7 +1556,7 @@ class UIManager:
         btn_width = 200  # Default, will resize
         
         # Use theme-appropriate background color for buttons
-        btn_bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        btn_bg_color = self._surface_color(is_dark)
         
         self.record_button_transcribe = GradientButton(
             buttons_frame,
@@ -1440,7 +1572,7 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
-            text_color=self.theme.TEXT_PRIMARY,
+            text_color=self.theme.TEXT_ON_ACCENT,
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("transcribe")
         )
@@ -1461,25 +1593,31 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
-            text_color=self.theme.TEXT_PRIMARY,
+            text_color=self.theme.TEXT_ON_ACCENT,
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("edit")
         )
         self.record_button_edit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(btn_gap, 0))
         
-        # Shortcut tooltips only (no visible labels - tooltips show on hover)
-        shortcut_transcribe = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
-        shortcut_edit = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
-        
+        # The shortcuts are the product; the buttons are the training wheels.
+        # Printing each shortcut on its button is what teaches the transition -
+        # a tooltip only reaches someone who already hovered and waited.
+        shortcut_transcribe = self._record_shortcut('record_transcribe')
+        shortcut_edit = self._record_shortcut('record_edit')
+        self.record_button_transcribe.configure(subtext=shortcut_transcribe)
+        self.record_button_edit.configure(subtext=shortcut_edit)
+
         # Store references for update_button_shortcuts (set to None since we removed the labels)
         self.shortcut_label_left = None
         self.shortcut_label_right = None
-        
+
         # Add tooltips to buttons
-        ToolTip(self.record_button_transcribe,
-                _("Record and transcribe audio ({shortcut})").format(shortcut=shortcut_transcribe))
-        ToolTip(self.record_button_edit,
-                _("Record and AI-edit transcription ({shortcut})").format(shortcut=shortcut_edit))
+        self._tooltip_transcribe = ToolTip(
+            self.record_button_transcribe,
+            _("Record and transcribe audio ({shortcut})").format(shortcut=shortcut_transcribe))
+        self._tooltip_edit = ToolTip(
+            self.record_button_edit,
+            _("Record and AI-edit transcription ({shortcut})").format(shortcut=shortcut_edit))
         
         # ─────────────────────────────────────────────────────────────────────
         # BANNER
@@ -1601,15 +1739,82 @@ class UIManager:
         label.bind("<Enter>", lambda e, w=label: self._set_picker_hover(w, True), add="+")
         label.bind("<Leave>", lambda e, w=label: self._set_picker_hover(w, False), add="+")
 
+    def _link_font(self, font_key, underline):
+        """A cached label font, with or without an underline."""
+        cache_key = f"{font_key}:{1 if underline else 0}"
+        cached = self._picker_fonts.get(cache_key)
+        if cached is None:
+            family, size = get_font(font_key)[:2]
+            cached = tkfont.Font(family=family, size=size, underline=underline)
+            self._picker_fonts[cache_key] = cached
+        return cached
+
+    def _set_link_focus(self, widget, font_key, focused):
+        """Underline a link-label while it holds keyboard focus.
+
+        ttk gives a Label no focus ring of its own, so without this a keyboard
+        user tabbing through has no idea where they are.
+        """
+        if not self._widget_alive(widget):
+            return
+        try:
+            widget.configure(font=self._link_font(font_key, focused))
+        except tk.TclError:
+            pass
+
+    def make_link_focusable(self, widget, command, font_key='copy_link',
+                            is_enabled=None):
+        """Let a clickable label be reached and fired from the keyboard.
+
+        The nav arrows, History, AI Edit, Copy and Refresh are all ttk Labels
+        with a <Button-1> binding, which made them mouse-only: not in the tab
+        order, no response to Return or Space, no visible focus. Nothing about
+        them needs to be a mouse-only control.
+
+        ``is_enabled`` is consulted before firing so a disabled link does
+        nothing, matching its click behaviour.
+        """
+        widget.configure(takefocus=1)
+
+        def activate(_event=None):
+            if is_enabled is not None and not is_enabled():
+                return "break"
+            command()
+            return "break"
+
+        for sequence in ("<Return>", "<KP_Enter>", "<space>"):
+            widget.bind(sequence, activate)
+        widget.bind("<FocusIn>",
+                    lambda e: self._set_link_focus(widget, font_key, True), add="+")
+        widget.bind("<FocusOut>",
+                    lambda e: self._set_link_focus(widget, font_key, False), add="+")
+
+    def _picker_font(self, underline):
+        """The picker font, cached, with or without an underline."""
+        key = 'picker_underline' if underline else 'picker'
+        cached = self._picker_fonts.get(key)
+        if cached is None:
+            family, size = get_font('xxs')[:2]
+            cached = tkfont.Font(family=family, size=size, underline=underline)
+            self._picker_fonts[key] = cached
+        return cached
+
     def _set_picker_hover(self, label, hovering):
+        """Colour and underline a picker segment on hover.
+
+        These segments name the transcription model, the edit model and the
+        prompt, and every one of them is a menu - but nothing said so. The
+        underline is what says "this is a control", added to the colour shift
+        that was already here. It is deliberately a hover-only cue: at rest the
+        row stays a quiet caption rather than becoming a line of links.
+        """
         if not self._widget_alive(label):
             return
-        is_dark = get_config().dark_mode
-        if hovering:
-            colour = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
-        else:
-            colour = self.theme.TEXT_TERTIARY if is_dark else "#666666"
-        label.configure(foreground=colour)
+        colour = self.theme.ACCENT_PRIMARY if hovering else self.theme.TEXT_TERTIARY
+        try:
+            label.configure(foreground=colour, font=self._picker_font(hovering))
+        except tk.TclError:
+            label.configure(foreground=colour)
 
     def _refresh_picker_colours(self):
         for label in (self._picker_transcription, self._picker_ai, self._picker_prompt):
@@ -1776,12 +1981,20 @@ class UIManager:
             return
         try:
             # The meter and clock are only on screen while recording, and the
-            # only status shown then is "Recording..." - every longer message
+            # statuses shown then are the recording ones - every longer message
             # ("Processing...", "Error during transcription") appears with the
             # readout already hidden. Reserving for both maxima at once cost
             # around 110px that the two can never actually need together, and
             # that space is what the model and prompt pickers live in.
-            recording_text = font.measure(_("Recording..."))
+            #
+            # The reservation is recomputed when recording starts and stops
+            # rather than being sized for the worst case of either: the
+            # recording hint is much wider than "Idle", and holding room for it
+            # while idle would permanently squeeze the pickers.
+            recording_text = max(font.measure(text) for text in (
+                _("Recording..."),
+                self._cancel_hint_text(),
+            ))
             idle_text = max(font.measure(text) for text in (
                 _("Idle"),
                 _("Processing - Audio File..."),
@@ -1799,9 +2012,32 @@ class UIManager:
         _seg_w, _gap, _height, meter_width = self._meter_metrics()
         dot_width = get_font_size('status_dot') + get_spacing('sm')
         readout = (meter_width + elapsed_width + get_spacing('sm') * 2) if self._level_meter_enabled else 0
-        widest = max(recording_text + readout, idle_text)
+        if self._status_state == "recording":
+            widest = max(recording_text + readout, idle_text)
+        else:
+            widest = idle_text
         self._status_min_width = dot_width + widest + get_spacing('md')
         self.status_row.columnconfigure(0, minsize=self._status_min_width)
+
+    def _cancel_shortcut(self):
+        """Display form of the global cancel shortcut."""
+        default = "Cmd+X" if getattr(self.parent, 'is_mac', False) else "Ctrl+Alt+X"
+        try:
+            return self.parent.hotkey_manager.display_shortcut(
+                'cancel_recording', default)
+        except Exception:
+            return default
+
+    def _cancel_hint_text(self):
+        """Recording status naming the way out.
+
+        Cancel previously existed only as an unlabelled global shortcut, so a
+        user who started a bad take had no visible way to discard it. The
+        global shortcut is named rather than Escape: Escape only reaches us
+        while the window has focus, and during dictation it usually does not.
+        """
+        return _("Recording - {shortcut} to cancel").format(
+            shortcut=self._cancel_shortcut())
 
     def _measuring_font(self, size_key):
         """A cached tkfont for measuring text, or None if fonts are unavailable.
@@ -1824,6 +2060,7 @@ class UIManager:
     def _clear_measuring_fonts(self):
         """Drop the cached fonts after a theme or language change."""
         self._measure_fonts.clear()
+        self._picker_fonts.clear()
 
     def _schedule_model_label_fit(self):
         """Debounced re-fit of the model label (also on resize)."""
@@ -1921,32 +2158,21 @@ class UIManager:
         
     def _update_nav_button_appearance(self):
         """Update navigation button colors based on disabled state and theme."""
-        # Get current theme setting
-        config = get_config()
-        is_dark = config.dark_mode
-        
-        # Use appropriate colors for current theme
-        if is_dark:
-            enabled_color = self.theme.TEXT_SECONDARY  # Light gray on dark background
-            disabled_color = self.theme.TEXT_MUTED     # Darker gray (muted)
-            copy_color = self.theme.TEXT_SECONDARY     # Light gray for clickable Copy
-        else:
-            enabled_color = "#333333"   # Dark gray on light background (clickable)
-            disabled_color = "#b0b0b0"  # Lighter gray (muted/disabled)
-            copy_color = "#333333"      # Dark gray for clickable Copy
-        
-        self.button_first_page.configure(
-            foreground=disabled_color if self._nav_button_disabled["first"] else enabled_color,
-            cursor="" if self._nav_button_disabled["first"] else "hand2"
-        )
-        self.button_arrow_left.configure(
-            foreground=disabled_color if self._nav_button_disabled["left"] else enabled_color,
-            cursor="" if self._nav_button_disabled["left"] else "hand2"
-        )
-        self.button_arrow_right.configure(
-            foreground=disabled_color if self._nav_button_disabled["right"] else enabled_color,
-            cursor="" if self._nav_button_disabled["right"] else "hand2"
-        )
+        enabled_color = self.theme.TEXT_SECONDARY
+        disabled_color = self.theme.TEXT_MUTED
+        copy_color = self.theme.TEXT_SECONDARY
+
+        for widget, key in ((self.button_first_page, "first"),
+                            (self.button_arrow_left, "left"),
+                            (self.button_arrow_right, "right")):
+            disabled = self._nav_button_disabled[key]
+            widget.configure(
+                foreground=disabled_color if disabled else enabled_color,
+                cursor="" if disabled else "hand2",
+                # Skipped in the tab order while disabled: landing on a dead
+                # control that does nothing is worse than not reaching it.
+                takefocus=0 if disabled else 1,
+            )
         
         # Update Copy button color for current theme
         if hasattr(self, 'button_copy') and self.button_copy:
@@ -2055,7 +2281,8 @@ class UIManager:
         """Background colour matching the themed window surface."""
         if is_dark is None:
             is_dark = get_config().dark_mode
-        return "#1c1c1c" if is_dark else "#fafafa"
+        colors = ThemeColors if is_dark else LightThemeColors
+        return colors.BG_TERTIARY if is_dark else colors.BG_PRIMARY
 
     # ═════════════════════════════════════════════════════════════════════════
     # INPUT LEVEL METER + ELAPSED TIMER (QW-13b)
@@ -2186,6 +2413,34 @@ class UIManager:
             color = self.theme.TEXT_MUTED
 
         self.elapsed_label.configure(text=f"{minutes}:{secs:02d}", foreground=color)
+        self._update_recording_hint(state)
+
+    def _update_recording_hint(self, limit_state):
+        """Swap the cancel hint for a limit warning as the ceiling approaches.
+
+        The clock turning amber was previously the only sign that recording was
+        about to stop by itself, which says nothing to a user who is not
+        looking at it or does not know a limit exists.
+        """
+        if self._status_state != "recording":
+            return
+        wanted = "limit" if limit_state in ("warning", "critical") else "cancel"
+        if wanted == self._recording_hint:
+            return
+        self._recording_hint = wanted
+
+        if wanted == "limit":
+            try:
+                max_minutes = int(getattr(get_config(), 'max_recording_minutes', 0) or 0)
+            except Exception:
+                max_minutes = 0
+            text = _("Recording - stops at {minutes}:00").format(minutes=max_minutes)
+        else:
+            text = self._cancel_hint_text()
+
+        if self._widget_alive(self.status_label):
+            self.status_label.configure(text=text)
+            self._schedule_model_label_fit()
 
     def _limit_state_from_elapsed(self, seconds):
         """Derive a limit-warning state from the configured maximum length."""
@@ -2430,22 +2685,113 @@ class UIManager:
         except Exception:
             logger.error("Re-run AI edit failed", exc_info=True)
 
-    def set_status(self, message, color="blue", pulsing=None):
-        color_map = {
-            "blue": (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY),
-            "green": (self.theme.STATUS_SUCCESS, self.theme.STATUS_SUCCESS),
-            "red": (self.theme.RECORDING_TEXT, self.theme.RECORDING_TEXT),
-            "orange": (self.theme.STATUS_PROCESSING, self.theme.STATUS_PROCESSING)
-        }
-        dot_color, text_color = color_map.get(color, (self.theme.STATUS_IDLE, self.theme.TEXT_TERTIARY))
+    # Semantic status states. Callers name what is happening rather than a
+    # colour, so "in progress" cannot drift back to the success colour: green
+    # has to keep meaning finished, or the status line answers nothing at the
+    # one moment the user is waiting on it.
+    _STATUS_STATES = {
+        "idle": ("STATUS_IDLE", "TEXT_TERTIARY"),
+        "processing": ("STATUS_PROCESSING", "STATUS_PROCESSING"),
+        # Same amber as processing, but a standing condition rather than work
+        # in flight, so it must not pulse or run an elapsed counter.
+        "warning": ("STATUS_PROCESSING", "STATUS_PROCESSING"),
+        "success": ("STATUS_SUCCESS", "STATUS_SUCCESS"),
+        "recording": ("STATUS_RECORDING", "RECORDING_TEXT"),
+        "error": ("RECORDING_TEXT", "RECORDING_TEXT"),
+    }
+
+    # Colour names accepted by older call sites. Amber maps to the non-pulsing
+    # warning state: a caller that only knew about colours cannot have meant
+    # "work is in progress".
+    _LEGACY_STATUS_STATES = {
+        "blue": "idle",
+        "green": "success",
+        "red": "error",
+        "orange": "warning",
+    }
+
+    # Every fixed status message the app can show, as its untranslated msgid.
+    # set_status is handed text that has already been through _(), so it maps
+    # that back to the msgid here; a later language change then re-translates
+    # from the msgid instead of trying to match the displayed text against
+    # English, which never worked when switching between two other languages.
+    STATUS_MSGIDS = (
+        "Idle",
+        "Stopped",
+        "Recording...",
+        "Processing - Audio File...",
+        "Processing - Transcript...",
+        "Processing - AI Editing...",
+        "Retrying transcription...",
+        "No speech detected",
+        "Error during transcription",
+        "AI edit failed",
+        "AI edit returned no text",
+        "Clipboard unavailable",
+        "System tray unavailable",
+        "Success",
+        "Error",
+    )
+
+    def _remember_status_msgid(self, message):
+        """Record which known status this text is, for later re-translation."""
+        for msgid in self.STATUS_MSGIDS:
+            if message == msgid or message == _(msgid):
+                self._status_msgid = msgid
+                return
+        # A one-off or parameterised message (the completion receipt); it is
+        # short-lived, so leaving it untranslated on a language switch is fine.
+        self._status_msgid = None
+
+    def set_status(self, message, state="idle", pulsing=None):
+        """Update the status line.
+
+        Args:
+            message: Text to show.
+            state: One of ``idle``, ``processing``, ``success``, ``recording``
+                or ``error``. Legacy colour names are still accepted.
+            pulsing: Force the dot to pulse. Defaults to pulsing whenever the
+                state is ``recording`` or ``processing``.
+        """
+        state = self._LEGACY_STATUS_STATES.get(state, state)
+        dot_attr, text_attr = self._STATUS_STATES.get(
+            state, self._STATUS_STATES["idle"]
+        )
+        dot_color = getattr(self.theme, dot_attr)
+        text_color = getattr(self.theme, text_attr)
 
         # Decide whether the dot should pulse from explicit state, never from
         # the message text - that comparison fails in every non-English locale
-        # (QW-18a). Callers that have not been updated yet fall back to the
-        # recording flag on the audio manager, which is language independent.
+        # (QW-18a).
         if pulsing is None:
-            pulsing = bool(getattr(getattr(self.parent, 'audio_manager', None),
-                                   'recording', False))
+            pulsing = state in ("recording", "processing")
+
+        previous_state = self._status_state
+        self._status_state = state
+        self._remember_status_msgid(message)
+
+        if state == "recording":
+            # Replace the bare "Recording..." with one that names the way out.
+            message = self._cancel_hint_text()
+            self._recording_hint = "cancel"
+        else:
+            self._recording_hint = None
+
+        # Entering or leaving recording changes how much room column 0 needs.
+        if (previous_state == "recording") != (state == "recording"):
+            self._reserve_status_width()
+        # Only recording drives the level meter; processing pulses the dot but
+        # the microphone is already closed by then.
+        recording = state == "recording"
+
+        if state == "processing":
+            self._processing_base_message = message
+            if self._processing_since is None:
+                self._processing_since = time.time()
+                self._schedule_processing_tick()
+            message = self._processing_message()
+        else:
+            self._stop_processing_timer()
 
         # TTK labels use configure with foreground
         self.status_label.configure(text=message, foreground=text_color)
@@ -2454,16 +2800,49 @@ class UIManager:
         self._schedule_model_label_fit()
 
         if pulsing:
-            self._start_pulse()
-            if not self._level_monitoring:
-                self.start_level_monitor()
+            self._start_pulse(dot_color)
         else:
             self._stop_pulse()
-            if self._level_monitoring:
-                self.stop_level_monitor()
 
-    def _start_pulse(self):
-        """Start (or keep) the recording dot pulsing - never stacks loops."""
+        if recording:
+            if not self._level_monitoring:
+                self.start_level_monitor()
+        elif self._level_monitoring:
+            self.stop_level_monitor()
+
+    # ── Processing elapsed counter ───────────────────────────────────────────
+
+    def _processing_message(self):
+        """The processing status text with its elapsed seconds appended."""
+        base = self._processing_base_message or ""
+        if self._processing_since is None:
+            return base
+        seconds = int(time.time() - self._processing_since)
+        if seconds < 1:
+            return base
+        return _("{message} {seconds}s").format(message=base, seconds=seconds)
+
+    def _schedule_processing_tick(self):
+        self._processing_after_id = self._after(1000, self._processing_tick)
+
+    def _processing_tick(self):
+        self._processing_after_id = None
+        if self._processing_since is None or not self._widget_alive(self.status_label):
+            return
+        self.status_label.configure(text=self._processing_message())
+        self._schedule_model_label_fit()
+        self._schedule_processing_tick()
+
+    def _stop_processing_timer(self):
+        self._processing_since = None
+        self._processing_base_message = None
+        self._cancel_after(self._processing_after_id)
+        self._processing_after_id = None
+
+    def _start_pulse(self, color=None):
+        """Start (or keep) the status dot pulsing - never stacks loops."""
+        if color is not None:
+            self._pulse_color = color
         if self._pulse_active:
             return
         self._pulse_active = True
@@ -2481,8 +2860,9 @@ class UIManager:
         if not self._pulse_active or not self._widget_alive(self.status_dot):
             return
         self._pulse_state = not self._pulse_state
+        lit = self._pulse_color or self.theme.STATUS_RECORDING
         self.status_dot.configure(
-            foreground=self.theme.STATUS_RECORDING if self._pulse_state else self.theme.TEXT_MUTED
+            foreground=lit if self._pulse_state else self.theme.TEXT_MUTED
         )
         self._pulse_after_id = self._after(500, self._pulse_recording)
 
@@ -2514,12 +2894,14 @@ class UIManager:
         toast.overrideredirect(True)  # Remove window decorations
         toast.attributes('-topmost', True)
         
-        # Style the toast
-        toast.configure(bg=self.theme.BG_TERTIARY)
-        
+        # Style the toast. The outer background shows through as a hairline
+        # border, which is what separates the toast from the window in light
+        # mode where its fill and the window behind it are both pale.
+        toast.configure(bg=self.theme.BORDER)
+
         # Create rounded frame effect with border
         frame = tk.Frame(toast, bg=self.theme.BG_TERTIARY, padx=16, pady=10)
-        frame.pack()
+        frame.pack(padx=1, pady=1)
         
         # Toast label
         label = tk.Label(
@@ -2597,6 +2979,11 @@ class UIManager:
             # BOTH buttons turn red gradient and show "Stop and Process"
             self.record_button_transcribe.configure(
                 text=_("Stop and Process"),
+                # The record shortcut only doubles as "stop" in toggle mode;
+                # in push-to-talk it is release that stops. Rather than print
+                # a key that is right half the time, drop the caption - the
+                # status line carries the cancel shortcut while recording.
+                subtext="",
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -2606,10 +2993,15 @@ class UIManager:
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
                 border_color=self.theme.RECORDING_BORDER,
-                text_color=self.theme.TEXT_PRIMARY  # White text on red
+                text_color=self.theme.TEXT_ON_ACCENT  # White label on the red fill
             )
             self.record_button_edit.configure(
                 text=_("Stop and Process"),
+                # The record shortcut only doubles as "stop" in toggle mode;
+                # in push-to-talk it is release that stops. Rather than print
+                # a key that is right half the time, drop the caption - the
+                # status line carries the cancel shortcut while recording.
+                subtext="",
                 solid_color=None,  # Use gradient mode
                 solid_hover=None,
                 gradient_start=self.theme.RECORDING_GRADIENT_START,
@@ -2619,26 +3011,34 @@ class UIManager:
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
                 border_color=self.theme.RECORDING_BORDER,
-                text_color=self.theme.TEXT_PRIMARY  # White text on red
+                text_color=self.theme.TEXT_ON_ACCENT  # White label on the red fill
             )
         else:
             self.update_button_shortcuts()
     
+    def _record_shortcut(self, name):
+        """Display form of a record shortcut, with a platform-correct default."""
+        if name == 'record_edit':
+            default = "Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J"
+        else:
+            default = "Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J"
+        try:
+            return self.parent.hotkey_manager.display_shortcut(name, default)
+        except Exception:
+            return default
+
     def update_button_shortcuts(self, transcribe_shortcut=None, edit_shortcut=None):
         # Guard: buttons may not exist yet during initialization
         if not self.record_button_transcribe or not self.record_button_edit:
             return
-            
-        if hasattr(self.parent, 'hotkey_manager') and hasattr(self.parent.hotkey_manager, 'shortcuts'):
-            edit_shortcut = edit_shortcut or self.parent.hotkey_manager.shortcuts.get('record_edit', 'Ctrl+Alt+J')
-            transcribe_shortcut = transcribe_shortcut or self.parent.hotkey_manager.shortcuts.get('record_transcribe', 'Ctrl+Alt+Shift+J')
-        else:
-            edit_shortcut = edit_shortcut or ("Cmd+Alt+J" if self.parent.is_mac else "Ctrl+Alt+J")
-            transcribe_shortcut = transcribe_shortcut or ("Cmd+Alt+Shift+J" if self.parent.is_mac else "Ctrl+Alt+Shift+J")
-        
+
+        edit_shortcut = edit_shortcut or self._record_shortcut('record_edit')
+        transcribe_shortcut = transcribe_shortcut or self._record_shortcut('record_transcribe')
+
         # Reset to original gradient mode with white text
         self.record_button_transcribe.configure(
             text=_("Record + Transcribe"),
+            subtext=transcribe_shortcut,
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -2648,10 +3048,11 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             border_color="#6d9dc5",  # Original cyan border
-            text_color=self.theme.TEXT_PRIMARY
+            text_color=self.theme.TEXT_ON_ACCENT
         )
         self.record_button_edit.configure(
             text=_("Record + AI Edit"),
+            subtext=edit_shortcut,
             solid_color=None,
             solid_hover=None,
             gradient_start=self.theme.GRADIENT_START,
@@ -2661,7 +3062,7 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             border_color="#6d9dc5",  # Original cyan border
-            text_color=self.theme.TEXT_PRIMARY
+            text_color=self.theme.TEXT_ON_ACCENT
         )
         
         # TTK labels use configure with text
@@ -2669,6 +3070,16 @@ class UIManager:
             self.shortcut_label_left.configure(text=transcribe_shortcut)
         if hasattr(self, 'shortcut_label_right') and self.shortcut_label_right:
             self.shortcut_label_right.configure(text=edit_shortcut)
+
+        # Keep the tooltips honest after a rebind too.
+        for tooltip, template, shortcut in (
+            (getattr(self, '_tooltip_transcribe', None),
+             _("Record and transcribe audio ({shortcut})"), transcribe_shortcut),
+            (getattr(self, '_tooltip_edit', None),
+             _("Record and AI-edit transcription ({shortcut})"), edit_shortcut),
+        ):
+            if tooltip is not None:
+                tooltip.set_text(template.format(shortcut=shortcut))
 
     def refresh_translations(self):
         """Refresh all UI labels with current translations.
@@ -2701,26 +3112,22 @@ class UIManager:
         if self._widget_alive(self.device_refresh_link):
             self.device_refresh_link.configure(text=f"\u21bb  {_('Refresh')}")
 
-        # Update status label (only if showing "Idle")
-        if hasattr(self, 'status_label'):
-            current_text = str(self.status_label.cget('text'))
-            # Only update if it's a translatable status
-            status_translations = {
-                "Idle": _("Idle"),
-                "Recording...": _("Recording..."),
-                "Success": _("Success"),
-                "Error": _("Error"),
-            }
-            for orig, trans in status_translations.items():
-                if current_text == orig or current_text == trans:
-                    self.status_label.configure(text=trans)
-                    break
+        # Re-translate the status line from the msgid recorded when it was set,
+        # so this works for any language pair rather than only from English.
+        if self._widget_alive(getattr(self, 'status_label', None)) and self._status_msgid:
+            translated = _(self._status_msgid)
+            if self._status_state == "processing":
+                self._processing_base_message = translated
+                translated = self._processing_message()
+            self.status_label.configure(text=translated)
 
-        # Update option switches
+        # Update option switches and the group that holds them
+        if self._widget_alive(getattr(self, 'options_frame', None)):
+            self.options_frame.configure(text=_("After transcription"))
         if hasattr(self, 'auto_copy_switch'):
-            self.auto_copy_switch.configure(text=_("Copy to clipboard"))
+            self.auto_copy_switch.configure(text=_("Auto-copy result"))
         if hasattr(self, 'auto_paste_switch'):
-            self.auto_paste_switch.configure(text=_("Auto-paste"))
+            self.auto_paste_switch.configure(text=_("Auto-paste result"))
 
         # Update action buttons (only if not in recording state)
         if hasattr(self, 'record_button_transcribe') and hasattr(self, 'record_button_edit'):
@@ -2756,6 +3163,10 @@ class UIManager:
             is_dark: True for dark mode, False for light mode
         """
         theme_name = "dark" if is_dark else "light"
+
+        # Swap the palette first: _setup_styles and every widget updated below
+        # resolve their colours through it.
+        set_theme_mode(is_dark)
         sv_ttk.set_theme(theme_name)
 
         # Reapply custom ttk styles after theme change
@@ -2770,7 +3181,7 @@ class UIManager:
             self._set_light_title_bar(self.parent)
         
         # Update gradient buttons background color to match theme
-        bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        bg_color = theme_colors().BG_TERTIARY if is_dark else theme_colors().BG_PRIMARY
         if self.record_button_transcribe:
             self.record_button_transcribe.configure(bg=bg_color)
             self.record_button_transcribe.bg_color = bg_color
@@ -2782,22 +3193,14 @@ class UIManager:
         
         # Update text widget colors based on theme
         if self.transcription_text:
-            if is_dark:
-                self.transcription_text.configure(
-                    bg="#1c1c1c",
-                    fg="#ffffff",
-                    insertbackground="#ffffff",
-                    highlightbackground="#404040",
-                    highlightcolor="#505050"
-                )
-            else:
-                self.transcription_text.configure(
-                    bg="#ffffff",
-                    fg="#1c1c1c",
-                    insertbackground="#1c1c1c",
-                    highlightbackground="#d0d0d0",
-                    highlightcolor="#a0a0a0"
-                )
+            colors = theme_colors()
+            self.transcription_text.configure(
+                bg=colors.BG_TERTIARY if is_dark else colors.BG_SECONDARY,
+                fg=colors.TEXT_PRIMARY,
+                insertbackground=colors.TEXT_PRIMARY,
+                highlightbackground=colors.BORDER,
+                highlightcolor=colors.BORDER_STRONG,
+            )
         
         # Update the level meter surface and repaint it for the new theme
         if self._widget_alive(self.level_meter):

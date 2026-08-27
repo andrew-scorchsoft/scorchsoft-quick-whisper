@@ -22,7 +22,7 @@ WINDOW_SIZES = {
     # Base sizes (non-HiDPI)
     'base': {
         'main': (640, 920),
-        'api_key_dialog': (420, 220),
+        'api_key_dialog': (470, 330),
         'about_dialog': (800, 800),
         'tos_dialog': (300, 150),
         'terms_of_use': (580, 800),
@@ -36,7 +36,7 @@ WINDOW_SIZES = {
     # Windows HiDPI - explicit values
     'windows_hd': {
         'main': (1000, 1200),
-        'api_key_dialog': (480, 250),
+        'api_key_dialog': (540, 380),
         'about_dialog': (1100, 950),
         'tos_dialog': (340, 170),
         'terms_of_use': (720, 1080),
@@ -50,7 +50,7 @@ WINDOW_SIZES = {
     # Linux HiDPI - explicit values (matched to windows_hd for consistent HiDPI experience)
     'linux_hd': {
         'main': (1000, 1150),
-        'api_key_dialog': (480, 250),
+        'api_key_dialog': (540, 380),
         'about_dialog': (1100, 1000),
         'tos_dialog': (340, 170),
         'terms_of_use': (720, 1080),
@@ -64,7 +64,7 @@ WINDOW_SIZES = {
     # macOS HiDPI - OS handles most scaling
     'darwin_hd': {
         'main': (640, 920),
-        'api_key_dialog': (420, 220),
+        'api_key_dialog': (470, 330),
         'about_dialog': (800, 700),
         'tos_dialog': (300, 150),
         'terms_of_use': (580, 800),

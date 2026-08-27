@@ -90,14 +90,14 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
 
    **Windows/Linux:**
    - `Ctrl+Alt+J` for Record + AI Edit
-   - `Ctrl+Alt+Shift+J` for Record + Transcript
+   - `Ctrl+Alt+Shift+J` for Record + Transcribe
    - `Ctrl+Alt+X` to Cancel Recording
    - `Ctrl+Alt+R` to Retry the Last Recording
    - `Alt+Left` / `Alt+Right` to cycle through prompts
 
    **Mac:**
    - `⌘+Alt+J` for Record + AI Edit
-   - `⌘+Alt+Shift+J` for Record + Transcript
+   - `⌘+Alt+Shift+J` for Record + Transcribe
    - `⌘+X` to Cancel Recording
    - `⌘+Alt+R` to Retry the Last Recording
    - `⌘+[` / `⌘+]` to cycle through prompts
@@ -131,10 +131,9 @@ Control how recording files are managed:
 - **Save each recording with date/time in filename**: Creates unique files like `recording_20240101_143052.wav`
   - ⚠️ **Warning**: This option can consume significant disk space over time
 
-### Advanced Settings
+### Recording Settings
 
-**Settings > Configuration > Advanced** covers the behaviour that used to be
-editable only by hand in `settings.json`:
+**Settings > Configuration > Recording** covers how recording behaves:
 
 - **Recording shortcut behaviour**: toggle (press to start, press again to stop) or
   push to talk (hold the shortcut, release to send). The buttons in the main
@@ -143,12 +142,14 @@ editable only by hand in `settings.json`:
   to stay within the upload size limit, the minimum length below which an
   accidental tap of the shortcut is discarded rather than costing an API call,
   and whether recordings with no detected speech are skipped.
-- **Stored recordings**: how many days saved recordings are kept before being
-  deleted automatically.
-- **Transcription history**: whether history is kept between sessions, and how
-  many entries to keep.
-- **Feedback and clipboard**: whether to show the live input level meter, and
-  whether the previous clipboard contents are restored after an auto-paste.
+- **While recording**: whether to show the live input level meter, and whether
+  the short feedback sounds are played.
+
+Related settings live in the categories they belong to: **History & Storage**
+holds where recordings are saved, how long they are kept and how much
+dictation history is remembered; **Output & Clipboard** holds auto-copy,
+auto-paste, whether the previous clipboard contents are restored afterwards,
+and the paste method to use if auto-paste misbehaves.
 
 ### Config Files
 
