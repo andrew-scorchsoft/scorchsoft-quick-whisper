@@ -3,8 +3,12 @@ from tkinter import ttk, messagebox
 import json
 from pathlib import Path
 import customtkinter as ctk
-from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing, theme_colors
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.i18n import _
+from utils.app_logging import get_logger
+
+logger = get_logger(__name__)
 
 class ManagePromptsDialog:
     def __init__(self, parent):
@@ -37,6 +41,8 @@ class ManagePromptsDialog:
         
         # Handle window close (X button) to ensure hotkeys are resumed
         self.dialog.protocol("WM_DELETE_WINDOW", self.on_close)
+        # Escape closes, going through the same unsaved-changes check.
+        bind_dialog_keys(self.dialog, on_cancel=self.on_close)
 
     def on_close(self):
         """Handle dialog close (X button) to ensure hotkeys are resumed."""
@@ -48,20 +54,8 @@ class ManagePromptsDialog:
         self.dialog.destroy()
 
     def center_dialog(self):
-        # Get the parent window position and dimensions
-        parent_x = self.parent.winfo_x()
-        parent_y = self.parent.winfo_y()
-        parent_width = self.parent.winfo_width()
-        parent_height = self.parent.winfo_height()
-
-        # Use stored scaled dimensions
-        dialog_width = self.dialog_width
-        dialog_height = self.dialog_height
-        position_x = parent_x + (parent_width - dialog_width) // 2
-        position_y = parent_y + (parent_height - dialog_height) // 2
-
-        # Set the position
-        self.dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
+        position_dialog(self.dialog, self.dialog_width, self.dialog_height,
+                        self.parent)
 
     def create_dialog(self):
         # Configure styles for consistent fonts
@@ -222,7 +216,7 @@ class ManagePromptsDialog:
         # Configure the scrollbar
         v_scrollbar.config(command=self.content_text.yview)
 
-        self.save_changes_button = ttk.Button(self.right_panel, text=_("Save Changes"),
+        self.save_changes_button = ttk.Button(self.right_panel, text=_("Save Prompt"),
                                             command=self.save_content_changes, state='disabled',
                                             style='Dialog.TButton', cursor='hand2')
         self.save_changes_button.pack(pady=(5, 0), anchor=tk.E)
@@ -235,11 +229,11 @@ class ManagePromptsDialog:
         button_height = get_button_height('dialog')
         save_button = ctk.CTkButton(
             bottom_frame,
-            text=_("Save Selection and Exit"),
+            text=_("Use This Prompt"),
             corner_radius=button_height // 2,
             height=button_height,
-            fg_color="#058705",
-            hover_color="#046a38",
+            fg_color=theme_colors().BUTTON_PRIMARY,
+            hover_color=theme_colors().BUTTON_PRIMARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self.save_and_exit
@@ -291,7 +285,14 @@ class ManagePromptsDialog:
         self.parent.prompts[self.current_selected_prompt] = new_content
         self.parent.save_prompts(self.parent.prompts)
         if announce:
-            messagebox.showinfo(_("Success"), _("Prompt changes saved successfully"))
+            self._notify_parent(_("Prompt saved"))
+
+    def _notify_parent(self, message):
+        """Toast on the main window rather than interrupting with a modal."""
+        try:
+            self.parent.ui_manager.show_toast(message)
+        except Exception as e:
+            logger.debug("Could not show the '%s' toast: %s", message, e)
 
     def create_new_prompt(self):
         """Open dialog for creating a new prompt."""
@@ -308,9 +309,7 @@ class ManagePromptsDialog:
         # Note: Hotkeys are already paused by the parent ManagePromptsDialog
 
         # Center the new prompt dialog
-        position_x = self.dialog.winfo_x() + (self.dialog.winfo_width() - dialog_width) // 2
-        position_y = self.dialog.winfo_y() + (self.dialog.winfo_height() - dialog_height) // 2
-        prompt_dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
+        position_dialog(prompt_dialog, dialog_width, dialog_height, self.dialog)
         
         # Name entry
         name_frame = ttk.Frame(prompt_dialog, padding="10")
@@ -409,6 +408,13 @@ class ManagePromptsDialog:
                   command=prompt_dialog.destroy,
                   style='Dialog.TButton', cursor='hand2').pack(side=tk.RIGHT)
 
+        # Return saves and Escape cancels. Return is ignored while the prompt
+        # body has focus, so typing a multi-line prompt cannot submit early.
+        bind_dialog_keys(prompt_dialog,
+                         on_cancel=prompt_dialog.destroy,
+                         on_accept=save_new_prompt)
+        focus_first(name_entry)
+
     def _show_text_context_menu(self, event, target=None):
         widget = target if target is not None else event.widget
         menu = tk.Menu(self.dialog, tearoff=0)
@@ -478,4 +484,4 @@ class ManagePromptsDialog:
         # Resume hotkeys after closing
         if hasattr(self.parent, 'hotkey_manager'):
             self.parent.hotkey_manager.resume()
-        messagebox.showinfo(_("Success"), _("Now using prompt: {name}").format(name=prompt_name))
+        self._notify_parent(_("Now using prompt: {name}").format(name=prompt_name))

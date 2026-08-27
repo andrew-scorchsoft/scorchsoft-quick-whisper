@@ -14,9 +14,10 @@ import time
 
 from utils.config_manager import get_config
 from utils.i18n import _
-from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing, theme_colors
 from . import CURRENT_PLATFORM
 
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.app_logging import get_logger
 
 logger = get_logger(__name__)
@@ -589,12 +590,11 @@ class HotkeyManagerBase(ABC):
                 shortcut_window.destroy()
 
         shortcut_window.protocol("WM_DELETE_WINDOW", _on_dialog_close)
+        bind_dialog_keys(shortcut_window, on_cancel=_on_dialog_close)
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('hotkey_dialog')
-        position_x = self.parent.winfo_x() + (self.parent.winfo_width() - window_width) // 2
-        position_y = self.parent.winfo_y() + (self.parent.winfo_height() - window_height) // 2
-        shortcut_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(shortcut_window, window_width, window_height, self.parent)
 
         # Configure styles for consistent fonts
         style = ttk.Style()
@@ -656,8 +656,8 @@ class HotkeyManagerBase(ABC):
             corner_radius=corner_radius,
             height=button_height,
             width=220,
-            fg_color="#058705",
-            hover_color="#046a38",
+            fg_color=theme_colors().BUTTON_PRIMARY,
+            hover_color=theme_colors().BUTTON_PRIMARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self.force_hotkey_refresh
@@ -670,8 +670,8 @@ class HotkeyManagerBase(ABC):
             corner_radius=corner_radius,
             height=button_height,
             width=220,
-            fg_color="#666666",
-            hover_color="#444444",
+            fg_color=theme_colors().BUTTON_SECONDARY,
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=lambda: self.reset_shortcuts_to_default(shortcuts_window=shortcut_window)
@@ -695,7 +695,7 @@ class HotkeyManagerBase(ABC):
             text=note_text,
             justify=tk.CENTER,
             font=get_font('xxs'),
-            foreground="#666666"
+            foreground=theme_colors().BUTTON_SECONDARY
         ).pack(pady=get_spacing('sm'))
 
         # Close button using CTkButton for consistency
@@ -706,7 +706,7 @@ class HotkeyManagerBase(ABC):
             height=button_height,
             width=120,
             fg_color="#555555",
-            hover_color="#444444",
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=_on_dialog_close

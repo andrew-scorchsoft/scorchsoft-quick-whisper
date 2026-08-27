@@ -6,12 +6,13 @@ import os
 import platform
 import time
 from utils.config_manager import get_config, TRANSCRIPTION_MODELS, AI_MODELS
-from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing
+from utils.theme import get_font, get_font_size, get_font_family, get_window_size, get_button_height, get_spacing, theme_colors
 from utils.platform import open_url
 from utils.i18n import (
     _, _n, set_language, get_current_language, detect_os_locale,
     get_detected_locale_display, get_available_languages, SUPPORTED_LANGUAGES
 )
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.app_logging import get_logger
 
 logger = get_logger(__name__)
@@ -126,12 +127,7 @@ class ConfigDialog:
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('config_dialog')
-        self.dialog.geometry(f"{window_width}x{window_height}")
-
-        # Center the window
-        position_x = parent.winfo_x() + (parent.winfo_width() - window_width) // 2
-        position_y = parent.winfo_y() + (parent.winfo_height() - window_height) // 2
-        self.dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(self.dialog, window_width, window_height, parent)
 
         self.dialog.transient(parent)
 
@@ -254,6 +250,13 @@ class ConfigDialog:
 
         self.create_dialog()
         logger.info("[CONFIG DIALOG] create_dialog() done: %sms", (time.perf_counter() - _t0)*1000)
+
+        # Baseline for the unsaved-changes check, taken once the settings are
+        # in their variables and before the user can touch anything.
+        self._baseline = self._settings_snapshot()
+        bind_dialog_keys(self.dialog,
+                         on_cancel=self._close_dialog,
+                         on_accept=self.save_settings)
 
         # Force Tkinter to process all widget geometry before showing
         # This prevents the black flash by ensuring widgets are rendered
@@ -450,8 +453,8 @@ class ConfigDialog:
             corner_radius=corner_radius,
             height=button_height,
             width=180,
-            fg_color="#666666",
-            hover_color="#444444",
+            fg_color=theme_colors().BUTTON_SECONDARY,
+            hover_color=theme_colors().BUTTON_SECONDARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self._close_dialog
@@ -464,8 +467,8 @@ class ConfigDialog:
             corner_radius=corner_radius,
             height=button_height,
             width=200,
-            fg_color="#058705",
-            hover_color="#046a38",
+            fg_color=theme_colors().BUTTON_PRIMARY,
+            hover_color=theme_colors().BUTTON_PRIMARY_HOVER,
             font=ctk.CTkFont(family=get_font_family(), size=get_font_size('dialog_button'), weight='bold'),
             cursor="hand2",
             command=self.save_settings
@@ -1493,20 +1496,24 @@ class ConfigDialog:
                     icon='question'
                 )
                 if restart_now:
-                    self._close_dialog()
+                    self._close_dialog(check_unsaved=False)
                     self.parent.restart_application()
                     return
                 else:
+                    # Kept as a dialog: this one carries a consequence the user
+                    # has to act on later, unlike a plain "saved" confirmation.
                     messagebox.showinfo(
                         _("Settings Saved"),
                         _("Configuration settings saved successfully!") + "\n\n" +
                         _("The HiDPI scaling change will take effect after you restart the application.")
                     )
-                    self._close_dialog()
+                    self._close_dialog(check_unsaved=False)
                     return
 
-            messagebox.showinfo(_("Success"), _("Configuration settings saved and applied successfully!"))
-            self._close_dialog()
+            # A toast rather than a modal: a successful save needs
+            # acknowledging, not dismissing.
+            self._close_dialog(check_unsaved=False)
+            self._notify_parent(_("Settings saved"))
 
         except Exception as e:
             messagebox.showerror(_("Error"), _("Could not save settings: {error}").format(error=e)) 
@@ -1571,7 +1578,49 @@ class ConfigDialog:
             'restore_clipboard': bool(self.restore_clipboard_var.get()),
         }
 
-    def _close_dialog(self):
+    def _notify_parent(self, message):
+        """Show a toast on the main window (the dialog is on its way out)."""
+        try:
+            self.parent.ui_manager.show_toast(message)
+        except Exception as e:
+            logger.debug("Could not show the '%s' toast: %s", message, e)
+
+    def _settings_snapshot(self):
+        """Current value of every settings variable on this dialog.
+
+        Collected by introspection rather than a hand-written list, so a
+        setting added later is covered by the unsaved-changes check without
+        anyone having to remember to add it here.
+        """
+        snapshot = {}
+        for name, value in vars(self).items():
+            if isinstance(value, (tk.StringVar, tk.BooleanVar,
+                                  tk.IntVar, tk.DoubleVar)):
+                try:
+                    snapshot[name] = value.get()
+                except Exception:
+                    continue
+        return snapshot
+
+    def _has_unsaved_changes(self):
+        baseline = getattr(self, '_baseline', None)
+        if not baseline:
+            return False
+        current = self._settings_snapshot()
+        return any(current.get(k) != v for k, v in baseline.items())
+
+    def _close_dialog(self, check_unsaved=True):
+        """Close the dialog, asking first if edits would be thrown away.
+
+        Cancel and the X button used to discard everything silently.
+        """
+        if check_unsaved and self._has_unsaved_changes():
+            keep_open = not messagebox.askyesno(
+                _("Discard Changes?"),
+                _("You have unsaved changes. Discard them?"),
+                parent=self.dialog, default='no')
+            if keep_open:
+                return
         try:
             self.dialog.destroy()
         finally:

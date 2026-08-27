@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: QuickWhisper 2.0\n"
 "Report-Msgid-Bugs-To: support@scorchsoft.com\n"
-"POT-Creation-Date: 2026-08-27 08:09+0000\n"
+"POT-Creation-Date: 2026-08-27 08:22+0000\n"
 "PO-Revision-Date: 2024-01-01 00:00+0000\n"
 "Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
 "Language-Team: Spanish <es@li.org>\n"
@@ -57,10 +57,10 @@ msgstr "Error de dispositivo"
 
 #: utils/audio_manager.py:365 utils/audio_manager.py:600
 #: utils/audio_manager.py:688 utils/audio_manager.py:714
-#: utils/audio_manager.py:752 utils/quick_whisper.py:1358
-#: utils/quick_whisper.py:1423 utils/quick_whisper.py:3296
-#: utils/quick_whisper.py:3309 utils/ui_manager.py:1346
-#: utils/ui_manager.py:1863
+#: utils/audio_manager.py:752 utils/quick_whisper.py:268
+#: utils/quick_whisper.py:1437 utils/quick_whisper.py:1502
+#: utils/quick_whisper.py:3355 utils/quick_whisper.py:3368
+#: utils/ui_manager.py:1346 utils/ui_manager.py:1863
 msgid "Idle"
 msgstr "Inactivo"
 
@@ -239,397 +239,398 @@ msgstr ""
 msgid "See scorchsoft.com for the download."
 msgstr ""
 
-#: utils/version_update_manager.py:239 utils/quick_whisper.py:2263
-#: utils/quick_whisper.py:2280 utils/quick_whisper.py:2505
-#: utils/history_dialog.py:159
+#: utils/version_update_manager.py:239 utils/quick_whisper.py:2342
+#: utils/quick_whisper.py:2565 utils/history_dialog.py:158
 msgid "Close"
 msgstr "Cerrar"
 
-#: utils/manage_prompts_dialog.py:13
+#: utils/manage_prompts_dialog.py:17
 msgid "Prompt Management"
 msgstr "Gestion de prompts"
 
-#: utils/manage_prompts_dialog.py:96
+#: utils/manage_prompts_dialog.py:90
 msgid "Prompt Selection"
 msgstr "Seleccion de prompt"
 
-#: utils/manage_prompts_dialog.py:124
+#: utils/manage_prompts_dialog.py:118
 msgid "New Prompt"
 msgstr "Nuevo prompt"
 
-#: utils/manage_prompts_dialog.py:126
+#: utils/manage_prompts_dialog.py:120
 msgid "Delete"
 msgstr "Eliminar"
 
-#: utils/manage_prompts_dialog.py:151
+#: utils/manage_prompts_dialog.py:145
 #, fuzzy
 msgid "Unsaved Changes"
 msgstr "Guardar cambios"
 
-#: utils/manage_prompts_dialog.py:152
+#: utils/manage_prompts_dialog.py:146
 #, python-brace-format
 msgid "Save changes to '{name}' before continuing?"
 msgstr ""
 
-#: utils/manage_prompts_dialog.py:195
+#: utils/manage_prompts_dialog.py:189
 msgid "Prompt Content"
 msgstr "Contenido del prompt"
 
-#: utils/manage_prompts_dialog.py:225 utils/config_dialog.py:463
-msgid "Save Changes"
-msgstr "Guardar cambios"
+#: utils/manage_prompts_dialog.py:219
+#, fuzzy
+msgid "Save Prompt"
+msgstr "Nuevo prompt"
 
-#: utils/manage_prompts_dialog.py:238
-msgid "Save Selection and Exit"
-msgstr "Guardar seleccion y salir"
+#: utils/manage_prompts_dialog.py:232
+#, fuzzy
+msgid "Use This Prompt"
+msgstr "Prompt anterior"
 
-#: utils/manage_prompts_dialog.py:268
+#: utils/manage_prompts_dialog.py:262
 msgid "(Default prompt cannot be edited)"
 msgstr "(El prompt predeterminado no se puede editar)"
 
-#: utils/manage_prompts_dialog.py:288 utils/manage_prompts_dialog.py:352
-#: utils/manage_prompts_dialog.py:355 utils/manage_prompts_dialog.py:363
-#: utils/manage_prompts_dialog.py:376 utils/config_dialog.py:1372
-#: utils/config_dialog.py:1384 utils/config_dialog.py:1404
-#: utils/config_dialog.py:1415 utils/config_dialog.py:1512
-#: utils/quick_whisper.py:2797
+#: utils/manage_prompts_dialog.py:282 utils/manage_prompts_dialog.py:351
+#: utils/manage_prompts_dialog.py:354 utils/manage_prompts_dialog.py:362
+#: utils/manage_prompts_dialog.py:375 utils/config_dialog.py:1375
+#: utils/config_dialog.py:1387 utils/config_dialog.py:1407
+#: utils/config_dialog.py:1418 utils/config_dialog.py:1519
+#: utils/quick_whisper.py:2856
 msgid "Error"
 msgstr "Error"
 
-#: utils/manage_prompts_dialog.py:288
+#: utils/manage_prompts_dialog.py:282
 msgid "Prompt content cannot be empty"
 msgstr "El contenido del prompt no puede estar vacio"
 
-#: utils/manage_prompts_dialog.py:294 utils/manage_prompts_dialog.py:481
-#: utils/config_dialog.py:1508 utils/quick_whisper.py:2748
-msgid "Success"
-msgstr "Exito"
+#: utils/manage_prompts_dialog.py:288
+#, fuzzy
+msgid "Prompt saved"
+msgstr "Nombre del prompt:"
 
-#: utils/manage_prompts_dialog.py:294
-msgid "Prompt changes saved successfully"
-msgstr "Cambios del prompt guardados correctamente"
-
-#: utils/manage_prompts_dialog.py:299
+#: utils/manage_prompts_dialog.py:300
 msgid "Create New Prompt"
 msgstr "Crear nuevo prompt"
 
-#: utils/manage_prompts_dialog.py:318
+#: utils/manage_prompts_dialog.py:317
 msgid "Prompt Name:"
 msgstr "Nombre del prompt:"
 
-#: utils/manage_prompts_dialog.py:323
+#: utils/manage_prompts_dialog.py:322
 #, fuzzy
 msgid "System Prompt"
 msgstr "Nuevo prompt"
 
-#: utils/manage_prompts_dialog.py:352
+#: utils/manage_prompts_dialog.py:351
 msgid "Please enter a prompt name"
 msgstr "Por favor, introduzca un nombre de prompt"
 
-#: utils/manage_prompts_dialog.py:355
+#: utils/manage_prompts_dialog.py:354
 msgid "Prompt name must be 25 characters or less"
 msgstr "El nombre del prompt debe tener 25 caracteres o menos"
 
-#: utils/manage_prompts_dialog.py:364
+#: utils/manage_prompts_dialog.py:363
 msgid ""
 "'Default' is reserved for the built-in prompt. Please choose another name."
 msgstr ""
 
-#: utils/manage_prompts_dialog.py:369
+#: utils/manage_prompts_dialog.py:368
 #, fuzzy
 msgid "Overwrite Prompt"
 msgstr "Nuevo prompt"
 
-#: utils/manage_prompts_dialog.py:370
+#: utils/manage_prompts_dialog.py:369
 #, python-brace-format
 msgid "A prompt named '{name}' already exists. Replace it?"
 msgstr ""
 
-#: utils/manage_prompts_dialog.py:376
+#: utils/manage_prompts_dialog.py:375
 msgid "Please enter a system prompt"
 msgstr "Por favor, introduzca un prompt del sistema"
 
-#: utils/manage_prompts_dialog.py:405 utils/quick_whisper.py:854
+#: utils/manage_prompts_dialog.py:404 utils/quick_whisper.py:915
 msgid "Save"
 msgstr "Guardar"
 
-#: utils/manage_prompts_dialog.py:408 utils/config_dialog.py:449
-#: utils/quick_whisper.py:858
+#: utils/manage_prompts_dialog.py:407 utils/config_dialog.py:452
+#: utils/quick_whisper.py:911
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: utils/manage_prompts_dialog.py:416 utils/quick_whisper.py:916
-#: utils/quick_whisper.py:929 utils/ui_manager.py:2832
+#: utils/manage_prompts_dialog.py:422 utils/quick_whisper.py:983
+#: utils/quick_whisper.py:996 utils/ui_manager.py:2832
 msgid "Cut"
 msgstr "Cortar"
 
-#: utils/manage_prompts_dialog.py:417 utils/quick_whisper.py:917
-#: utils/quick_whisper.py:930 utils/ui_manager.py:2833
-#: utils/history_dialog.py:164
+#: utils/manage_prompts_dialog.py:423 utils/quick_whisper.py:984
+#: utils/quick_whisper.py:997 utils/ui_manager.py:2833
+#: utils/history_dialog.py:163
 msgid "Copy"
 msgstr "Copiar"
 
-#: utils/manage_prompts_dialog.py:418 utils/quick_whisper.py:918
-#: utils/quick_whisper.py:931 utils/ui_manager.py:2834
+#: utils/manage_prompts_dialog.py:424 utils/quick_whisper.py:985
+#: utils/quick_whisper.py:998 utils/ui_manager.py:2834
 msgid "Paste"
 msgstr "Pegar"
 
-#: utils/manage_prompts_dialog.py:420 utils/quick_whisper.py:920
-#: utils/quick_whisper.py:933 utils/ui_manager.py:2836
+#: utils/manage_prompts_dialog.py:426 utils/quick_whisper.py:987
+#: utils/quick_whisper.py:1000 utils/ui_manager.py:2836
 msgid "Select All"
 msgstr "Seleccionar todo"
 
-#: utils/manage_prompts_dialog.py:439
+#: utils/manage_prompts_dialog.py:445
 msgid "Confirm Delete"
 msgstr "Confirmar eliminacion"
 
-#: utils/manage_prompts_dialog.py:439
+#: utils/manage_prompts_dialog.py:445
 #, python-brace-format
 msgid "Are you sure you want to delete '{name}'?"
 msgstr "Esta seguro de que desea eliminar '{name}'?"
 
-#: utils/manage_prompts_dialog.py:461
+#: utils/manage_prompts_dialog.py:467
 msgid "No Selection"
 msgstr "Sin seleccion"
 
-#: utils/manage_prompts_dialog.py:461
+#: utils/manage_prompts_dialog.py:467
 msgid "Please select a prompt before saving"
 msgstr "Por favor, seleccione un prompt antes de guardar"
 
-#: utils/manage_prompts_dialog.py:481
+#: utils/manage_prompts_dialog.py:487
 #, python-brace-format
 msgid "Now using prompt: {name}"
 msgstr "Usando ahora el prompt: {name}"
 
-#: utils/config_dialog.py:124
+#: utils/config_dialog.py:125
 msgid "Configuration Settings"
 msgstr "Ajustes de configuracion"
 
-#: utils/config_dialog.py:400
+#: utils/config_dialog.py:403
 msgid "Recording"
 msgstr "Grabacion"
 
-#: utils/config_dialog.py:401
+#: utils/config_dialog.py:404
 msgid "Display"
 msgstr "Pantalla"
 
-#: utils/config_dialog.py:402
+#: utils/config_dialog.py:405
 msgid "Language"
 msgstr "Idioma"
 
-#: utils/config_dialog.py:403
+#: utils/config_dialog.py:406
 msgid "Output"
 msgstr ""
 
-#: utils/config_dialog.py:404
+#: utils/config_dialog.py:407
 msgid "AI Models"
 msgstr "Modelos de IA"
 
-#: utils/config_dialog.py:405
+#: utils/config_dialog.py:408
 msgid "Behavior"
 msgstr ""
 
-#: utils/config_dialog.py:406
+#: utils/config_dialog.py:409
 msgid "Advanced"
 msgstr "Avanzado"
 
-#: utils/config_dialog.py:411
+#: utils/config_dialog.py:414
 msgid "Settings Categories"
 msgstr "Categorias de ajustes"
 
-#: utils/config_dialog.py:505
+#: utils/config_dialog.py:466
+msgid "Save Changes"
+msgstr "Guardar cambios"
+
+#: utils/config_dialog.py:508
 msgid "Recording Settings"
 msgstr "Ajustes de grabacion"
 
-#: utils/config_dialog.py:513
+#: utils/config_dialog.py:516
 msgid "Recording Location"
 msgstr "Ubicacion de grabacion"
 
-#: utils/config_dialog.py:521
+#: utils/config_dialog.py:524
 msgid "Choose where to save audio recording files:"
 msgstr "Elija donde guardar los archivos de grabacion de audio:"
 
-#: utils/config_dialog.py:528
+#: utils/config_dialog.py:531
 msgid "Alongside application (recommended)"
 msgstr "Junto a la aplicacion (recomendado)"
 
-#: utils/config_dialog.py:536
+#: utils/config_dialog.py:539
 msgid "In AppData folder"
 msgstr "En la carpeta AppData"
 
-#: utils/config_dialog.py:538
+#: utils/config_dialog.py:541
 msgid "In Application Support folder"
 msgstr "En la carpeta Application Support"
 
-#: utils/config_dialog.py:540
+#: utils/config_dialog.py:543
 msgid "In home config folder"
 msgstr "En la carpeta de configuracion del usuario"
 
-#: utils/config_dialog.py:552
+#: utils/config_dialog.py:555
 msgid "Custom folder:"
 msgstr "Carpeta personalizada:"
 
-#: utils/config_dialog.py:573
+#: utils/config_dialog.py:576
 msgid "Browse..."
 msgstr "Examinar..."
 
-#: utils/config_dialog.py:584
+#: utils/config_dialog.py:587
 msgid "File Handling"
 msgstr "Manejo de archivos"
 
-#: utils/config_dialog.py:592
+#: utils/config_dialog.py:595
 msgid "Choose how to handle recording files:"
 msgstr "Elija como manejar los archivos de grabacion:"
 
-#: utils/config_dialog.py:598
+#: utils/config_dialog.py:601
 msgid "Overwrite the same file each time (saves disk space)"
 msgstr "Sobrescribir el mismo archivo cada vez (ahorra espacio en disco)"
 
-#: utils/config_dialog.py:606
+#: utils/config_dialog.py:609
 msgid "Save each recording with date/time in filename"
 msgstr "Guardar cada grabacion con fecha/hora en el nombre del archivo"
 
-#: utils/config_dialog.py:618
+#: utils/config_dialog.py:621
 msgid "Warning: This can consume significant disk space over time"
 msgstr ""
 "Advertencia: Esto puede consumir un espacio de disco significativo con el "
 "tiempo"
 
-#: utils/config_dialog.py:639
+#: utils/config_dialog.py:642
 #, fuzzy
 msgid "Output Settings"
 msgstr "Configuracion"
 
-#: utils/config_dialog.py:647
+#: utils/config_dialog.py:650
 #, fuzzy
 msgid "Auto-Paste Method"
 msgstr "Error de pegado automatico"
 
-#: utils/config_dialog.py:655
+#: utils/config_dialog.py:658
 msgid "Choose the keyboard simulation method for auto-paste:"
 msgstr ""
 
-#: utils/config_dialog.py:661
+#: utils/config_dialog.py:664
 msgid "Auto (recommended) - Uses best method for your system"
 msgstr ""
 
-#: utils/config_dialog.py:671
+#: utils/config_dialog.py:674
 msgid "SendInput - Native Windows API (most reliable)"
 msgstr ""
 
-#: utils/config_dialog.py:679
+#: utils/config_dialog.py:682
 msgid "win32api - Older Windows API (keybd_event)"
 msgstr ""
 
-#: utils/config_dialog.py:687
+#: utils/config_dialog.py:690
 msgid "pynput - Cross-platform with timing delays"
 msgstr ""
 
-#: utils/config_dialog.py:695
+#: utils/config_dialog.py:698
 msgid "pynput (legacy) - Original method, no delays"
 msgstr ""
 
-#: utils/config_dialog.py:703
+#: utils/config_dialog.py:706
 msgid "pyautogui - Alternative automation library"
 msgstr ""
 
-#: utils/config_dialog.py:715
+#: utils/config_dialog.py:718
 msgid "Try a different method if auto-paste types 'v' instead of pasting."
 msgstr ""
 
-#: utils/config_dialog.py:725
+#: utils/config_dialog.py:728
 msgid "Display Settings"
 msgstr "Ajustes de pantalla"
 
-#: utils/config_dialog.py:733
+#: utils/config_dialog.py:736
 msgid "HiDPI Scaling"
 msgstr "Escalado HiDPI"
 
-#: utils/config_dialog.py:741
+#: utils/config_dialog.py:744
 msgid "Choose how HiDPI (high resolution) scaling is applied:"
 msgstr "Elija como se aplica el escalado HiDPI (alta resolucion):"
 
-#: utils/config_dialog.py:748
+#: utils/config_dialog.py:751
 msgid "Auto-detect (recommended)"
 msgstr "Deteccion automatica (recomendado)"
 
-#: utils/config_dialog.py:756
+#: utils/config_dialog.py:759
 msgid ""
 "Automatically detect and apply appropriate scaling based on your display"
 msgstr ""
 "Detectar automaticamente y aplicar el escalado apropiado segun su pantalla"
 
-#: utils/config_dialog.py:764
+#: utils/config_dialog.py:767
 msgid "Force enabled"
 msgstr "Forzar activado"
 
-#: utils/config_dialog.py:772
+#: utils/config_dialog.py:775
 msgid ""
 "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
 msgstr ""
 "Aplicar siempre escalado HiDPI (usar si la deteccion automatica no funciona)"
 
-#: utils/config_dialog.py:780
+#: utils/config_dialog.py:783
 msgid "Disabled"
 msgstr "Desactivado"
 
-#: utils/config_dialog.py:788
+#: utils/config_dialog.py:791
 msgid "Never apply HiDPI scaling (use standard scaling)"
 msgstr "Nunca aplicar escalado HiDPI (usar escalado estandar)"
 
-#: utils/config_dialog.py:800
+#: utils/config_dialog.py:803
 msgid "Note: Changes to HiDPI scaling require a restart to take effect."
 msgstr ""
 "Nota: Los cambios en el escalado HiDPI requieren reiniciar para tener efecto."
 
-#: utils/config_dialog.py:810
+#: utils/config_dialog.py:813
 #, fuzzy
 msgid "Behavior Settings"
 msgstr "Ajustes de grabacion"
 
-#: utils/config_dialog.py:818
+#: utils/config_dialog.py:821
 msgid "Window Close Behavior"
 msgstr ""
 
-#: utils/config_dialog.py:826
+#: utils/config_dialog.py:829
 msgid "Choose what happens when you click the X button:"
 msgstr ""
 
-#: utils/config_dialog.py:833
+#: utils/config_dialog.py:836
 msgid "Close the application"
 msgstr ""
 
-#: utils/config_dialog.py:841
+#: utils/config_dialog.py:844
 msgid "Clicking X will close Quick Whisper completely"
 msgstr ""
 
-#: utils/config_dialog.py:849
+#: utils/config_dialog.py:852
 #, fuzzy
 msgid "Minimize to system tray"
 msgstr "Minimizar a la bandeja"
 
-#: utils/config_dialog.py:857
+#: utils/config_dialog.py:860
 msgid ""
 "Clicking X will hide the window to the system tray (use tray icon to restore)"
 msgstr ""
 
-#: utils/config_dialog.py:922
+#: utils/config_dialog.py:925
 msgid "Advanced Settings"
 msgstr "Configuración avanzada"
 
-#: utils/config_dialog.py:931
+#: utils/config_dialog.py:934
 msgid "Recording Shortcut Behaviour"
 msgstr "Comportamiento del atajo de grabación"
 
-#: utils/config_dialog.py:934
+#: utils/config_dialog.py:937
 msgid "Choose how the record shortcuts behave:"
 msgstr "Elija cómo se comportan los atajos de grabación:"
 
-#: utils/config_dialog.py:941
+#: utils/config_dialog.py:944
 msgid "Toggle"
 msgstr "Alternar"
 
-#: utils/config_dialog.py:947
+#: utils/config_dialog.py:950
 msgid ""
 "Press the shortcut once to start recording and again to stop. The current "
 "behaviour, and the better one for longer dictation where you do not want to "
@@ -639,11 +640,11 @@ msgstr ""
 "el comportamiento actual y el más adecuado para dictados largos en los que "
 "no quiere mantener teclas pulsadas."
 
-#: utils/config_dialog.py:953
+#: utils/config_dialog.py:956
 msgid "Push to talk"
 msgstr "Pulsar para hablar"
 
-#: utils/config_dialog.py:959
+#: utils/config_dialog.py:962
 msgid ""
 "Hold the shortcut down and release it to send. Best for short dictation. "
 "Recording stops as soon as you let go of any key in the shortcut. The "
@@ -653,15 +654,15 @@ msgstr ""
 "cortos. La grabación se detiene en cuanto suelta cualquier tecla del atajo. "
 "Los botones de esta ventana siempre alternan, sea cual sea el modo elegido."
 
-#: utils/config_dialog.py:966
+#: utils/config_dialog.py:969
 msgid "Recording Limits"
 msgstr "Límites de grabación"
 
-#: utils/config_dialog.py:968
+#: utils/config_dialog.py:971
 msgid "Maximum length (minutes):"
 msgstr "Duración máxima (minutos):"
 
-#: utils/config_dialog.py:969
+#: utils/config_dialog.py:972
 msgid ""
 "Recording stops automatically at this length so the audio stays within the "
 "upload size limit. Whatever was said is still transcribed. Use 0 for no "
@@ -671,11 +672,11 @@ msgstr ""
 "supere el límite de tamaño de subida. Lo dicho hasta entonces se transcribe "
 "igualmente. Use 0 para no poner límite."
 
-#: utils/config_dialog.py:973
+#: utils/config_dialog.py:976
 msgid "Minimum length (seconds):"
 msgstr "Duración mínima (segundos):"
 
-#: utils/config_dialog.py:974
+#: utils/config_dialog.py:977
 msgid ""
 "Recordings shorter than this are discarded rather than sent for "
 "transcription, which stops an accidental tap of the shortcut costing an API "
@@ -685,11 +686,11 @@ msgstr ""
 "de modo que una pulsación accidental del atajo no cueste una llamada a la "
 "API. Use 0 para conservar todas las grabaciones."
 
-#: utils/config_dialog.py:978
+#: utils/config_dialog.py:981
 msgid "Discard silent recordings"
 msgstr "Descartar grabaciones silenciosas"
 
-#: utils/config_dialog.py:979
+#: utils/config_dialog.py:982
 msgid ""
 "Skip uploading a recording when no speech was detected in it. Turn this off "
 "if quiet dictation is being discarded by mistake."
@@ -697,15 +698,15 @@ msgstr ""
 "No enviar una grabación en la que no se haya detectado voz. Desactívelo si "
 "sus dictados en voz baja se descartan por error."
 
-#: utils/config_dialog.py:983
+#: utils/config_dialog.py:986
 msgid "Stored Recordings"
 msgstr "Grabaciones guardadas"
 
-#: utils/config_dialog.py:985
+#: utils/config_dialog.py:988
 msgid "Delete recordings after (days):"
 msgstr "Eliminar grabaciones después de (días):"
 
-#: utils/config_dialog.py:986
+#: utils/config_dialog.py:989
 msgid ""
 "Audio files older than this are deleted automatically. Only applies when "
 "recordings are saved with a date and time in the filename. Use 0 to keep "
@@ -715,15 +716,15 @@ msgstr ""
 "aplica cuando las grabaciones se guardan con fecha y hora en el nombre del "
 "archivo. Use 0 para conservarlos siempre."
 
-#: utils/config_dialog.py:991 utils/history_dialog.py:38
+#: utils/config_dialog.py:994 utils/history_dialog.py:39
 msgid "Transcription History"
 msgstr "Historial de transcripciones"
 
-#: utils/config_dialog.py:993
+#: utils/config_dialog.py:996
 msgid "Remember history between sessions"
 msgstr "Recordar el historial entre sesiones"
 
-#: utils/config_dialog.py:994
+#: utils/config_dialog.py:997
 msgid ""
 "Keep your transcriptions on disk so they are still there next time the app "
 "starts. Turn this off if you would rather nothing was written down."
@@ -731,11 +732,11 @@ msgstr ""
 "Guarda sus transcripciones en el disco para que sigan ahí la próxima vez que "
 "abra la aplicación. Desactívelo si prefiere que no quede nada registrado."
 
-#: utils/config_dialog.py:997
+#: utils/config_dialog.py:1000
 msgid "Entries to keep:"
 msgstr "Entradas que conservar:"
 
-#: utils/config_dialog.py:998
+#: utils/config_dialog.py:1001
 msgid ""
 "How many transcriptions are kept in the history before the oldest are "
 "dropped."
@@ -743,15 +744,15 @@ msgstr ""
 "Cuántas transcripciones se conservan en el historial antes de descartar las "
 "más antiguas."
 
-#: utils/config_dialog.py:1002
+#: utils/config_dialog.py:1005
 msgid "Feedback and Clipboard"
 msgstr "Información visual y portapapeles"
 
-#: utils/config_dialog.py:1004
+#: utils/config_dialog.py:1007
 msgid "Show the input level meter while recording"
 msgstr "Mostrar el medidor de nivel durante la grabación"
 
-#: utils/config_dialog.py:1006
+#: utils/config_dialog.py:1009
 msgid ""
 "Displays a live microphone level and timer next to the status, so you can "
 "see that your voice is being picked up."
@@ -759,11 +760,11 @@ msgstr ""
 "Muestra el nivel del micrófono en directo y un cronómetro junto al estado, "
 "para que compruebe que se está captando su voz."
 
-#: utils/config_dialog.py:1009
+#: utils/config_dialog.py:1012
 msgid "Restore the previous clipboard after auto-paste"
 msgstr "Restaurar el portapapeles anterior tras el pegado automático"
 
-#: utils/config_dialog.py:1011
+#: utils/config_dialog.py:1014
 msgid ""
 "When 'Copy to clipboard' is switched off, the transcription is put on the "
 "clipboard only long enough to paste it, then whatever you had copied before "
@@ -773,117 +774,117 @@ msgstr ""
 "en el portapapeles solo el tiempo necesario para pegarla y después se "
 "restaura lo que tuviera copiado antes."
 
-#: utils/config_dialog.py:1020
+#: utils/config_dialog.py:1023
 msgid "Language Settings"
 msgstr "Ajustes de idioma"
 
-#: utils/config_dialog.py:1028
+#: utils/config_dialog.py:1031
 msgid "Application Language"
 msgstr "Idioma de la aplicacion"
 
-#: utils/config_dialog.py:1036
+#: utils/config_dialog.py:1039
 msgid "Choose how the application language is determined:"
 msgstr "Elija como se determina el idioma de la aplicacion:"
 
-#: utils/config_dialog.py:1043
+#: utils/config_dialog.py:1046
 msgid "Auto-detect from system"
 msgstr "Detectar automaticamente del sistema"
 
-#: utils/config_dialog.py:1052
+#: utils/config_dialog.py:1055
 msgid "Automatically detect language from your operating system settings"
 msgstr ""
 "Detectar automaticamente el idioma desde la configuracion de su sistema "
 "operativo"
 
-#: utils/config_dialog.py:1064
+#: utils/config_dialog.py:1067
 msgid "Detected:"
 msgstr "Detectado:"
 
-#: utils/config_dialog.py:1080
+#: utils/config_dialog.py:1083
 msgid "Manual selection"
 msgstr "Seleccion manual"
 
-#: utils/config_dialog.py:1093
+#: utils/config_dialog.py:1096
 msgid "Select Language:"
 msgstr "Seleccionar idioma:"
 
-#: utils/config_dialog.py:1127
+#: utils/config_dialog.py:1130
 msgid "Note: Changing the language will update the interface immediately."
 msgstr "Nota: Cambiar el idioma actualizara la interfaz inmediatamente."
 
-#: utils/config_dialog.py:1138
+#: utils/config_dialog.py:1141
 #, fuzzy
 msgid "AI Language Settings"
 msgstr "Ajustes de idioma"
 
-#: utils/config_dialog.py:1146
+#: utils/config_dialog.py:1149
 msgid "Select the language for AI transcription:"
 msgstr ""
 
-#: utils/config_dialog.py:1173
+#: utils/config_dialog.py:1176
 msgid "Specifying the language improves transcription accuracy and speed."
 msgstr ""
 
-#: utils/config_dialog.py:1203 utils/config_dialog.py:1211
+#: utils/config_dialog.py:1206 utils/config_dialog.py:1214
 msgid "AI Model Settings"
 msgstr "Ajustes de modelos de IA"
 
-#: utils/config_dialog.py:1223
+#: utils/config_dialog.py:1226
 msgid "Transcription Model:"
 msgstr "Modelo de transcripcion:"
 
-#: utils/config_dialog.py:1244
+#: utils/config_dialog.py:1247
 msgid "Enter custom transcription model name:"
 msgstr "Introduzca nombre de modelo de transcripcion personalizado:"
 
-#: utils/config_dialog.py:1272
+#: utils/config_dialog.py:1275
 msgid "OpenAI Copyediting Model:"
 msgstr "Modelo de correccion de OpenAI:"
 
-#: utils/config_dialog.py:1292
+#: utils/config_dialog.py:1295
 msgid "Enter custom copyediting model name:"
 msgstr "Introduzca nombre de modelo de correccion personalizado:"
 
-#: utils/config_dialog.py:1320
+#: utils/config_dialog.py:1323
 msgid "View Available OpenAI Models and Pricing"
 msgstr "Ver modelos de OpenAI disponibles y precios"
 
-#: utils/config_dialog.py:1359
+#: utils/config_dialog.py:1362
 msgid "Select Recording Folder"
 msgstr "Seleccionar carpeta de grabacion"
 
-#: utils/config_dialog.py:1372
+#: utils/config_dialog.py:1375
 msgid "Please select a custom folder path"
 msgstr "Por favor, seleccione una ruta de carpeta personalizada"
 
-#: utils/config_dialog.py:1377
+#: utils/config_dialog.py:1380
 msgid "Folder Does Not Exist"
 msgstr "La carpeta no existe"
 
-#: utils/config_dialog.py:1378
+#: utils/config_dialog.py:1381
 #, python-brace-format
 msgid "The folder '{path}' does not exist. Would you like to create it?"
 msgstr "La carpeta '{path}' no existe. Desea crearla?"
 
-#: utils/config_dialog.py:1384
+#: utils/config_dialog.py:1387
 #, python-brace-format
 msgid "Could not create folder: {error}"
 msgstr "No se pudo crear la carpeta: {error}"
 
-#: utils/config_dialog.py:1404
+#: utils/config_dialog.py:1407
 msgid "Custom transcription model name cannot be empty."
 msgstr ""
 "El nombre del modelo de transcripcion personalizado no puede estar vacio."
 
-#: utils/config_dialog.py:1415
+#: utils/config_dialog.py:1418
 msgid "Custom copyediting model name cannot be empty."
 msgstr "El nombre del modelo de correccion personalizado no puede estar vacio."
 
-#: utils/config_dialog.py:1490
+#: utils/config_dialog.py:1493
 msgid "Restart Required"
 msgstr "Reinicio requerido"
 
-#: utils/config_dialog.py:1491
+#: utils/config_dialog.py:1494
 msgid ""
 "The HiDPI scaling setting has been changed. This requires a restart to take "
 "effect."
@@ -891,91 +892,95 @@ msgstr ""
 "El ajuste de escalado HiDPI ha cambiado. Se requiere reiniciar para que "
 "tenga efecto."
 
-#: utils/config_dialog.py:1492
+#: utils/config_dialog.py:1495
 msgid "Would you like to restart the application now?"
 msgstr "Desea reiniciar la aplicacion ahora?"
 
-#: utils/config_dialog.py:1501
+#: utils/config_dialog.py:1506
 msgid "Settings Saved"
 msgstr "Ajustes guardados"
 
-#: utils/config_dialog.py:1502
+#: utils/config_dialog.py:1507
 msgid "Configuration settings saved successfully!"
 msgstr "Ajustes de configuracion guardados correctamente!"
 
-#: utils/config_dialog.py:1503
+#: utils/config_dialog.py:1508
 msgid ""
 "The HiDPI scaling change will take effect after you restart the application."
 msgstr ""
 "El cambio de escalado HiDPI tendra efecto despues de reiniciar la aplicacion."
 
-#: utils/config_dialog.py:1508
-msgid "Configuration settings saved and applied successfully!"
-msgstr "Ajustes de configuracion guardados y aplicados correctamente!"
+#: utils/config_dialog.py:1516
+#, fuzzy
+msgid "Settings saved"
+msgstr "Ajustes guardados"
 
-#: utils/config_dialog.py:1512
+#: utils/config_dialog.py:1519
 #, python-brace-format
 msgid "Could not save settings: {error}"
 msgstr "No se pudieron guardar los ajustes: {error}"
 
-#: utils/config_dialog.py:1529 utils/config_dialog.py:1535
+#: utils/config_dialog.py:1536 utils/config_dialog.py:1542
 msgid "Invalid Value"
 msgstr "Valor no válido"
 
-#: utils/config_dialog.py:1530
+#: utils/config_dialog.py:1537
 #, python-brace-format
 msgid "'{value}' is not a valid number for {field}."
 msgstr "«{value}» no es un número válido para {field}."
 
-#: utils/config_dialog.py:1536
+#: utils/config_dialog.py:1543
 #, python-brace-format
 msgid "{field} must be between {minimum} and {maximum}."
 msgstr "{field} debe estar entre {minimum} y {maximum}."
 
-#: utils/config_dialog.py:1541
+#: utils/config_dialog.py:1548
 msgid "Maximum length (minutes)"
 msgstr "Duración máxima (minutos)"
 
-#: utils/config_dialog.py:1546
+#: utils/config_dialog.py:1553
 msgid "Minimum length (seconds)"
 msgstr "Duración mínima (segundos)"
 
-#: utils/config_dialog.py:1551
+#: utils/config_dialog.py:1558
 msgid "Delete recordings after (days)"
 msgstr "Eliminar grabaciones después de (días)"
 
-#: utils/config_dialog.py:1556
+#: utils/config_dialog.py:1563
 msgid "Entries to keep"
 msgstr "Entradas que conservar"
 
-#: utils/quick_whisper.py:162 utils/quick_whisper.py:694
-msgid "API Key Missing"
-msgstr "Falta la clave API"
+#: utils/config_dialog.py:1619
+#, fuzzy
+msgid "Discard Changes?"
+msgstr "Guardar cambios"
 
-#: utils/quick_whisper.py:162
-msgid ""
-"Please set your OpenAI API Key in config/credentials.json or input it now."
+#: utils/config_dialog.py:1620
+msgid "You have unsaved changes. Discard them?"
 msgstr ""
-"Por favor, configure su clave API de OpenAI en config/credentials.json o "
-"introduzcala ahora."
 
-#: utils/quick_whisper.py:247 utils/quick_whisper.py:1318
-#: utils/quick_whisper.py:2888
+#: utils/quick_whisper.py:249 utils/quick_whisper.py:1397
+#: utils/quick_whisper.py:2947
 msgid "Prompt Not Found"
 msgstr "Prompt no encontrado"
 
-#: utils/quick_whisper.py:248
+#: utils/quick_whisper.py:250
 #, python-brace-format
 msgid "Selected prompt '{name}' not found. Using default prompt."
 msgstr ""
 "El prompt seleccionado '{name}' no se encontro. Usando prompt predeterminado."
 
-#: utils/quick_whisper.py:343
+#: utils/quick_whisper.py:266
+#, fuzzy, python-brace-format
+msgid "Ready - press {shortcut} to dictate"
+msgstr "Comportamiento del atajo de grabación"
+
+#: utils/quick_whisper.py:354
 #, fuzzy
 msgid "Settings Location Updated"
 msgstr "Ajustes guardados"
 
-#: utils/quick_whisper.py:344
+#: utils/quick_whisper.py:355
 #, python-brace-format
 msgid ""
 "Your Quick Whisper settings were moved so they are found no matter which "
@@ -985,11 +990,11 @@ msgid ""
 "{location}"
 msgstr ""
 
-#: utils/quick_whisper.py:375
+#: utils/quick_whisper.py:386
 msgid "Log Folder"
 msgstr ""
 
-#: utils/quick_whisper.py:376
+#: utils/quick_whisper.py:387
 #, python-brace-format
 msgid ""
 "Could not open the log folder automatically.\n"
@@ -998,45 +1003,62 @@ msgid ""
 "{path}"
 msgstr ""
 
-#: utils/quick_whisper.py:695
-msgid "OpenAI API key is required to continue."
-msgstr ""
-
 #: utils/quick_whisper.py:709
-msgid "API Key Updated"
+#, fuzzy
+msgid "API Key Needed"
 msgstr "Clave API actualizada"
 
 #: utils/quick_whisper.py:710
-msgid "The OpenAI API Key has been updated successfully."
-msgstr "La clave API de OpenAI se ha actualizado correctamente."
+msgid ""
+"Quick Whisper can't transcribe without an OpenAI API key.\n"
+"\n"
+"You can add one later from Settings > Change API Key."
+msgstr ""
 
-#: utils/quick_whisper.py:723
-msgid "Enter New OpenAI API Key"
-msgstr "Introducir nueva clave API de OpenAI"
+#: utils/quick_whisper.py:725
+#, fuzzy
+msgid "API key updated"
+msgstr "Clave API actualizada"
 
-#: utils/quick_whisper.py:751
-msgid "Please enter your new OpenAI API Key below:"
+#: utils/quick_whisper.py:743 utils/quick_whisper.py:781
+#, fuzzy
+msgid "Welcome to Quick Whisper"
+msgstr "Acerca de Quick Whisper"
+
+#: utils/quick_whisper.py:744
+#, fuzzy
+msgid "Change OpenAI API Key"
+msgstr "Cambiar clave API"
+
+#: utils/quick_whisper.py:786
+msgid ""
+"Quick Whisper needs an OpenAI API key to turn your speech into text. It is "
+"stored encrypted on this computer."
+msgstr ""
+
+#: utils/quick_whisper.py:789
+#, fuzzy
+msgid "Enter your OpenAI API key below:"
 msgstr "Por favor, introduzca su nueva clave API de OpenAI a continuacion:"
 
-#: utils/quick_whisper.py:767
+#: utils/quick_whisper.py:816
+msgid "Show"
+msgstr ""
+
+#: utils/quick_whisper.py:825
 msgid "How to obtain an OpenAI API key"
 msgstr "Como obtener una clave API de OpenAI"
 
-#: utils/quick_whisper.py:801
+#: utils/quick_whisper.py:859
 #, fuzzy
-msgid "API Key Valid"
+msgid "API key verified"
 msgstr "Clave API actualizada"
 
-#: utils/quick_whisper.py:802
-#, fuzzy
-msgid "Your OpenAI API key was verified successfully."
-msgstr "La clave API de OpenAI se ha actualizado correctamente."
-
-#: utils/quick_whisper.py:809
+#: utils/quick_whisper.py:864
 msgid "Could Not Verify API Key"
 msgstr ""
 
-#: utils/quick_whisper.py:810
+#: utils/quick_whisper.py:865
 #, python-brace-format
 msgid ""
 "The API key could not be verified:\n"
@@ -1048,19 +1070,19 @@ msgid ""
 "Save this key anyway?"
 msgstr ""
 
-#: utils/quick_whisper.py:821
+#: utils/quick_whisper.py:876
 msgid "Input Required"
 msgstr "Entrada requerida"
 
-#: utils/quick_whisper.py:822
+#: utils/quick_whisper.py:877
 msgid "Please enter a valid API key."
 msgstr "Por favor, introduzca una clave API valida."
 
-#: utils/quick_whisper.py:830
+#: utils/quick_whisper.py:885
 msgid "Key Does Not Look Right"
 msgstr ""
 
-#: utils/quick_whisper.py:831
+#: utils/quick_whisper.py:886
 #, python-brace-format
 msgid ""
 "{problem}\n"
@@ -1068,184 +1090,184 @@ msgid ""
 "Save it anyway?"
 msgstr ""
 
-#: utils/quick_whisper.py:837
+#: utils/quick_whisper.py:892
 msgid "Checking key with OpenAI..."
 msgstr ""
 
-#: utils/quick_whisper.py:947
+#: utils/quick_whisper.py:1014
 msgid "The key is empty."
 msgstr ""
 
-#: utils/quick_whisper.py:949
+#: utils/quick_whisper.py:1016
 msgid "The key contains spaces or line breaks, which OpenAI keys never do."
 msgstr ""
 
-#: utils/quick_whisper.py:951
+#: utils/quick_whisper.py:1018
 msgid "OpenAI API keys start with 'sk-'."
 msgstr ""
 
-#: utils/quick_whisper.py:953
+#: utils/quick_whisper.py:1020
 msgid "The key looks too short to be complete."
 msgstr ""
 
-#: utils/quick_whisper.py:1003
+#: utils/quick_whisper.py:1070
 msgid "Browse History..."
 msgstr "Explorar historial..."
 
-#: utils/quick_whisper.py:1004 utils/quick_whisper.py:2734
+#: utils/quick_whisper.py:1071 utils/quick_whisper.py:2794
 msgid "Save Session History"
 msgstr "Guardar historial de sesion"
 
-#: utils/quick_whisper.py:1010
+#: utils/quick_whisper.py:1077
 msgid "Minimize to Tray"
 msgstr "Minimizar a la bandeja"
 
-#: utils/quick_whisper.py:1011 utils/tray_manager.py:130
+#: utils/quick_whisper.py:1078 utils/tray_manager.py:130
 msgid "Exit"
 msgstr "Salir"
 
-#: utils/quick_whisper.py:1015
+#: utils/quick_whisper.py:1082
 msgid "Change API Key"
 msgstr "Cambiar clave API"
 
-#: utils/quick_whisper.py:1016
+#: utils/quick_whisper.py:1083
 msgid "Manage Prompts"
 msgstr "Gestionar prompts"
 
-#: utils/quick_whisper.py:1017
+#: utils/quick_whisper.py:1084
 msgid "Configuration"
 msgstr "Configuracion"
 
-#: utils/quick_whisper.py:1019
+#: utils/quick_whisper.py:1086
 msgid "Automatically Check for Updates"
 msgstr "Buscar actualizaciones automaticamente"
 
-#: utils/quick_whisper.py:1022 utils/tray_manager.py:126
+#: utils/quick_whisper.py:1089 utils/tray_manager.py:126
 #, fuzzy
 msgid "Auto-Refresh Hotkeys"
 msgstr "Actualizar atajos"
 
-#: utils/quick_whisper.py:1025
+#: utils/quick_whisper.py:1092
 msgid "Dark Mode"
 msgstr "Modo oscuro"
 
-#: utils/quick_whisper.py:1029
+#: utils/quick_whisper.py:1096
 msgid "Keyboard Shortcut Mapping"
 msgstr "Asignacion de atajos de teclado"
 
-#: utils/quick_whisper.py:1030
+#: utils/quick_whisper.py:1097
 msgid "Refresh Hotkeys"
 msgstr "Actualizar atajos"
 
-#: utils/quick_whisper.py:1037 utils/ui_manager.py:1498
+#: utils/quick_whisper.py:1104 utils/ui_manager.py:1498
 #: utils/ui_manager.py:2919 utils/ui_manager.py:3001
 msgid "Record + AI Edit"
 msgstr "Grabar + Edicion IA"
 
-#: utils/quick_whisper.py:1042 utils/ui_manager.py:1477
+#: utils/quick_whisper.py:1109 utils/ui_manager.py:1477
 #: utils/ui_manager.py:2905 utils/ui_manager.py:3000
 msgid "Record + Transcribe"
 msgstr "Grabar + Transcribir"
 
-#: utils/quick_whisper.py:1047
+#: utils/quick_whisper.py:1114
 msgid "Cancel Recording"
 msgstr "Cancelar grabacion"
 
-#: utils/quick_whisper.py:1055
+#: utils/quick_whisper.py:1122
 msgid "Retry Last Recording"
 msgstr "Reintentar ultima grabacion"
 
-#: utils/quick_whisper.py:1060
+#: utils/quick_whisper.py:1127
 #, fuzzy
 msgid "Retry Last Recording as Transcript"
 msgstr "Reintentar ultima grabacion"
 
-#: utils/quick_whisper.py:1064
+#: utils/quick_whisper.py:1131
 #, fuzzy
 msgid "Retry Last Recording as AI Edit"
 msgstr "Reintentar ultima grabacion"
 
-#: utils/quick_whisper.py:1069
+#: utils/quick_whisper.py:1136
 msgid "Re-run AI Edit on Current Text"
 msgstr ""
 
-#: utils/quick_whisper.py:1073
+#: utils/quick_whisper.py:1140
 msgid "Re-run AI Edit With Prompt..."
 msgstr "Repetir edición con IA usando una instrucción..."
 
-#: utils/quick_whisper.py:1080
+#: utils/quick_whisper.py:1147
 msgid "Copy Last Transcript"
 msgstr "Copiar ultima transcripcion"
 
-#: utils/quick_whisper.py:1084
+#: utils/quick_whisper.py:1151
 msgid "Copy Last Edit"
 msgstr "Copiar ultima edicion"
 
-#: utils/quick_whisper.py:1091
+#: utils/quick_whisper.py:1158
 msgid "Previous Prompt"
 msgstr "Prompt anterior"
 
-#: utils/quick_whisper.py:1096
+#: utils/quick_whisper.py:1163
 msgid "Next Prompt"
 msgstr "Siguiente prompt"
 
-#: utils/quick_whisper.py:1104 utils/quick_whisper.py:2312
+#: utils/quick_whisper.py:1171 utils/quick_whisper.py:2374
 msgid "About Quick Whisper"
 msgstr "Acerca de Quick Whisper"
 
-#: utils/quick_whisper.py:1106
+#: utils/quick_whisper.py:1173
 msgid "Check for Updates"
 msgstr "Buscar actualizaciones"
 
-#: utils/quick_whisper.py:1107 utils/ui_manager.py:1561
+#: utils/quick_whisper.py:1174 utils/ui_manager.py:1561
 #: utils/ui_manager.py:3020
 msgid "Hide Banner"
 msgstr "Ocultar banner"
 
-#: utils/quick_whisper.py:1107
+#: utils/quick_whisper.py:1174
 msgid "Show Banner"
 msgstr "Mostrar banner"
 
-#: utils/quick_whisper.py:1108
+#: utils/quick_whisper.py:1175
 msgid "Terms of Use and Licence"
 msgstr "Terminos de uso y licencia"
 
-#: utils/quick_whisper.py:1110
+#: utils/quick_whisper.py:1177
 msgid "Open Log Folder"
 msgstr ""
 
-#: utils/quick_whisper.py:1127
+#: utils/quick_whisper.py:1194
 msgid "Still processing - press Esc to abandon"
 msgstr ""
 
-#: utils/quick_whisper.py:1227
+#: utils/quick_whisper.py:1306
 msgid ""
 "The request took too long and was given up on. This is usually a slow or "
 "dropped connection."
 msgstr ""
 
-#: utils/quick_whisper.py:1230
+#: utils/quick_whisper.py:1309
 msgid "Your OpenAI account is being rate limited. Wait a moment and try again."
 msgstr ""
 
-#: utils/quick_whisper.py:1234
+#: utils/quick_whisper.py:1313
 msgid ""
 "Your OpenAI API key was rejected. Check it under Settings > Change API Key."
 msgstr ""
 
-#: utils/quick_whisper.py:1238
+#: utils/quick_whisper.py:1317
 msgid "Your OpenAI account has no available credit."
 msgstr ""
 
-#: utils/quick_whisper.py:1241
+#: utils/quick_whisper.py:1320
 msgid "Could not reach OpenAI. Check your internet connection."
 msgstr ""
 
-#: utils/quick_whisper.py:1243
+#: utils/quick_whisper.py:1322
 msgid "Something went wrong talking to OpenAI."
 msgstr ""
 
-#: utils/quick_whisper.py:1248
+#: utils/quick_whisper.py:1327
 #, python-brace-format
 msgid ""
 "{reason}\n"
@@ -1253,110 +1275,101 @@ msgid ""
 "Details: {detail}"
 msgstr ""
 
-#: utils/quick_whisper.py:1266
+#: utils/quick_whisper.py:1345
 msgid "Stopped"
 msgstr ""
 
-#: utils/quick_whisper.py:1268
+#: utils/quick_whisper.py:1347
 msgid "Stopped waiting for the result"
 msgstr ""
 
-#: utils/quick_whisper.py:1300
+#: utils/quick_whisper.py:1379
 msgid "Already Running"
 msgstr ""
 
-#: utils/quick_whisper.py:1301
+#: utils/quick_whisper.py:1380
 msgid "An AI edit is already in progress. Please wait for it to finish."
 msgstr ""
 
-#: utils/quick_whisper.py:1311
+#: utils/quick_whisper.py:1390
 msgid "Nothing to Edit"
 msgstr ""
 
-#: utils/quick_whisper.py:1312
+#: utils/quick_whisper.py:1391
 msgid "There is no text to re-run the AI edit on."
 msgstr ""
 
-#: utils/quick_whisper.py:1319 utils/quick_whisper.py:2889
+#: utils/quick_whisper.py:1398 utils/quick_whisper.py:2948
 #, python-brace-format
 msgid "The prompt '{name}' no longer exists."
 msgstr "La instrucción «{name}» ya no existe."
 
-#: utils/quick_whisper.py:1324 utils/quick_whisper.py:1549
+#: utils/quick_whisper.py:1403 utils/quick_whisper.py:1628
 #: utils/ui_manager.py:1866
 msgid "Processing - AI Editing..."
 msgstr "Procesando - Edicion IA..."
 
-#: utils/quick_whisper.py:1338 utils/quick_whisper.py:1362
+#: utils/quick_whisper.py:1417 utils/quick_whisper.py:1441
 #, fuzzy
 msgid "AI edit failed"
 msgstr "Fallo en el reintento"
 
-#: utils/quick_whisper.py:1344
+#: utils/quick_whisper.py:1423
 msgid "AI edit returned no text"
 msgstr ""
 
-#: utils/quick_whisper.py:1363
+#: utils/quick_whisper.py:1442
 msgid "AI Edit Error"
 msgstr ""
 
-#: utils/quick_whisper.py:1364
+#: utils/quick_whisper.py:1443
 #, fuzzy, python-brace-format
 msgid "An error occurred while re-running the AI edit: {error}"
 msgstr "Ocurrio un error al procesar con GPT: {error}"
 
-#: utils/quick_whisper.py:1409
+#: utils/quick_whisper.py:1488
 #, python-brace-format
 msgid "Done - {chars} chars - {duration} spoken"
 msgstr ""
 
-#: utils/quick_whisper.py:1412
+#: utils/quick_whisper.py:1491
 #, python-brace-format
 msgid "Done - {chars} chars"
 msgstr ""
 
-#: utils/quick_whisper.py:1482 utils/ui_manager.py:1865
+#: utils/quick_whisper.py:1561 utils/ui_manager.py:1865
 msgid "Processing - Transcript..."
 msgstr "Procesando - Transcripcion..."
 
-#: utils/quick_whisper.py:1486
+#: utils/quick_whisper.py:1565
 #, fuzzy
 msgid "Configuration Error"
 msgstr "Configuracion"
 
-#: utils/quick_whisper.py:1487
+#: utils/quick_whisper.py:1566
 msgid "Transcription model name is empty. Please check your settings."
 msgstr ""
 
-#: utils/quick_whisper.py:1493 utils/quick_whisper.py:1593
-#: utils/quick_whisper.py:1599
+#: utils/quick_whisper.py:1572 utils/quick_whisper.py:1672
+#: utils/quick_whisper.py:1678
 msgid "Transcription Error"
 msgstr "Error de transcripcion"
 
-#: utils/quick_whisper.py:1494
+#: utils/quick_whisper.py:1573
 #, fuzzy
 msgid "The recording could not be found. Please try recording again."
 msgstr ""
 "No se pudieron comprobar las actualizaciones. Por favor, intentelo mas tarde."
 
-#: utils/quick_whisper.py:1533
+#: utils/quick_whisper.py:1615 utils/quick_whisper.py:1616
 msgid "No speech detected"
 msgstr ""
 
-#: utils/quick_whisper.py:1535
-#, fuzzy
-msgid "Nothing Transcribed"
-msgstr "Grabar y transcribir"
-
-#: utils/quick_whisper.py:1536
-msgid "No speech was detected in that recording."
-msgstr ""
-
-#: utils/quick_whisper.py:1587 utils/ui_manager.py:1868
+#: utils/quick_whisper.py:1666 utils/ui_manager.py:1868
 msgid "Error during transcription"
 msgstr "Error durante la transcripcion"
 
-#: utils/quick_whisper.py:1594
+#: utils/quick_whisper.py:1673
 msgid ""
 "The selected transcription model may be unsupported. Try 'gpt-transcribe' or "
 "'whisper-1'.\n"
@@ -1365,23 +1378,23 @@ msgid ""
 "by the API."
 msgstr ""
 
-#: utils/quick_whisper.py:1627
+#: utils/quick_whisper.py:1706
 msgid "Copied to clipboard"
 msgstr "Copiado al portapapeles"
 
-#: utils/quick_whisper.py:1630
+#: utils/quick_whisper.py:1709
 msgid "Copy Failed"
 msgstr "Error al copiar"
 
-#: utils/quick_whisper.py:1631
+#: utils/quick_whisper.py:1710
 msgid "The text could not be copied to the clipboard."
 msgstr "No se pudo copiar el texto al portapapeles."
 
-#: utils/quick_whisper.py:1640
+#: utils/quick_whisper.py:1719
 msgid "Auto-Copy Error"
 msgstr "Error de copia automatica"
 
-#: utils/quick_whisper.py:1641
+#: utils/quick_whisper.py:1720
 msgid ""
 "The transcription could not be copied to the clipboard. It is still shown "
 "above and can be copied manually."
@@ -1389,20 +1402,20 @@ msgstr ""
 "No se pudo copiar la transcripción al portapapeles. Sigue mostrándose arriba "
 "y puede copiarla manualmente."
 
-#: utils/quick_whisper.py:1782 utils/quick_whisper.py:1807
+#: utils/quick_whisper.py:1861 utils/quick_whisper.py:1886
 #: utils/ui_manager.py:1869
 msgid "Clipboard unavailable"
 msgstr "Portapapeles no disponible"
 
-#: utils/quick_whisper.py:1786
+#: utils/quick_whisper.py:1865
 msgid "Copied - click into your app and press paste"
 msgstr ""
 
-#: utils/quick_whisper.py:1809 utils/quick_whisper.py:1848
+#: utils/quick_whisper.py:1888 utils/quick_whisper.py:1927
 msgid "Auto-Paste Error"
 msgstr "Error de pegado automatico"
 
-#: utils/quick_whisper.py:1810
+#: utils/quick_whisper.py:1889
 msgid ""
 "The text could not be placed on the clipboard, so it was not pasted. It is "
 "still shown above and can be copied manually."
@@ -1410,64 +1423,56 @@ msgstr ""
 "No se pudo colocar el texto en el portapapeles, así que no se pegó. Sigue "
 "mostrándose arriba y puede copiarlo manualmente."
 
-#: utils/quick_whisper.py:1849
+#: utils/quick_whisper.py:1928
 #, python-brace-format
 msgid "Failed to auto-paste the transcription: {error}"
 msgstr "Error en el pegado automatico de la transcripcion: {error}"
 
-#: utils/quick_whisper.py:2031
+#: utils/quick_whisper.py:2110
 #, fuzzy
 msgid "AI Processing Error"
 msgstr "Error de procesamiento GPT"
 
-#: utils/quick_whisper.py:2218
+#: utils/quick_whisper.py:2297
 msgid "Terms of Use"
 msgstr "Terminos de uso"
 
-#: utils/quick_whisper.py:2235
+#: utils/quick_whisper.py:2314
 msgid ""
 "License file not found. Please ensure the LICENSE.md file exists in the "
 "application directory."
 msgstr ""
 
-#: utils/quick_whisper.py:2238
+#: utils/quick_whisper.py:2317
 msgid ""
 "Permission denied. Please ensure the script has read access to LICENSE.md."
 msgstr ""
 
-#: utils/quick_whisper.py:2240
+#: utils/quick_whisper.py:2319
 #, python-brace-format
 msgid "Error reading license file due to encoding issue: {error}"
 msgstr ""
 
-#: utils/quick_whisper.py:2243
+#: utils/quick_whisper.py:2322
 #, fuzzy, python-brace-format
 msgid "An unexpected error occurred while reading the license file: {error}"
 msgstr "Ocurrio un error al procesar con GPT: {error}"
 
-#: utils/quick_whisper.py:2267
-msgid "App Version"
-msgstr "Version de la aplicacion"
-
-#: utils/quick_whisper.py:2275 utils/quick_whisper.py:2373
-#, python-brace-format
-msgid "Version {version}"
-msgstr "Version {version}"
-
-#: utils/quick_whisper.py:2275
-msgid "App by Scorchsoft.com"
-msgstr ""
-
-#: utils/quick_whisper.py:2353 utils/quick_whisper.py:3187
+#: utils/quick_whisper.py:2413 utils/quick_whisper.py:3246
 #, fuzzy
 msgid "Quick Whisper"
 msgstr "Acerca de Quick Whisper"
 
-#: utils/quick_whisper.py:2363
+#: utils/quick_whisper.py:2423
 msgid "AI-Powered Speech-to-Copy-Edited-Text"
 msgstr "Voz a texto corregido impulsado por IA"
 
-#: utils/quick_whisper.py:2385
+#: utils/quick_whisper.py:2433
+#, python-brace-format
+msgid "Version {version}"
+msgstr "Version {version}"
+
+#: utils/quick_whisper.py:2445
 #, fuzzy
 msgid ""
 "Quick Whisper is a free and open-source speech-to-copy-edited-text software "
@@ -1482,11 +1487,11 @@ msgstr ""
 "que utiliza IA para convertir audio hablado en una transcripcion corregida, "
 "pegandola automaticamente en su aplicacion activa."
 
-#: utils/quick_whisper.py:2408
+#: utils/quick_whisper.py:2468
 msgid "Key Features"
 msgstr "Caracteristicas principales"
 
-#: utils/quick_whisper.py:2446
+#: utils/quick_whisper.py:2506
 #, fuzzy, python-brace-format
 msgid ""
 "How to use: Press {edit_shortcut} to record and AI-edit, or "
@@ -1497,75 +1502,75 @@ msgstr ""
 "Ctrl+Alt+Shift+J para transcripcion sin editar. La aplicacion copiara y "
 "pegara automaticamente el resultado en su aplicacion activa."
 
-#: utils/quick_whisper.py:2489
+#: utils/quick_whisper.py:2549
 msgid "Learn More on Our Website"
 msgstr "Mas informacion en nuestro sitio web"
 
-#: utils/quick_whisper.py:2523 utils/ui_manager.py:1570
+#: utils/quick_whisper.py:2583 utils/ui_manager.py:1570
 #: utils/ui_manager.py:3022
 msgid "Developed by Scorchsoft.com | App & AI Developers"
 msgstr "Desarrollado por Scorchsoft.com | Desarrolladores de aplicaciones e IA"
 
-#: utils/quick_whisper.py:2639 utils/quick_whisper.py:2727
+#: utils/quick_whisper.py:2699 utils/quick_whisper.py:2787
 msgid "No History"
 msgstr "Sin historial"
 
-#: utils/quick_whisper.py:2640
+#: utils/quick_whisper.py:2700
 msgid "There is nothing in your history yet."
 msgstr "Todavía no hay nada en su historial."
 
-#: utils/quick_whisper.py:2653
+#: utils/quick_whisper.py:2713
 msgid "History Unavailable"
 msgstr "Historial no disponible"
 
-#: utils/quick_whisper.py:2654
+#: utils/quick_whisper.py:2714
 #, python-brace-format
 msgid "The history browser could not be opened: {error}"
 msgstr "No se pudo abrir el historial: {error}"
 
-#: utils/quick_whisper.py:2727
+#: utils/quick_whisper.py:2787
 msgid "There is no history to save."
 msgstr "No hay historial para guardar."
 
-#: utils/quick_whisper.py:2749
-#, python-brace-format
-msgid "Session history saved successfully to {path}"
-msgstr "Historial de sesion guardado correctamente en {path}"
+#: utils/quick_whisper.py:2808
+#, fuzzy
+msgid "History saved"
+msgstr "Historial no disponible"
 
-#: utils/quick_whisper.py:2753
+#: utils/quick_whisper.py:2812
 msgid "Save Error"
 msgstr "Error al guardar"
 
-#: utils/quick_whisper.py:2754
+#: utils/quick_whisper.py:2813
 #, python-brace-format
 msgid "An error occurred while saving: {error}"
 msgstr "Ocurrio un error al guardar: {error}"
 
-#: utils/quick_whisper.py:2797
+#: utils/quick_whisper.py:2856
 #, fuzzy, python-brace-format
 msgid "Failed to save prompts: {error}"
 msgstr "No se pudieron guardar los ajustes: {error}"
 
-#: utils/quick_whisper.py:2897 utils/quick_whisper.py:2951
+#: utils/quick_whisper.py:2956 utils/quick_whisper.py:3010
 #, python-brace-format
 msgid "Prompt: {name}"
 msgstr "Instrucción: {name}"
 
-#: utils/quick_whisper.py:2910
+#: utils/quick_whisper.py:2969
 #, python-brace-format
 msgid "Transcription: {model}"
 msgstr "Transcripción: {model}"
 
-#: utils/quick_whisper.py:2922
+#: utils/quick_whisper.py:2981
 #, python-brace-format
 msgid "AI edit: {model}"
 msgstr "Edición con IA: {model}"
 
-#: utils/quick_whisper.py:3150
+#: utils/quick_whisper.py:3209
 msgid "Delete Saved History?"
 msgstr "¿Eliminar el historial guardado?"
 
-#: utils/quick_whisper.py:3151
+#: utils/quick_whisper.py:3210
 msgid ""
 "History will no longer be saved between sessions.\n"
 "\n"
@@ -1579,11 +1584,11 @@ msgstr ""
 "\n"
 "En cualquier caso, el historial de esta sesión seguirá en la ventana."
 
-#: utils/quick_whisper.py:3165
+#: utils/quick_whisper.py:3224
 msgid "Could Not Delete History"
 msgstr "No se pudo eliminar el historial"
 
-#: utils/quick_whisper.py:3166
+#: utils/quick_whisper.py:3225
 #, python-brace-format
 msgid ""
 "The saved history file could not be deleted:\n"
@@ -1596,11 +1601,11 @@ msgstr ""
 "\n"
 "Detalles: {error}"
 
-#: utils/quick_whisper.py:3186 utils/tray_manager.py:136
+#: utils/quick_whisper.py:3245 utils/tray_manager.py:136
 msgid "Quick Whisper - Recording..."
 msgstr "Quick Whisper: grabando..."
 
-#: utils/quick_whisper.py:3294 utils/quick_whisper.py:3308
+#: utils/quick_whisper.py:3353 utils/quick_whisper.py:3367
 #, fuzzy
 msgid "System tray unavailable"
 msgstr "Bandeja del sistema no disponible"
@@ -1761,59 +1766,59 @@ msgstr ""
 msgid "Stop and Process"
 msgstr "Detener y procesar"
 
-#: utils/history_dialog.py:97
+#: utils/history_dialog.py:96
 msgid "Search"
 msgstr "Buscar"
 
-#: utils/history_dialog.py:119
+#: utils/history_dialog.py:118
 msgid "When"
 msgstr "Cuándo"
 
-#: utils/history_dialog.py:120
+#: utils/history_dialog.py:119
 msgid "Type"
 msgstr "Tipo"
 
-#: utils/history_dialog.py:121
+#: utils/history_dialog.py:120
 msgid "Prompt"
 msgstr "Instrucción"
 
-#: utils/history_dialog.py:122
+#: utils/history_dialog.py:121
 msgid "Text"
 msgstr "Texto"
 
-#: utils/history_dialog.py:161
+#: utils/history_dialog.py:160
 msgid "Show in Main Window"
 msgstr "Mostrar en la ventana principal"
 
-#: utils/history_dialog.py:217
+#: utils/history_dialog.py:216
 #, python-brace-format
 msgid "{shown} of {total} entries match '{query}'"
 msgstr "{shown} de {total} entradas coinciden con «{query}»"
 
-#: utils/history_dialog.py:220
+#: utils/history_dialog.py:219
 #, python-brace-format
 msgid "{total} entries"
 msgstr "{total} entradas"
 
-#: utils/history_dialog.py:222
+#: utils/history_dialog.py:221
 #, python-brace-format
 msgid "showing the newest {count}; narrow the search to see more"
 msgstr "se muestran los {count} más recientes; afine la búsqueda para ver más"
 
-#: utils/history_dialog.py:284
+#: utils/history_dialog.py:283
 msgid "AI edit"
 msgstr "Edición con IA"
 
-#: utils/history_dialog.py:286
+#: utils/history_dialog.py:285
 msgid "Transcript"
 msgstr "Transcripción"
 
-#: utils/history_dialog.py:300
+#: utils/history_dialog.py:299
 #, python-brace-format
 msgid "Today {time}"
 msgstr "Hoy {time}"
 
-#: utils/history_dialog.py:302
+#: utils/history_dialog.py:301
 #, python-brace-format
 msgid "Yesterday {time}"
 msgstr "Ayer {time}"
@@ -1840,21 +1845,21 @@ msgid ""
 "You can still use the application via the UI buttons."
 msgstr ""
 
-#: utils/platform/hotkey_base.py:382
+#: utils/platform/hotkey_base.py:383
 msgid "Global shortcuts unavailable - buttons still work"
 msgstr ""
 
-#: utils/platform/hotkey_base.py:448
+#: utils/platform/hotkey_base.py:449
 #, fuzzy, python-brace-format
 msgid "Record + AI Edit ({shortcut})"
 msgstr "Grabar + Edicion IA"
 
-#: utils/platform/hotkey_base.py:451
+#: utils/platform/hotkey_base.py:452
 #, fuzzy, python-brace-format
 msgid "Record + Transcribe ({shortcut})"
 msgstr "Grabar + Transcribir"
 
-#: utils/platform/hotkey_base.py:578
+#: utils/platform/hotkey_base.py:579
 #, fuzzy
 msgid "Keyboard Shortcuts"
 msgstr "Asignacion de atajos de teclado"
@@ -1875,6 +1880,48 @@ msgstr ""
 #: utils/platform/hotkey_base.py:815
 msgid "Please press one modifier key plus exactly one other key."
 msgstr ""
+
+#~ msgid "Save Selection and Exit"
+#~ msgstr "Guardar seleccion y salir"
+
+#~ msgid "Success"
+#~ msgstr "Exito"
+
+#~ msgid "Prompt changes saved successfully"
+#~ msgstr "Cambios del prompt guardados correctamente"
+
+#~ msgid "Configuration settings saved and applied successfully!"
+#~ msgstr "Ajustes de configuracion guardados y aplicados correctamente!"
+
+#~ msgid "API Key Missing"
+#~ msgstr "Falta la clave API"
+
+#~ msgid ""
+#~ "Please set your OpenAI API Key in config/credentials.json or input it now."
+#~ msgstr ""
+#~ "Por favor, configure su clave API de OpenAI en config/credentials.json o "
+#~ "introduzcala ahora."
+
+#~ msgid "The OpenAI API Key has been updated successfully."
+#~ msgstr "La clave API de OpenAI se ha actualizado correctamente."
+
+#~ msgid "Enter New OpenAI API Key"
+#~ msgstr "Introducir nueva clave API de OpenAI"
+
+#, fuzzy
+#~ msgid "Your OpenAI API key was verified successfully."
+#~ msgstr "La clave API de OpenAI se ha actualizado correctamente."
+
+#, fuzzy
+#~ msgid "Nothing Transcribed"
+#~ msgstr "Grabar y transcribir"
+
+#~ msgid "App Version"
+#~ msgstr "Version de la aplicacion"
+
+#, python-brace-format
+#~ msgid "Session history saved successfully to {path}"
+#~ msgstr "Historial de sesion guardado correctamente en {path}"
 
 #, fuzzy
 #~ msgid "Recording Error"

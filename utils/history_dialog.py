@@ -10,6 +10,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime, date, timedelta
 
 from utils.app_logging import get_logger
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.i18n import _
 from utils.theme import get_font, get_window_size, get_spacing
 
@@ -79,9 +80,7 @@ class HistoryDialog:
 
     def _centre_on_parent(self, width, height):
         try:
-            x = self.parent.winfo_x() + (self.parent.winfo_width() - width) // 2
-            y = self.parent.winfo_y() + (self.parent.winfo_height() - height) // 2
-            self.dialog.geometry(f"{width}x{height}+{max(x, 0)}+{max(y, 0)}")
+            position_dialog(self.dialog, width, height, self.parent)
         except Exception as e:
             logger.debug("Could not centre the history dialog: %s", e)
 

@@ -39,10 +39,11 @@ from utils.ui_manager import UIManager, StyledPopupMenu
 from utils.version_update_manager import VersionUpdateManager
 from utils.system_event_listener import SystemEventListener
 from utils.tray_manager import TrayManager, tray_supported
-from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons
+from utils.theme import init_theme, get_window_size, get_font, get_font_size, get_font_family, get_button_height, get_spacing, get_feature_icons, theme_colors
 from utils.platform import open_url
 from utils.app_version import APP_VERSION
 from utils.i18n import _, _n, init_i18n, set_language, get_current_language, register_refresh_callback, unregister_refresh_callback, SUPPORTED_LANGUAGES
+from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.app_logging import get_logger, setup_logging
 from utils.paths import (
     resource_path as _resource_path,
@@ -159,8 +160,9 @@ class QuickWhisper(tk.Tk):
 
         self.api_key = self.get_api_key()
         if not self.api_key:
-            messagebox.showerror(_("API Key Missing"), _("Please set your OpenAI API Key in config/credentials.json or input it now."))
-            self.destroy()
+            # get_api_key() has already explained and torn the window down;
+            # a second dialog here just made the user dismiss the same news
+            # twice on their way out.
             return
 
         openai.api_key = self.api_key
@@ -255,6 +257,15 @@ class QuickWhisper(tk.Tk):
         if not self._initial_hotkeys_ok:
             logger.warning("Global hotkeys did not register at startup")
             self.hotkey_manager.report_hotkeys_unavailable()
+        elif getattr(self, '_show_ready_hint', False):
+            # First run: point at the shortcut rather than saying "Idle" to
+            # someone who has just this second finished setting the app up.
+            shortcut = self.hotkey_manager.display_shortcut(
+                'record_edit', "Ctrl+Alt+J")
+            self._set_status(
+                _("Ready - press {shortcut} to dictate").format(shortcut=shortcut),
+                "success")
+            self.after(8000, lambda: self._set_status(_("Idle"), "idle"))
 
         # Add binding for window state changes
         self.bind('<Unmap>', self._handle_minimize)
@@ -681,7 +692,7 @@ class QuickWhisper(tk.Tk):
             except Exception:
                 pass
 
-            api_key = self.openai_key_dialog()  # Call custom dialog
+            api_key = self.openai_key_dialog(first_run=True)
 
             # Release the topmost flag after showing the dialog
             try:
@@ -690,9 +701,14 @@ class QuickWhisper(tk.Tk):
                 pass
             if api_key:
                 self.save_api_key(api_key)
+                # The whole of onboarding, in one line: name the shortcut that
+                # does the thing the app exists for.
+                self._show_ready_hint = True
             else:
-                messagebox.showwarning(_("API Key Missing"),
-                                       _("OpenAI API key is required to continue."))
+                messagebox.showwarning(
+                    _("API Key Needed"),
+                    _("Quick Whisper can't transcribe without an OpenAI API key.\n\n"
+                      "You can add one later from Settings > Change API Key."))
                 self.destroy()  # Exit if no key is provided
         return api_key
     
@@ -706,30 +722,43 @@ class QuickWhisper(tk.Tk):
             # instead of only after a restart.
             openai.api_key = new_key
             self.client = OpenAI(api_key=new_key, timeout=self.API_TIMEOUT_SECONDS)
-            messagebox.showinfo(_("API Key Updated"),
-                                _("The OpenAI API Key has been updated successfully."))
+            self._toast(_("API key updated"))
 
 
-    def openai_key_dialog(self):
-        """Custom dialog for entering a new OpenAI API key with guidance link."""
+    def openai_key_dialog(self, first_run=False):
+        """Ask for an OpenAI API key.
+
+        On first run this is the whole of the app's onboarding, so it is framed
+        as a welcome and says where the key is kept; opened from the menu later
+        it is simply a change-key dialog.
+        """
         from utils.ui_manager import set_dark_title_bar
         import sv_ttk
 
-        # Theme colors
-        THEME_ACCENT = "#22d3ee"
-        THEME_ACCENT_HOVER = "#67e8f9"
+        colors = theme_colors()
+        THEME_ACCENT = colors.ACCENT_PRIMARY
+        THEME_ACCENT_HOVER = colors.ACCENT_HOVER
 
         dialog = tk.Toplevel(self)
-        dialog.title(_("Enter New OpenAI API Key"))
+        dialog.title(_("Welcome to Quick Whisper") if first_run
+                     else _("Change OpenAI API Key"))
+
+        # Typing a key must not fire the global record shortcut underneath the
+        # dialog - alarming at the best of times, more so while pasting a secret.
+        hotkeys_paused = False
+        try:
+            if hasattr(self, 'hotkey_manager'):
+                self.hotkey_manager.pause()
+                hotkeys_paused = True
+        except Exception as e:
+            logger.debug("Could not pause hotkeys for the API key dialog: %s", e)
 
         # Get window dimensions from theme
         dialog_width, dialog_height = get_window_size('api_key_dialog')
 
-        # Calculate center position relative to parent
-        position_x = self.winfo_x() + (self.winfo_width() - dialog_width) // 2
-        position_y = self.winfo_y() + (self.winfo_height() - dialog_height) // 2
-
-        dialog.geometry(f"{dialog_width}x{dialog_height}+{position_x}+{position_y}")
+        # On first run this dialog opens before the main window is laid out,
+        # so centring on the parent would place it against a 1x1 window.
+        position_dialog(dialog, dialog_width, dialog_height, self)
         dialog.resizable(False, False)
 
         # Apply Sun Valley theme and dark title bar
@@ -746,22 +775,51 @@ class QuickWhisper(tk.Tk):
         content_frame.pack(fill=tk.BOTH, expand=True)
 
         # Label for instructions
+        if first_run:
+            heading = ttk.Label(
+                content_frame,
+                text=_("Welcome to Quick Whisper"),
+                font=get_font('lg', 'bold')
+            )
+            heading.pack(pady=(0, 6))
+            instruction_text = _(
+                "Quick Whisper needs an OpenAI API key to turn your speech into "
+                "text. It is stored encrypted on this computer.")
+        else:
+            instruction_text = _("Enter your OpenAI API key below:")
+
         instruction_label = ttk.Label(
             content_frame,
-            text=_("Please enter your new OpenAI API Key below:"),
-            font=font_xs
+            text=instruction_text,
+            font=font_xs,
+            wraplength=380,
+            justify=tk.CENTER,
         )
         instruction_label.pack(pady=(5, 12))
 
-        # Entry field for the API key
-        api_key_entry = ttk.Entry(content_frame, show='*', width=50, font=font_xs)
-        api_key_entry.pack(pady=(0, 12), ipady=4)
+        # Entry field for the API key, with a reveal toggle - a mistyped
+        # character in a masked 50-character secret is otherwise unfindable.
+        entry_row = ttk.Frame(content_frame)
+        entry_row.pack(fill=tk.X, pady=(0, 12))
+        # Narrow enough that the reveal toggle beside it is not squeezed out;
+        # it still fills the row because it expands.
+        api_key_entry = ttk.Entry(entry_row, show='*', width=30, font=font_xs)
+        api_key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         # Provide standard context menu and key bindings
         self._attach_entry_context_menu(api_key_entry)
 
+        show_key = tk.BooleanVar(value=False)
+
+        def toggle_reveal():
+            api_key_entry.configure(show='' if show_key.get() else '*')
+
+        reveal = ttk.Checkbutton(entry_row, text=_("Show"), variable=show_key,
+                                 command=toggle_reveal, cursor="hand2")
+        reveal.pack(side=tk.LEFT, padx=(8, 0))
+
         # Link to guidance - styled for dark mode visibility
         # Get background color to match theme
-        bg_color = "#1c1c1c" if self.dark_mode.get() else "#fafafa"
+        bg_color = colors.BG_TERTIARY if self.dark_mode.get() else colors.BG_PRIMARY
         link_label = tk.Label(
             content_frame,
             text=_("How to obtain an OpenAI API key"),
@@ -797,11 +855,8 @@ class QuickWhisper(tk.Tk):
             save_button.configure(state=tk.NORMAL)
 
             if ok:
-                messagebox.showinfo(
-                    _("API Key Valid"),
-                    _("Your OpenAI API key was verified successfully."),
-                    parent=dialog)
                 finish(key)
+                self._toast(_("API key verified"))
                 return
 
             # Let the user save anyway - they may be offline or behind a proxy.
@@ -851,24 +906,36 @@ class QuickWhisper(tk.Tk):
         # Get button font from theme
         font_button = get_font('sm')
 
-        save_button = ttk.Button(buttons_frame, text=_("Save"), command=save_and_close, width=12, cursor="hand2")
-        save_button.pack(side=tk.LEFT, padx=(0, 8))
-        save_button.configure(style='Dialog.TButton')
-
+        # Secondary on the left, primary on the right - the same order as the
+        # Configuration dialog, which this one used to contradict.
         cancel_button = ttk.Button(buttons_frame, text=_("Cancel"), command=dialog.destroy, width=12, cursor="hand2")
-        cancel_button.pack(side=tk.LEFT)
+        cancel_button.pack(side=tk.LEFT, padx=(0, 8))
         cancel_button.configure(style='Dialog.TButton')
+
+        save_button = ttk.Button(buttons_frame, text=_("Save"), command=save_and_close, width=12, cursor="hand2")
+        save_button.pack(side=tk.LEFT)
+        save_button.configure(style='Dialog.TButton')
 
         # Configure button style with theme font
         style = ttk.Style()
         style.configure('Dialog.TButton', font=font_button)
+
+        # Enter saves, Escape cancels.
+        bind_dialog_keys(dialog, on_cancel=dialog.destroy, on_accept=save_and_close)
 
         # Set focus to the entry field and make dialog modal
         api_key_entry.focus()
         dialog.transient(self)
         dialog.wait_visibility()  # Wait for dialog to be visible before grabbing (Linux fix)
         dialog.grab_set()
-        self.wait_window(dialog)
+        try:
+            self.wait_window(dialog)
+        finally:
+            if hotkeys_paused:
+                try:
+                    self.hotkey_manager.resume()
+                except Exception as e:
+                    logger.debug("Could not resume hotkeys after the API key dialog: %s", e)
 
         # Return the entered key or None if cancelled
         return entered_key if entered_key else None
@@ -1212,6 +1279,18 @@ class QuickWhisper(tk.Tk):
             return "break"
         return None
 
+    def _toast(self, message):
+        """Confirm something routine without a dialog to dismiss.
+
+        Every modal steals focus from whatever the user is dictating into, so
+        for a tool whose whole job is pasting into other apps an unnecessary
+        one breaks the flow it exists to serve.
+        """
+        try:
+            self.ui_manager.show_toast(message)
+        except Exception as e:
+            logger.debug("Could not show the '%s' toast: %s", message, e)
+
     @staticmethod
     def _friendly_api_error(error):
         """Explain an API failure, keeping the raw text as a detail line.
@@ -1530,11 +1609,11 @@ class QuickWhisper(tk.Tk):
 
             if not transcription_text:
                 logger.warning("Transcription returned no text")
+                # A modal here punished a mistyped hotkey with a dialog to
+                # dismiss; the red status plus a toast says the same thing at a
+                # glance and costs the user nothing.
                 self._ui_status(_("No speech detected"), "error")
-                self._show_error_async(
-                    _("Nothing Transcribed"),
-                    _("No speech was detected in that recording.")
-                )
+                self._toast(_("No speech detected"))
                 return
 
             self.last_transcription = transcription_text
@@ -2216,12 +2295,12 @@ class QuickWhisper(tk.Tk):
         # Create a new window to display the terms of use
         instruction_window = tk.Toplevel(self)
         instruction_window.title(_("Terms of Use"))
+        instruction_window.transient(self)
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('about_dialog')
-        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
-        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
-        instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(instruction_window, window_width, window_height, self)
+        bind_dialog_keys(instruction_window, on_cancel=instruction_window.destroy)
 
         # Get the path to the LICENSE.md file using the resource_path method
         license_path = self.resource_path("assets/LICENSE.md")
@@ -2262,23 +2341,6 @@ class QuickWhisper(tk.Tk):
         # Add a button to close the window
         ttk.Button(instruction_window, text=_("Close"), command=instruction_window.destroy).pack(pady=(10, 0))
 
-    def show_version(self):
-        instruction_window = tk.Toplevel(self)
-        instruction_window.title(_("App Version"))
-
-        # Get window dimensions from theme
-        window_width, window_height = get_window_size('tos_dialog')
-        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
-        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
-        instruction_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
-        
-        instructions = _("Version {version}").format(version=self.version) + "\n\n" + _("App by Scorchsoft.com")
-        
-        tk.Label(instruction_window, text=instructions, justify=tk.LEFT, wraplength=280).pack(padx=10, pady=10)
-        
-        # Add a button to close the window
-        ttk.Button(instruction_window, text=_("Close"), command=instruction_window.destroy).pack(pady=(10, 0))
-
     def show_about(self):
         """Show the About Quick Whisper dialog with information about the app."""
         from utils.ui_manager import set_dark_title_bar, ModernTheme
@@ -2313,9 +2375,7 @@ class QuickWhisper(tk.Tk):
 
         # Get window dimensions from theme
         window_width, window_height = get_window_size('about_dialog')
-        position_x = self.winfo_x() + (self.winfo_width() - window_width) // 2
-        position_y = self.winfo_y() + (self.winfo_height() - window_height) // 2
-        dialog.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        position_dialog(dialog, window_width, window_height, self)
         dialog.resizable(True, True)
         dialog.minsize(500, 400)
 
@@ -2745,8 +2805,7 @@ class QuickWhisper(tk.Tk):
                           indent=4, ensure_ascii=False)
 
             logger.info("Session history saved to %s", file_path)
-            messagebox.showinfo(_("Success"),
-                                _("Session history saved successfully to {path}").format(path=file_path))
+            self._toast(_("History saved"))
         except Exception as e:
             # Handle errors during the save process
             logger.error("Error saving session history to %s: %s", file_path, e, exc_info=True)

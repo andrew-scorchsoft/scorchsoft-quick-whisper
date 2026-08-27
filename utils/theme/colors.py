@@ -76,6 +76,14 @@ class ThemeColors:
     BORDER = "#3a3a3a"           # More visible
     BORDER_STRONG = "#505050"    # Pronounced for inputs
 
+    # Dialog push-buttons. These fills carry white text in both themes, so
+    # like the brand gradients they do not flip with the palette; naming them
+    # here keeps the same green from being spelled out in three dialogs.
+    BUTTON_PRIMARY = "#058705"
+    BUTTON_PRIMARY_HOVER = "#046a38"
+    BUTTON_SECONDARY = "#666666"
+    BUTTON_SECONDARY_HOVER = "#444444"
+
 
 class LightThemeColors:
     """Light palette.
@@ -128,6 +136,11 @@ class LightThemeColors:
 
     # Shared with the dark palette: the brand fills underneath are the same.
     TEXT_ON_ACCENT = ThemeColors.TEXT_ON_ACCENT
+
+    BUTTON_PRIMARY = ThemeColors.BUTTON_PRIMARY
+    BUTTON_PRIMARY_HOVER = ThemeColors.BUTTON_PRIMARY_HOVER
+    BUTTON_SECONDARY = ThemeColors.BUTTON_SECONDARY
+    BUTTON_SECONDARY_HOVER = ThemeColors.BUTTON_SECONDARY_HOVER
 
     # Status
     STATUS_IDLE = "#6e6e6e"
