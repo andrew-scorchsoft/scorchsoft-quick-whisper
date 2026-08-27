@@ -804,6 +804,7 @@ class AudioManager:
 
             # Re-attempt transcription in a separate thread
             self.parent._processing = True
+            self.parent._set_tray_processing(True)
             threading.Thread(target=self.parent.transcribe_audio, daemon=True).start()
             return True
         else:
@@ -894,6 +895,15 @@ class AudioManager:
         Explicitly closes the AudioPlayer after playback to prevent
         resource leaks (COM handles on Windows, file descriptors on other platforms).
         """
+        # One switch covers all four earcons; someone working next to other
+        # people may want the app silent without losing anything else. Checked
+        # here because every path to a sound ends up in this method.
+        try:
+            if not self.config.play_sounds:
+                return
+        except Exception:
+            pass
+
         player_cls = _load_audio_player()
         if player_cls is None:
             return

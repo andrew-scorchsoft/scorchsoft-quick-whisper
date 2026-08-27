@@ -74,7 +74,8 @@ class ConfigManager:
             "language": "en",  # Language code when mode is "manual"
             "persist_history": True,   # Restore transcription history on launch
             "history_limit": 100,      # Entries kept in memory and on disk
-            "show_level_meter": True   # Live input level meter while recording
+            "show_level_meter": True,  # Live input level meter while recording
+            "play_sounds": True        # Start/stop/success/failure sound effects
         },
         "shortcuts": {
             "record_edit": None,  # Will be set based on OS
@@ -536,6 +537,15 @@ class ConfigManager:
     @show_level_meter.setter
     def show_level_meter(self, value: bool):
         self._settings["ui"]["show_level_meter"] = bool(value)
+
+    @property
+    def play_sounds(self) -> bool:
+        """Whether the short feedback sounds are played."""
+        return bool(self._settings["ui"].get("play_sounds", True))
+
+    @play_sounds.setter
+    def play_sounds(self, value: bool):
+        self._settings["ui"]["play_sounds"] = bool(value)
 
     # Shortcuts
     @property

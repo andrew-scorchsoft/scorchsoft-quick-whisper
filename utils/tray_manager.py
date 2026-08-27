@@ -16,9 +16,23 @@ _BRAND_HUE_END = 270.0
 # Where that gradient is re-mapped to for the recording state (orange -> crimson).
 _RECORDING_HUE_START = 22.0
 _RECORDING_HUE_END = -20.0
+
+# Amber, clearly distinct from both the brand cyan and the recording red.
+_PROCESSING_HUE_START = 48.0
+_PROCESSING_HUE_END = 28.0
 # Greys and near-whites (the ring and the glyph) are left alone, so the icon
 # stays recognisably itself rather than becoming a red blob.
 _MIN_SATURATION_TO_TINT = 0.25
+
+
+def make_processing_icon(image):
+    """Return an amber 'processing' variant of the application icon.
+
+    Between the red icon going away and the text appearing, a user with the
+    window hidden previously had no signal at all that work was still in
+    flight.
+    """
+    return _retint_icon(image, _PROCESSING_HUE_START, _PROCESSING_HUE_END)
 
 
 def make_recording_icon(image):
@@ -30,12 +44,17 @@ def make_recording_icon(image):
     white glyph keep their values, which is what makes the two icons read as
     the same icon in two states at 16 px.
     """
+    return _retint_icon(image, _RECORDING_HUE_START, _RECORDING_HUE_END)
+
+
+def _retint_icon(image, hue_start, hue_end):
+    """Re-hue the coloured part of the icon into a different hue range."""
     source = image.convert("RGBA")
     width, height = source.size
     variant = Image.new("RGBA", (width, height))
     read = source.load()
     write = variant.load()
-    hue_span = _RECORDING_HUE_END - _RECORDING_HUE_START
+    hue_span = hue_end - hue_start
 
     for y in range(height):
         for x in range(width):
@@ -52,7 +71,7 @@ def make_recording_icon(image):
             # gradient of its own instead of going flat red.
             position = (hue * 360.0 - _BRAND_HUE_START) / (_BRAND_HUE_END - _BRAND_HUE_START)
             position = min(1.0, max(0.0, position))
-            new_hue = (_RECORDING_HUE_START + position * hue_span) % 360.0
+            new_hue = (hue_start + position * hue_span) % 360.0
             new_red, new_green, new_blue = colorsys.hsv_to_rgb(
                 new_hue / 360.0, min(1.0, saturation * 1.05), value)
             write[x, y] = (int(new_red * 255), int(new_green * 255),
@@ -99,7 +118,9 @@ class TrayManager:
         self.is_window_hidden = False
         self.icon_image = None
         self.recording_icon_image = None
+        self.processing_icon_image = None
         self._is_recording = False
+        self._state = "idle"
         self._lock = threading.RLock()
         self._shutting_down = False
         self._language_callback_registered = False
@@ -121,8 +142,11 @@ class TrayManager:
         # Note: default=True makes left-click on tray icon trigger this action (Windows)
         return Menu(
             Item(lambda item: _('Show/Hide Window'), self._toggle_window, default=True),
-            Item(lambda item: _('Refresh Hotkeys Now'), self._refresh_hotkeys),
             Menu.SEPARATOR,
+            Item(lambda item: _('Settings...'), self._open_settings),
+            Item(lambda item: _('History...'), self._open_history),
+            Menu.SEPARATOR,
+            Item(lambda item: _('Refresh Hotkeys Now'), self._refresh_hotkeys),
             Item(lambda item: _('Auto-Refresh Hotkeys'),
                  self._toggle_auto_refresh,
                  checked=lambda item: self._auto_refresh_enabled()),
@@ -131,29 +155,48 @@ class TrayManager:
         )
 
     def _tooltip_text(self):
-        """Tray tooltip, which doubles as the recording indicator on hover."""
-        if self._is_recording:
+        """Tray tooltip, which doubles as the state indicator on hover."""
+        if self._state == "recording":
             return _("Quick Whisper - Recording...")
+        if self._state == "processing":
+            return _("Quick Whisper - Processing...")
         return "Quick Whisper"
 
     def set_recording(self, recording):
-        """Switch the tray icon between its idle and recording appearance.
+        """Show or clear the recording state."""
+        self.set_state("recording" if recording else "idle")
 
-        This is the only recording feedback available while the window is
-        minimised or hidden, which is how the app is used most of the time.
-        Safe to call from any thread and when there is no tray at all.
+    def set_processing(self, processing):
+        """Show or clear the processing state.
+
+        Ignored while recording, so a stop that has not been processed yet
+        cannot make the icon flicker backwards.
         """
-        recording = bool(recording)
+        if processing:
+            if self._state != "recording":
+                self.set_state("processing")
+        elif self._state == "processing":
+            self.set_state("idle")
+
+    def set_state(self, state):
+        """Switch the tray icon between idle, recording and processing.
+
+        The tray is the only feedback available while the window is minimised
+        or hidden, which is how the app is used most of the time. Safe to call
+        from any thread and when there is no tray at all.
+        """
         with self._lock:
-            if recording == self._is_recording:
+            if state == self._state:
                 return
-            self._is_recording = recording
+            self._state = state
+            self._is_recording = (state == "recording")
             icon_ref = self.icon
             if not icon_ref or not self.is_running:
                 return
-            image = self.recording_icon_image if recording else self.icon_image
-            if image is None:
-                image = self.icon_image
+            image = {
+                "recording": self.recording_icon_image,
+                "processing": self.processing_icon_image,
+            }.get(state) or self.icon_image
 
         try:
             # pystray redraws the tray on assignment; title updates the tooltip.
@@ -180,13 +223,18 @@ class TrayManager:
             icon_path = self.parent.resource_path("assets/icon-32.png")
             self.icon_image = Image.open(icon_path)
 
-            # Build the recording variant once, up front - swapping icons has
+            # Build the state variants once, up front - swapping icons has
             # to be instant, and a failure here must not disable the tray.
             try:
                 self.recording_icon_image = make_recording_icon(self.icon_image)
             except Exception as e:
                 logger.warning("Could not build the recording tray icon: %s", e)
                 self.recording_icon_image = None
+            try:
+                self.processing_icon_image = make_processing_icon(self.icon_image)
+            except Exception as e:
+                logger.warning("Could not build the processing tray icon: %s", e)
+                self.processing_icon_image = None
 
             # Create the icon
             self.icon = pystray.Icon(
@@ -384,6 +432,27 @@ class TrayManager:
         # Resolve the manager inside the callback: the parent may already be
         # tearing down when the tray fires this.
         self._call_on_main(lambda: self.parent.hotkey_manager.force_hotkey_refresh())
+
+    def _open_settings(self):
+        """Open the settings dialog from the tray.
+
+        Both this and History bring the window up first: a modal dialog with
+        no visible parent behind it is disorienting, and the user is going
+        back to the window afterwards anyway.
+        """
+        def show():
+            self.parent.deiconify()
+            self.parent.lift()
+            self.parent.open_config()
+        self._call_on_main(show)
+
+    def _open_history(self):
+        """Open the history browser from the tray."""
+        def show():
+            self.parent.deiconify()
+            self.parent.lift()
+            self.parent.show_history()
+        self._call_on_main(show)
 
     def _exit_app(self):
         """Exit the application"""

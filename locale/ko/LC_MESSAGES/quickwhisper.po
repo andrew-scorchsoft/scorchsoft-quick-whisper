@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: QuickWhisper 2.0\n"
 "Report-Msgid-Bugs-To: support@scorchsoft.com\n"
-"POT-Creation-Date: 2026-08-27 08:22+0000\n"
+"POT-Creation-Date: 2026-08-27 08:36+0000\n"
 "PO-Revision-Date: 2024-01-01 00:00+0000\n"
 "Last-Translator: Scorchsoft <support@scorchsoft.com>\n"
 "Language-Team: Korean <ko@li.org>\n"
@@ -58,9 +58,9 @@ msgstr "장치 오류"
 #: utils/audio_manager.py:365 utils/audio_manager.py:600
 #: utils/audio_manager.py:688 utils/audio_manager.py:714
 #: utils/audio_manager.py:752 utils/quick_whisper.py:268
-#: utils/quick_whisper.py:1437 utils/quick_whisper.py:1502
-#: utils/quick_whisper.py:3355 utils/quick_whisper.py:3368
-#: utils/ui_manager.py:1346 utils/ui_manager.py:1863
+#: utils/quick_whisper.py:1448 utils/quick_whisper.py:1513
+#: utils/quick_whisper.py:3367 utils/quick_whisper.py:3380
+#: utils/ui_manager.py:1424 utils/ui_manager.py:1999
 msgid "Idle"
 msgstr "대기 중"
 
@@ -80,7 +80,7 @@ msgid ""
 "Details: {error}"
 msgstr ""
 
-#: utils/audio_manager.py:388 utils/ui_manager.py:1859
+#: utils/audio_manager.py:388 utils/ui_manager.py:1995
 msgid "Recording..."
 msgstr "녹음 중..."
 
@@ -102,7 +102,7 @@ msgstr ""
 msgid "Nothing to Transcribe"
 msgstr "녹음 및 전사"
 
-#: utils/audio_manager.py:616 utils/ui_manager.py:1864
+#: utils/audio_manager.py:616 utils/ui_manager.py:2000
 msgid "Processing - Audio File..."
 msgstr "처리 중 - 오디오 파일..."
 
@@ -174,7 +174,7 @@ msgid "Stop the current recording before retrying the previous one."
 msgstr ""
 
 #: utils/audio_manager.py:782 utils/audio_manager.py:786
-#: utils/audio_manager.py:811
+#: utils/audio_manager.py:812
 msgid "Retry Failed"
 msgstr "재시도 실패"
 
@@ -188,12 +188,12 @@ msgstr "재시도할 이전 녹음을 찾을 수 없습니다"
 msgid "Error finding previous recordings: {error}"
 msgstr ""
 
-#: utils/audio_manager.py:803 utils/ui_manager.py:1867
+#: utils/audio_manager.py:803 utils/ui_manager.py:2003
 #, fuzzy
 msgid "Retrying transcription..."
 msgstr "전사 중 오류 발생"
 
-#: utils/audio_manager.py:811
+#: utils/audio_manager.py:812
 #, fuzzy
 msgid "No previous recording found to retry."
 msgstr "재시도할 이전 녹음을 찾을 수 없습니다"
@@ -238,8 +238,8 @@ msgstr ""
 msgid "See scorchsoft.com for the download."
 msgstr ""
 
-#: utils/version_update_manager.py:239 utils/quick_whisper.py:2342
-#: utils/quick_whisper.py:2565 utils/history_dialog.py:158
+#: utils/version_update_manager.py:239 utils/quick_whisper.py:2354
+#: utils/quick_whisper.py:2577 utils/history_dialog.py:173
 msgid "Close"
 msgstr "닫기"
 
@@ -255,7 +255,7 @@ msgstr "프롬프트 선택"
 msgid "New Prompt"
 msgstr "새 프롬프트"
 
-#: utils/manage_prompts_dialog.py:120
+#: utils/manage_prompts_dialog.py:120 utils/history_dialog.py:164
 msgid "Delete"
 msgstr "삭제"
 
@@ -289,10 +289,10 @@ msgstr "(기본 프롬프트는 편집할 수 없습니다)"
 
 #: utils/manage_prompts_dialog.py:282 utils/manage_prompts_dialog.py:351
 #: utils/manage_prompts_dialog.py:354 utils/manage_prompts_dialog.py:362
-#: utils/manage_prompts_dialog.py:375 utils/config_dialog.py:1375
-#: utils/config_dialog.py:1387 utils/config_dialog.py:1407
-#: utils/config_dialog.py:1418 utils/config_dialog.py:1519
-#: utils/quick_whisper.py:2856
+#: utils/manage_prompts_dialog.py:375 utils/config_dialog.py:1409
+#: utils/config_dialog.py:1421 utils/config_dialog.py:1439
+#: utils/config_dialog.py:1450 utils/config_dialog.py:1552
+#: utils/quick_whisper.py:2868
 msgid "Error"
 msgstr "오류"
 
@@ -349,29 +349,29 @@ msgstr "시스템 프롬프트를 입력하세요"
 msgid "Save"
 msgstr "저장"
 
-#: utils/manage_prompts_dialog.py:407 utils/config_dialog.py:452
+#: utils/manage_prompts_dialog.py:407 utils/config_dialog.py:459
 #: utils/quick_whisper.py:911
 msgid "Cancel"
 msgstr "취소"
 
 #: utils/manage_prompts_dialog.py:422 utils/quick_whisper.py:983
-#: utils/quick_whisper.py:996 utils/ui_manager.py:2832
+#: utils/quick_whisper.py:996 utils/ui_manager.py:2967
 msgid "Cut"
 msgstr "잘라내기"
 
 #: utils/manage_prompts_dialog.py:423 utils/quick_whisper.py:984
-#: utils/quick_whisper.py:997 utils/ui_manager.py:2833
-#: utils/history_dialog.py:163
+#: utils/quick_whisper.py:997 utils/ui_manager.py:2968
+#: utils/history_dialog.py:171
 msgid "Copy"
 msgstr "복사"
 
 #: utils/manage_prompts_dialog.py:424 utils/quick_whisper.py:985
-#: utils/quick_whisper.py:998 utils/ui_manager.py:2834
+#: utils/quick_whisper.py:998 utils/ui_manager.py:2969
 msgid "Paste"
 msgstr "붙여넣기"
 
 #: utils/manage_prompts_dialog.py:426 utils/quick_whisper.py:987
-#: utils/quick_whisper.py:1000 utils/ui_manager.py:2836
+#: utils/quick_whisper.py:1000 utils/ui_manager.py:2971
 msgid "Select All"
 msgstr "모두 선택"
 
@@ -401,230 +401,247 @@ msgstr "현재 사용 중인 프롬프트: {name}"
 msgid "Configuration Settings"
 msgstr "구성 설정"
 
-#: utils/config_dialog.py:403
+#: utils/config_dialog.py:411 utils/config_dialog.py:528
 msgid "Recording"
 msgstr "녹음"
 
-#: utils/config_dialog.py:404
-msgid "Display"
-msgstr "디스플레이"
+#: utils/config_dialog.py:412 utils/config_dialog.py:663
+#, fuzzy
+msgid "Output & Clipboard"
+msgstr "클립보드에 복사"
 
-#: utils/config_dialog.py:405
-msgid "Language"
-msgstr "언어"
-
-#: utils/config_dialog.py:406
-msgid "Output"
-msgstr ""
-
-#: utils/config_dialog.py:407
+#: utils/config_dialog.py:413 utils/config_dialog.py:1238
 msgid "AI Models"
 msgstr "AI 모델"
 
-#: utils/config_dialog.py:408
-msgid "Behavior"
+#: utils/config_dialog.py:414 utils/config_dialog.py:711
+msgid "Appearance"
 msgstr ""
 
-#: utils/config_dialog.py:409
-msgid "Advanced"
-msgstr "고급"
+#: utils/config_dialog.py:415 utils/config_dialog.py:1044
+#, fuzzy
+msgid "History & Storage"
+msgstr "기록을 열 수 없음"
 
-#: utils/config_dialog.py:414
+#: utils/config_dialog.py:416 utils/config_dialog.py:795
+#, fuzzy
+msgid "System"
+msgstr "새 프롬프트"
+
+#: utils/config_dialog.py:421
 msgid "Settings Categories"
 msgstr "설정 카테고리"
 
-#: utils/config_dialog.py:466
+#: utils/config_dialog.py:473
 msgid "Save Changes"
 msgstr "변경 사항 저장"
 
-#: utils/config_dialog.py:508
-msgid "Recording Settings"
-msgstr "녹음 설정"
-
-#: utils/config_dialog.py:516
+#: utils/config_dialog.py:538
 msgid "Recording Location"
 msgstr "녹음 위치"
 
-#: utils/config_dialog.py:524
+#: utils/config_dialog.py:546
 msgid "Choose where to save audio recording files:"
 msgstr "오디오 녹음 파일을 저장할 위치를 선택하세요:"
 
-#: utils/config_dialog.py:531
+#: utils/config_dialog.py:553
 msgid "Alongside application (recommended)"
 msgstr "응용 프로그램과 같은 위치 (권장)"
 
-#: utils/config_dialog.py:539
+#: utils/config_dialog.py:561
 msgid "In AppData folder"
 msgstr "AppData 폴더에"
 
-#: utils/config_dialog.py:541
+#: utils/config_dialog.py:563
 msgid "In Application Support folder"
 msgstr "Application Support 폴더에"
 
-#: utils/config_dialog.py:543
+#: utils/config_dialog.py:565
 msgid "In home config folder"
 msgstr "홈 구성 폴더에"
 
-#: utils/config_dialog.py:555
+#: utils/config_dialog.py:577
 msgid "Custom folder:"
 msgstr "사용자 지정 폴더:"
 
-#: utils/config_dialog.py:576
+#: utils/config_dialog.py:598
 msgid "Browse..."
 msgstr "찾아보기..."
 
-#: utils/config_dialog.py:587
+#: utils/config_dialog.py:611
 msgid "File Handling"
 msgstr "파일 처리"
 
-#: utils/config_dialog.py:595
+#: utils/config_dialog.py:619
 msgid "Choose how to handle recording files:"
 msgstr "녹음 파일 처리 방법을 선택하세요:"
 
-#: utils/config_dialog.py:601
+#: utils/config_dialog.py:625
 msgid "Overwrite the same file each time (saves disk space)"
 msgstr "매번 같은 파일을 덮어쓰기 (디스크 공간 절약)"
 
-#: utils/config_dialog.py:609
+#: utils/config_dialog.py:633
 msgid "Save each recording with date/time in filename"
 msgstr "각 녹음을 날짜/시간이 포함된 파일 이름으로 저장"
 
-#: utils/config_dialog.py:621
+#: utils/config_dialog.py:645
 msgid "Warning: This can consume significant disk space over time"
 msgstr "경고: 시간이 지남에 따라 상당한 디스크 공간을 소비할 수 있습니다"
 
-#: utils/config_dialog.py:642
+#: utils/config_dialog.py:672
 #, fuzzy
-msgid "Output Settings"
-msgstr "설정"
+msgid "Automatic (recommended)"
+msgstr "자동 감지 (권장)"
 
-#: utils/config_dialog.py:650
+#: utils/config_dialog.py:673
+msgid "Most reliable on Windows (SendInput)"
+msgstr ""
+
+#: utils/config_dialog.py:674
+msgid "For older Windows apps (win32api)"
+msgstr ""
+
+#: utils/config_dialog.py:675
+msgid "For slow apps, with delays (pynput)"
+msgstr ""
+
+#: utils/config_dialog.py:676
+msgid "Fastest, no delays (pynput legacy)"
+msgstr ""
+
+#: utils/config_dialog.py:677
+msgid "If nothing else works (pyautogui)"
+msgstr ""
+
+#: utils/config_dialog.py:682
 #, fuzzy
 msgid "Auto-Paste Method"
 msgstr "자동 붙여넣기 오류"
 
-#: utils/config_dialog.py:658
-msgid "Choose the keyboard simulation method for auto-paste:"
+#: utils/config_dialog.py:688
+msgid ""
+"Only change this if auto-paste misbehaves - for example if it types 'v' "
+"instead of pasting."
 msgstr ""
 
-#: utils/config_dialog.py:664
-msgid "Auto (recommended) - Uses best method for your system"
+#: utils/config_dialog.py:693
+msgid "How the paste keystroke is sent:"
 msgstr ""
 
-#: utils/config_dialog.py:674
-msgid "SendInput - Native Windows API (most reliable)"
-msgstr ""
-
-#: utils/config_dialog.py:682
-msgid "win32api - Older Windows API (keybd_event)"
-msgstr ""
-
-#: utils/config_dialog.py:690
-msgid "pynput - Cross-platform with timing delays"
-msgstr ""
-
-#: utils/config_dialog.py:698
-msgid "pynput (legacy) - Original method, no delays"
-msgstr ""
-
-#: utils/config_dialog.py:706
-msgid "pyautogui - Alternative automation library"
-msgstr ""
-
-#: utils/config_dialog.py:718
-msgid "Try a different method if auto-paste types 'v' instead of pasting."
-msgstr ""
-
-#: utils/config_dialog.py:728
-msgid "Display Settings"
-msgstr "디스플레이 설정"
-
-#: utils/config_dialog.py:736
+#: utils/config_dialog.py:721
 msgid "HiDPI Scaling"
 msgstr "HiDPI 스케일링"
 
-#: utils/config_dialog.py:744
+#: utils/config_dialog.py:729
 msgid "Choose how HiDPI (high resolution) scaling is applied:"
 msgstr "HiDPI(고해상도) 스케일링 적용 방법을 선택하세요:"
 
-#: utils/config_dialog.py:751
+#: utils/config_dialog.py:736
 msgid "Auto-detect (recommended)"
 msgstr "자동 감지 (권장)"
 
-#: utils/config_dialog.py:759
+#: utils/config_dialog.py:744
 msgid ""
 "Automatically detect and apply appropriate scaling based on your display"
 msgstr "디스플레이에 따라 적절한 스케일링을 자동으로 감지하고 적용"
 
-#: utils/config_dialog.py:767
+#: utils/config_dialog.py:752
 msgid "Force enabled"
 msgstr "강제 활성화"
 
-#: utils/config_dialog.py:775
+#: utils/config_dialog.py:760
 msgid ""
 "Always apply HiDPI scaling (use if auto-detection doesn't work correctly)"
 msgstr "항상 HiDPI 스케일링 적용 (자동 감지가 제대로 작동하지 않는 경우 사용)"
 
-#: utils/config_dialog.py:783
+#: utils/config_dialog.py:768
 msgid "Disabled"
 msgstr "비활성화"
 
-#: utils/config_dialog.py:791
+#: utils/config_dialog.py:776
 msgid "Never apply HiDPI scaling (use standard scaling)"
 msgstr "HiDPI 스케일링을 적용하지 않음 (표준 스케일링 사용)"
 
-#: utils/config_dialog.py:803
+#: utils/config_dialog.py:788
 msgid "Note: Changes to HiDPI scaling require a restart to take effect."
 msgstr "참고: HiDPI 스케일링 변경 사항을 적용하려면 재시작이 필요합니다."
 
-#: utils/config_dialog.py:813
-#, fuzzy
-msgid "Behavior Settings"
-msgstr "녹음 설정"
-
-#: utils/config_dialog.py:821
+#: utils/config_dialog.py:804
 msgid "Window Close Behavior"
 msgstr ""
 
-#: utils/config_dialog.py:829
+#: utils/config_dialog.py:812
 msgid "Choose what happens when you click the X button:"
 msgstr ""
 
-#: utils/config_dialog.py:836
+#: utils/config_dialog.py:819
 msgid "Close the application"
 msgstr ""
 
-#: utils/config_dialog.py:844
+#: utils/config_dialog.py:827
 msgid "Clicking X will close Quick Whisper completely"
 msgstr ""
 
-#: utils/config_dialog.py:852
+#: utils/config_dialog.py:835
 #, fuzzy
 msgid "Minimize to system tray"
 msgstr "트레이로 최소화"
 
-#: utils/config_dialog.py:860
+#: utils/config_dialog.py:843
 msgid ""
 "Clicking X will hide the window to the system tray (use tray icon to restore)"
 msgstr ""
 
-#: utils/config_dialog.py:925
-msgid "Advanced Settings"
-msgstr "고급 설정"
+#: utils/config_dialog.py:911
+msgid "Theme"
+msgstr ""
 
-#: utils/config_dialog.py:934
+#: utils/config_dialog.py:913
+#, fuzzy
+msgid "Dark mode"
+msgstr "다크 모드"
+
+#: utils/config_dialog.py:914
+msgid "Applies immediately. Also available from the Settings menu."
+msgstr ""
+
+#: utils/config_dialog.py:919
+msgid "Background Behaviour"
+msgstr ""
+
+#: utils/config_dialog.py:921
+msgid "Keep global shortcuts working automatically"
+msgstr ""
+
+#: utils/config_dialog.py:923
+msgid ""
+"Re-registers the global shortcuts periodically. Windows can drop them after "
+"locking and unlocking the screen, and this puts them back without you "
+"noticing."
+msgstr ""
+
+#: utils/config_dialog.py:928
+#, fuzzy
+msgid "Check for updates on startup"
+msgstr "업데이트 확인"
+
+#: utils/config_dialog.py:930
+msgid "Looks for a newer release of Quick Whisper when the app starts."
+msgstr ""
+
+#: utils/config_dialog.py:939
 msgid "Recording Shortcut Behaviour"
 msgstr "녹음 단축키 동작"
 
-#: utils/config_dialog.py:937
+#: utils/config_dialog.py:942
 msgid "Choose how the record shortcuts behave:"
 msgstr "녹음 단축키의 동작 방식을 선택하세요:"
 
-#: utils/config_dialog.py:944
+#: utils/config_dialog.py:949
 msgid "Toggle"
 msgstr "토글"
 
-#: utils/config_dialog.py:950
+#: utils/config_dialog.py:955
 msgid ""
 "Press the shortcut once to start recording and again to stop. The current "
 "behaviour, and the better one for longer dictation where you do not want to "
@@ -633,11 +650,11 @@ msgstr ""
 "단축키를 한 번 누르면 녹음이 시작되고 다시 누르면 멈춥니다. 현재 동작 방식이"
 "며, 키를 계속 누르고 있고 싶지 않은 긴 구술에 더 적합합니다."
 
-#: utils/config_dialog.py:956
+#: utils/config_dialog.py:961
 msgid "Push to talk"
 msgstr "푸시 투 토크"
 
-#: utils/config_dialog.py:962
+#: utils/config_dialog.py:967
 msgid ""
 "Hold the shortcut down and release it to send. Best for short dictation. "
 "Recording stops as soon as you let go of any key in the shortcut. The "
@@ -647,15 +664,15 @@ msgstr ""
 "아무 키나 놓는 즉시 녹음이 멈춥니다. 어떤 모드를 선택하든 이 창의 버튼은 항"
 "상 토글 방식입니다."
 
-#: utils/config_dialog.py:969
+#: utils/config_dialog.py:975
 msgid "Recording Limits"
 msgstr "녹음 제한"
 
-#: utils/config_dialog.py:971
+#: utils/config_dialog.py:977
 msgid "Maximum length (minutes):"
 msgstr "최대 길이(분):"
 
-#: utils/config_dialog.py:972
+#: utils/config_dialog.py:978
 msgid ""
 "Recording stops automatically at this length so the audio stays within the "
 "upload size limit. Whatever was said is still transcribed. Use 0 for no "
@@ -664,11 +681,11 @@ msgstr ""
 "업로드 크기 제한을 넘지 않도록 이 길이에서 녹음이 자동으로 멈춥니다. 그때까"
 "지 말한 내용은 그대로 전사됩니다. 0으로 두면 제한이 없습니다."
 
-#: utils/config_dialog.py:976
+#: utils/config_dialog.py:982
 msgid "Minimum length (seconds):"
 msgstr "최소 길이(초):"
 
-#: utils/config_dialog.py:977
+#: utils/config_dialog.py:983
 msgid ""
 "Recordings shorter than this are discarded rather than sent for "
 "transcription, which stops an accidental tap of the shortcut costing an API "
@@ -677,11 +694,11 @@ msgstr ""
 "이보다 짧은 녹음은 전사로 보내지 않고 버립니다. 단축키를 실수로 눌러 API 호출"
 "이 낭비되는 것을 막습니다. 0으로 두면 모든 녹음을 보관합니다."
 
-#: utils/config_dialog.py:981
+#: utils/config_dialog.py:987
 msgid "Discard silent recordings"
 msgstr "무음 녹음 버리기"
 
-#: utils/config_dialog.py:982
+#: utils/config_dialog.py:988
 msgid ""
 "Skip uploading a recording when no speech was detected in it. Turn this off "
 "if quiet dictation is being discarded by mistake."
@@ -689,15 +706,42 @@ msgstr ""
 "음성이 감지되지 않은 녹음은 업로드하지 않습니다. 작은 목소리의 구술이 잘못 버"
 "려진다면 끄세요."
 
-#: utils/config_dialog.py:986
+#: utils/config_dialog.py:993
+#, fuzzy
+msgid "While Recording"
+msgstr "녹음"
+
+#: utils/config_dialog.py:995
+msgid "Show the input level meter while recording"
+msgstr "녹음 중 입력 레벨 미터 표시"
+
+#: utils/config_dialog.py:997
+msgid ""
+"Displays a live microphone level and timer next to the status, so you can "
+"see that your voice is being picked up."
+msgstr ""
+"상태 옆에 마이크 입력 레벨과 타이머를 실시간으로 표시하여 음성이 잘 잡히는지 "
+"확인할 수 있습니다."
+
+#: utils/config_dialog.py:1000
+msgid "Play sound effects"
+msgstr ""
+
+#: utils/config_dialog.py:1001
+msgid ""
+"Short sounds mark the start and end of a recording and confirm when a "
+"transcription is ready. Turn this off to work silently."
+msgstr ""
+
+#: utils/config_dialog.py:1006
 msgid "Stored Recordings"
 msgstr "저장된 녹음"
 
-#: utils/config_dialog.py:988
+#: utils/config_dialog.py:1008
 msgid "Delete recordings after (days):"
 msgstr "녹음 삭제 기간(일):"
 
-#: utils/config_dialog.py:989
+#: utils/config_dialog.py:1009
 msgid ""
 "Audio files older than this are deleted automatically. Only applies when "
 "recordings are saved with a date and time in the filename. Use 0 to keep "
@@ -706,15 +750,15 @@ msgstr ""
 "이보다 오래된 오디오 파일은 자동으로 삭제됩니다. 파일 이름에 날짜와 시간을 붙"
 "여 저장하는 경우에만 적용됩니다. 0으로 두면 계속 보관합니다."
 
-#: utils/config_dialog.py:994 utils/history_dialog.py:39
+#: utils/config_dialog.py:1015 utils/history_dialog.py:39
 msgid "Transcription History"
 msgstr "전사 기록"
 
-#: utils/config_dialog.py:996
+#: utils/config_dialog.py:1017
 msgid "Remember history between sessions"
 msgstr "세션 간 기록 유지"
 
-#: utils/config_dialog.py:997
+#: utils/config_dialog.py:1018
 msgid ""
 "Keep your transcriptions on disk so they are still there next time the app "
 "starts. Turn this off if you would rather nothing was written down."
@@ -722,226 +766,234 @@ msgstr ""
 "전사 내용을 디스크에 저장하여 다음 실행 시에도 남아 있도록 합니다. 아무것도 "
 "기록되지 않기를 원하면 끄세요."
 
-#: utils/config_dialog.py:1000
+#: utils/config_dialog.py:1021
 msgid "Entries to keep:"
 msgstr "보관할 항목 수:"
 
-#: utils/config_dialog.py:1001
+#: utils/config_dialog.py:1022
 msgid ""
 "How many transcriptions are kept in the history before the oldest are "
 "dropped."
 msgstr "가장 오래된 항목을 지우기 전까지 기록에 보관할 전사 개수입니다."
 
-#: utils/config_dialog.py:1005
-msgid "Feedback and Clipboard"
-msgstr "피드백 및 클립보드"
+#: utils/config_dialog.py:1027
+#, fuzzy
+msgid "After Transcription"
+msgstr "전사"
 
-#: utils/config_dialog.py:1007
-msgid "Show the input level meter while recording"
-msgstr "녹음 중 입력 레벨 미터 표시"
+#: utils/config_dialog.py:1029 utils/ui_manager.py:1530
+#: utils/ui_manager.py:3128
+#, fuzzy
+msgid "Auto-copy result"
+msgstr "자동 복사 오류"
 
-#: utils/config_dialog.py:1009
+#: utils/config_dialog.py:1030
 msgid ""
-"Displays a live microphone level and timer next to the status, so you can "
-"see that your voice is being picked up."
+"Put the finished text on the clipboard automatically. The same switch "
+"appears under the transcript in the main window."
 msgstr ""
-"상태 옆에 마이크 입력 레벨과 타이머를 실시간으로 표시하여 음성이 잘 잡히는지 "
-"확인할 수 있습니다."
 
-#: utils/config_dialog.py:1012
+#: utils/config_dialog.py:1033 utils/ui_manager.py:1540
+#: utils/ui_manager.py:3130
+#, fuzzy
+msgid "Auto-paste result"
+msgstr "자동 붙여넣기"
+
+#: utils/config_dialog.py:1034
+msgid "Paste the finished text straight into whichever app you were using."
+msgstr ""
+
+#: utils/config_dialog.py:1036
 msgid "Restore the previous clipboard after auto-paste"
 msgstr "자동 붙여넣기 후 이전 클립보드 복원"
 
-#: utils/config_dialog.py:1014
+#: utils/config_dialog.py:1038
+#, fuzzy
 msgid ""
-"When 'Copy to clipboard' is switched off, the transcription is put on the "
-"clipboard only long enough to paste it, then whatever you had copied before "
-"is put back."
+"When auto-copy is switched off, the transcription is put on the clipboard "
+"only long enough to paste it, then whatever you had copied before is put "
+"back."
 msgstr ""
 "'클립보드에 복사'가 꺼져 있으면 전사 내용은 붙여넣는 동안만 클립보드에 놓였다"
 "가, 이전에 복사해 둔 내용으로 되돌아갑니다."
 
-#: utils/config_dialog.py:1023
-msgid "Language Settings"
-msgstr "언어 설정"
-
-#: utils/config_dialog.py:1031
+#: utils/config_dialog.py:1055
 msgid "Application Language"
 msgstr "응용 프로그램 언어"
 
-#: utils/config_dialog.py:1039
+#: utils/config_dialog.py:1063
 msgid "Choose how the application language is determined:"
 msgstr "응용 프로그램 언어 결정 방법을 선택하세요:"
 
-#: utils/config_dialog.py:1046
+#: utils/config_dialog.py:1070
 msgid "Auto-detect from system"
 msgstr "시스템에서 자동 감지"
 
-#: utils/config_dialog.py:1055
+#: utils/config_dialog.py:1079
 msgid "Automatically detect language from your operating system settings"
 msgstr "운영 체제 설정에서 언어를 자동으로 감지"
 
-#: utils/config_dialog.py:1067
+#: utils/config_dialog.py:1091
 msgid "Detected:"
 msgstr "감지됨:"
 
-#: utils/config_dialog.py:1083
+#: utils/config_dialog.py:1107
 msgid "Manual selection"
 msgstr "수동 선택"
 
-#: utils/config_dialog.py:1096
+#: utils/config_dialog.py:1120
 msgid "Select Language:"
 msgstr "언어 선택:"
 
-#: utils/config_dialog.py:1130
+#: utils/config_dialog.py:1154
 msgid "Note: Changing the language will update the interface immediately."
 msgstr "참고: 언어를 변경하면 인터페이스가 즉시 업데이트됩니다."
 
-#: utils/config_dialog.py:1141
+#: utils/config_dialog.py:1172
 #, fuzzy
-msgid "AI Language Settings"
-msgstr "언어 설정"
+msgid "Speech Language"
+msgstr "언어 선택:"
 
-#: utils/config_dialog.py:1149
+#: utils/config_dialog.py:1180
 msgid "Select the language for AI transcription:"
 msgstr ""
 
-#: utils/config_dialog.py:1176
+#: utils/config_dialog.py:1211
 msgid "Specifying the language improves transcription accuracy and speed."
 msgstr ""
 
-#: utils/config_dialog.py:1206 utils/config_dialog.py:1214
+#: utils/config_dialog.py:1247
 msgid "AI Model Settings"
 msgstr "AI 모델 설정"
 
-#: utils/config_dialog.py:1226
+#: utils/config_dialog.py:1259
 msgid "Transcription Model:"
 msgstr "전사 모델:"
 
-#: utils/config_dialog.py:1247
+#: utils/config_dialog.py:1280
 msgid "Enter custom transcription model name:"
 msgstr "사용자 지정 전사 모델 이름 입력:"
 
-#: utils/config_dialog.py:1275
+#: utils/config_dialog.py:1308
 msgid "OpenAI Copyediting Model:"
 msgstr "OpenAI 교정 모델:"
 
-#: utils/config_dialog.py:1295
+#: utils/config_dialog.py:1328
 msgid "Enter custom copyediting model name:"
 msgstr "사용자 지정 교정 모델 이름 입력:"
 
-#: utils/config_dialog.py:1323
+#: utils/config_dialog.py:1356
 msgid "View Available OpenAI Models and Pricing"
 msgstr "사용 가능한 OpenAI 모델 및 가격 보기"
 
-#: utils/config_dialog.py:1362
+#: utils/config_dialog.py:1396
 msgid "Select Recording Folder"
 msgstr "녹음 폴더 선택"
 
-#: utils/config_dialog.py:1375
+#: utils/config_dialog.py:1409
 msgid "Please select a custom folder path"
 msgstr "사용자 지정 폴더 경로를 선택하세요"
 
-#: utils/config_dialog.py:1380
+#: utils/config_dialog.py:1414
 msgid "Folder Does Not Exist"
 msgstr "폴더가 존재하지 않습니다"
 
-#: utils/config_dialog.py:1381
+#: utils/config_dialog.py:1415
 #, python-brace-format
 msgid "The folder '{path}' does not exist. Would you like to create it?"
 msgstr "폴더 '{path}'이(가) 존재하지 않습니다. 생성하시겠습니까?"
 
-#: utils/config_dialog.py:1387
+#: utils/config_dialog.py:1421
 #, python-brace-format
 msgid "Could not create folder: {error}"
 msgstr "폴더를 만들 수 없습니다: {error}"
 
-#: utils/config_dialog.py:1407
+#: utils/config_dialog.py:1439
 msgid "Custom transcription model name cannot be empty."
 msgstr "사용자 지정 전사 모델 이름은 비워둘 수 없습니다."
 
-#: utils/config_dialog.py:1418
+#: utils/config_dialog.py:1450
 msgid "Custom copyediting model name cannot be empty."
 msgstr "사용자 지정 교정 모델 이름은 비워둘 수 없습니다."
 
-#: utils/config_dialog.py:1493
+#: utils/config_dialog.py:1526
 msgid "Restart Required"
 msgstr "재시작 필요"
 
-#: utils/config_dialog.py:1494
+#: utils/config_dialog.py:1527
 msgid ""
 "The HiDPI scaling setting has been changed. This requires a restart to take "
 "effect."
 msgstr "HiDPI 스케일링 설정이 변경되었습니다. 적용하려면 재시작이 필요합니다."
 
-#: utils/config_dialog.py:1495
+#: utils/config_dialog.py:1528
 msgid "Would you like to restart the application now?"
 msgstr "지금 응용 프로그램을 재시작하시겠습니까?"
 
-#: utils/config_dialog.py:1506
+#: utils/config_dialog.py:1539
 msgid "Settings Saved"
 msgstr "설정 저장됨"
 
-#: utils/config_dialog.py:1507
+#: utils/config_dialog.py:1540
 msgid "Configuration settings saved successfully!"
 msgstr "구성 설정이 성공적으로 저장되었습니다!"
 
-#: utils/config_dialog.py:1508
+#: utils/config_dialog.py:1541
 msgid ""
 "The HiDPI scaling change will take effect after you restart the application."
 msgstr "HiDPI 스케일링 변경은 응용 프로그램을 재시작한 후 적용됩니다."
 
-#: utils/config_dialog.py:1516
+#: utils/config_dialog.py:1549
 #, fuzzy
 msgid "Settings saved"
 msgstr "설정 저장됨"
 
-#: utils/config_dialog.py:1519
+#: utils/config_dialog.py:1552
 #, python-brace-format
 msgid "Could not save settings: {error}"
 msgstr "설정을 저장할 수 없습니다: {error}"
 
-#: utils/config_dialog.py:1536 utils/config_dialog.py:1542
+#: utils/config_dialog.py:1569 utils/config_dialog.py:1575
 msgid "Invalid Value"
 msgstr "잘못된 값"
 
-#: utils/config_dialog.py:1537
+#: utils/config_dialog.py:1570
 #, python-brace-format
 msgid "'{value}' is not a valid number for {field}."
 msgstr "'{value}'은(는) {field}에 유효한 숫자가 아닙니다."
 
-#: utils/config_dialog.py:1543
+#: utils/config_dialog.py:1576
 #, python-brace-format
 msgid "{field} must be between {minimum} and {maximum}."
 msgstr "{field}은(는) {minimum}에서 {maximum} 사이여야 합니다."
 
-#: utils/config_dialog.py:1548
+#: utils/config_dialog.py:1581
 msgid "Maximum length (minutes)"
 msgstr "최대 길이(분)"
 
-#: utils/config_dialog.py:1553
+#: utils/config_dialog.py:1586
 msgid "Minimum length (seconds)"
 msgstr "최소 길이(초)"
 
-#: utils/config_dialog.py:1558
+#: utils/config_dialog.py:1591
 msgid "Delete recordings after (days)"
 msgstr "녹음 삭제 기간(일)"
 
-#: utils/config_dialog.py:1563
+#: utils/config_dialog.py:1596
 msgid "Entries to keep"
 msgstr "보관할 항목 수"
 
-#: utils/config_dialog.py:1619
+#: utils/config_dialog.py:1674
 #, fuzzy
 msgid "Discard Changes?"
 msgstr "변경 사항 저장"
 
-#: utils/config_dialog.py:1620
+#: utils/config_dialog.py:1675
 msgid "You have unsaved changes. Discard them?"
 msgstr ""
 
-#: utils/quick_whisper.py:249 utils/quick_whisper.py:1397
-#: utils/quick_whisper.py:2947
+#: utils/quick_whisper.py:249 utils/quick_whisper.py:1408
+#: utils/quick_whisper.py:2959
 msgid "Prompt Not Found"
 msgstr "프롬프트를 찾을 수 없음"
 
@@ -1095,7 +1147,7 @@ msgstr ""
 msgid "Browse History..."
 msgstr "기록 살펴보기..."
 
-#: utils/quick_whisper.py:1071 utils/quick_whisper.py:2794
+#: utils/quick_whisper.py:1071 utils/quick_whisper.py:2806
 msgid "Save Session History"
 msgstr "세션 기록 저장"
 
@@ -1103,7 +1155,7 @@ msgstr "세션 기록 저장"
 msgid "Minimize to Tray"
 msgstr "트레이로 최소화"
 
-#: utils/quick_whisper.py:1078 utils/tray_manager.py:130
+#: utils/quick_whisper.py:1078 utils/tray_manager.py:154
 msgid "Exit"
 msgstr "종료"
 
@@ -1123,7 +1175,7 @@ msgstr "구성"
 msgid "Automatically Check for Updates"
 msgstr "자동으로 업데이트 확인"
 
-#: utils/quick_whisper.py:1089 utils/tray_manager.py:126
+#: utils/quick_whisper.py:1089 utils/tray_manager.py:150
 #, fuzzy
 msgid "Auto-Refresh Hotkeys"
 msgstr "단축키 새로고침"
@@ -1140,13 +1192,13 @@ msgstr "키보드 단축키 설정"
 msgid "Refresh Hotkeys"
 msgstr "단축키 새로고침"
 
-#: utils/quick_whisper.py:1104 utils/ui_manager.py:1498
-#: utils/ui_manager.py:2919 utils/ui_manager.py:3001
+#: utils/quick_whisper.py:1104 utils/ui_manager.py:1584
+#: utils/ui_manager.py:3054 utils/ui_manager.py:3136
 msgid "Record + AI Edit"
 msgstr "녹음 + AI 편집"
 
-#: utils/quick_whisper.py:1109 utils/ui_manager.py:1477
-#: utils/ui_manager.py:2905 utils/ui_manager.py:3000
+#: utils/quick_whisper.py:1109 utils/ui_manager.py:1563
+#: utils/ui_manager.py:3040 utils/ui_manager.py:3135
 msgid "Record + Transcribe"
 msgstr "녹음 + 전사"
 
@@ -1192,7 +1244,7 @@ msgstr "이전 프롬프트"
 msgid "Next Prompt"
 msgstr "다음 프롬프트"
 
-#: utils/quick_whisper.py:1171 utils/quick_whisper.py:2374
+#: utils/quick_whisper.py:1171 utils/quick_whisper.py:2386
 msgid "About Quick Whisper"
 msgstr "Quick Whisper 정보"
 
@@ -1200,8 +1252,8 @@ msgstr "Quick Whisper 정보"
 msgid "Check for Updates"
 msgstr "업데이트 확인"
 
-#: utils/quick_whisper.py:1174 utils/ui_manager.py:1561
-#: utils/ui_manager.py:3020
+#: utils/quick_whisper.py:1174 utils/ui_manager.py:1647
+#: utils/ui_manager.py:3155
 msgid "Hide Banner"
 msgstr "배너 숨기기"
 
@@ -1221,34 +1273,34 @@ msgstr ""
 msgid "Still processing - press Esc to abandon"
 msgstr ""
 
-#: utils/quick_whisper.py:1306
+#: utils/quick_whisper.py:1316
 msgid ""
 "The request took too long and was given up on. This is usually a slow or "
 "dropped connection."
 msgstr ""
 
-#: utils/quick_whisper.py:1309
+#: utils/quick_whisper.py:1319
 msgid "Your OpenAI account is being rate limited. Wait a moment and try again."
 msgstr ""
 
-#: utils/quick_whisper.py:1313
+#: utils/quick_whisper.py:1323
 msgid ""
 "Your OpenAI API key was rejected. Check it under Settings > Change API Key."
 msgstr ""
 
-#: utils/quick_whisper.py:1317
+#: utils/quick_whisper.py:1327
 msgid "Your OpenAI account has no available credit."
 msgstr ""
 
-#: utils/quick_whisper.py:1320
+#: utils/quick_whisper.py:1330
 msgid "Could not reach OpenAI. Check your internet connection."
 msgstr ""
 
-#: utils/quick_whisper.py:1322
+#: utils/quick_whisper.py:1332
 msgid "Something went wrong talking to OpenAI."
 msgstr ""
 
-#: utils/quick_whisper.py:1327
+#: utils/quick_whisper.py:1337
 #, python-brace-format
 msgid ""
 "{reason}\n"
@@ -1256,100 +1308,100 @@ msgid ""
 "Details: {detail}"
 msgstr ""
 
-#: utils/quick_whisper.py:1345
+#: utils/quick_whisper.py:1356
 msgid "Stopped"
 msgstr ""
 
-#: utils/quick_whisper.py:1347
+#: utils/quick_whisper.py:1358
 msgid "Stopped waiting for the result"
 msgstr ""
 
-#: utils/quick_whisper.py:1379
+#: utils/quick_whisper.py:1390
 msgid "Already Running"
 msgstr ""
 
-#: utils/quick_whisper.py:1380
+#: utils/quick_whisper.py:1391
 msgid "An AI edit is already in progress. Please wait for it to finish."
 msgstr ""
 
-#: utils/quick_whisper.py:1390
+#: utils/quick_whisper.py:1401
 msgid "Nothing to Edit"
 msgstr ""
 
-#: utils/quick_whisper.py:1391
+#: utils/quick_whisper.py:1402
 msgid "There is no text to re-run the AI edit on."
 msgstr ""
 
-#: utils/quick_whisper.py:1398 utils/quick_whisper.py:2948
+#: utils/quick_whisper.py:1409 utils/quick_whisper.py:2960
 #, python-brace-format
 msgid "The prompt '{name}' no longer exists."
 msgstr "프롬프트 '{name}'이(가) 더 이상 존재하지 않습니다."
 
-#: utils/quick_whisper.py:1403 utils/quick_whisper.py:1628
-#: utils/ui_manager.py:1866
+#: utils/quick_whisper.py:1414 utils/quick_whisper.py:1639
+#: utils/ui_manager.py:2002
 msgid "Processing - AI Editing..."
 msgstr "처리 중 - AI 편집..."
 
-#: utils/quick_whisper.py:1417 utils/quick_whisper.py:1441
+#: utils/quick_whisper.py:1428 utils/quick_whisper.py:1452
 #, fuzzy
 msgid "AI edit failed"
 msgstr "재시도 실패"
 
-#: utils/quick_whisper.py:1423
+#: utils/quick_whisper.py:1434
 msgid "AI edit returned no text"
 msgstr ""
 
-#: utils/quick_whisper.py:1442
+#: utils/quick_whisper.py:1453
 msgid "AI Edit Error"
 msgstr ""
 
-#: utils/quick_whisper.py:1443
+#: utils/quick_whisper.py:1454
 #, fuzzy, python-brace-format
 msgid "An error occurred while re-running the AI edit: {error}"
 msgstr "GPT 처리 중 오류가 발생했습니다: {error}"
 
-#: utils/quick_whisper.py:1488
+#: utils/quick_whisper.py:1499
 #, python-brace-format
 msgid "Done - {chars} chars - {duration} spoken"
 msgstr ""
 
-#: utils/quick_whisper.py:1491
+#: utils/quick_whisper.py:1502
 #, python-brace-format
 msgid "Done - {chars} chars"
 msgstr ""
 
-#: utils/quick_whisper.py:1561 utils/ui_manager.py:1865
+#: utils/quick_whisper.py:1572 utils/ui_manager.py:2001
 msgid "Processing - Transcript..."
 msgstr "처리 중 - 전사..."
 
-#: utils/quick_whisper.py:1565
+#: utils/quick_whisper.py:1576
 #, fuzzy
 msgid "Configuration Error"
 msgstr "구성"
 
-#: utils/quick_whisper.py:1566
+#: utils/quick_whisper.py:1577
 msgid "Transcription model name is empty. Please check your settings."
 msgstr ""
 
-#: utils/quick_whisper.py:1572 utils/quick_whisper.py:1672
-#: utils/quick_whisper.py:1678
+#: utils/quick_whisper.py:1583 utils/quick_whisper.py:1683
+#: utils/quick_whisper.py:1689
 msgid "Transcription Error"
 msgstr "전사 오류"
 
-#: utils/quick_whisper.py:1573
+#: utils/quick_whisper.py:1584
 #, fuzzy
 msgid "The recording could not be found. Please try recording again."
 msgstr "업데이트를 확인할 수 없습니다. 나중에 다시 시도하세요."
 
-#: utils/quick_whisper.py:1615 utils/quick_whisper.py:1616
+#: utils/quick_whisper.py:1626 utils/quick_whisper.py:1627
 msgid "No speech detected"
 msgstr ""
 
-#: utils/quick_whisper.py:1666 utils/ui_manager.py:1868
+#: utils/quick_whisper.py:1677 utils/ui_manager.py:2004
 msgid "Error during transcription"
 msgstr "전사 중 오류 발생"
 
-#: utils/quick_whisper.py:1673
+#: utils/quick_whisper.py:1684
 msgid ""
 "The selected transcription model may be unsupported. Try 'gpt-transcribe' or "
 "'whisper-1'.\n"
@@ -1358,23 +1410,23 @@ msgid ""
 "by the API."
 msgstr ""
 
-#: utils/quick_whisper.py:1706
+#: utils/quick_whisper.py:1718
 msgid "Copied to clipboard"
 msgstr "클립보드에 복사됨"
 
-#: utils/quick_whisper.py:1709
+#: utils/quick_whisper.py:1721
 msgid "Copy Failed"
 msgstr "복사 실패"
 
-#: utils/quick_whisper.py:1710
+#: utils/quick_whisper.py:1722
 msgid "The text could not be copied to the clipboard."
 msgstr "텍스트를 클립보드에 복사하지 못했습니다."
 
-#: utils/quick_whisper.py:1719
+#: utils/quick_whisper.py:1731
 msgid "Auto-Copy Error"
 msgstr "자동 복사 오류"
 
-#: utils/quick_whisper.py:1720
+#: utils/quick_whisper.py:1732
 msgid ""
 "The transcription could not be copied to the clipboard. It is still shown "
 "above and can be copied manually."
@@ -1382,20 +1434,20 @@ msgstr ""
 "전사 내용을 클립보드에 복사하지 못했습니다. 위에 그대로 표시되어 있으므로 직"
 "접 복사할 수 있습니다."
 
-#: utils/quick_whisper.py:1861 utils/quick_whisper.py:1886
-#: utils/ui_manager.py:1869
+#: utils/quick_whisper.py:1873 utils/quick_whisper.py:1898
+#: utils/ui_manager.py:2005
 msgid "Clipboard unavailable"
 msgstr "클립보드를 사용할 수 없음"
 
-#: utils/quick_whisper.py:1865
+#: utils/quick_whisper.py:1877
 msgid "Copied - click into your app and press paste"
 msgstr ""
 
-#: utils/quick_whisper.py:1888 utils/quick_whisper.py:1927
+#: utils/quick_whisper.py:1900 utils/quick_whisper.py:1939
 msgid "Auto-Paste Error"
 msgstr "자동 붙여넣기 오류"
 
-#: utils/quick_whisper.py:1889
+#: utils/quick_whisper.py:1901
 msgid ""
 "The text could not be placed on the clipboard, so it was not pasted. It is "
 "still shown above and can be copied manually."
@@ -1403,56 +1455,56 @@ msgstr ""
 "텍스트를 클립보드에 올리지 못해 붙여넣지 않았습니다. 위에 그대로 표시되어 있"
 "으므로 직접 복사할 수 있습니다."
 
-#: utils/quick_whisper.py:1928
+#: utils/quick_whisper.py:1940
 #, python-brace-format
 msgid "Failed to auto-paste the transcription: {error}"
 msgstr "전사를 자동으로 붙여넣지 못했습니다: {error}"
 
-#: utils/quick_whisper.py:2110
+#: utils/quick_whisper.py:2122
 #, fuzzy
 msgid "AI Processing Error"
 msgstr "GPT 처리 오류"
 
-#: utils/quick_whisper.py:2297
+#: utils/quick_whisper.py:2309
 msgid "Terms of Use"
 msgstr "이용 약관"
 
-#: utils/quick_whisper.py:2314
+#: utils/quick_whisper.py:2326
 msgid ""
 "License file not found. Please ensure the LICENSE.md file exists in the "
 "application directory."
 msgstr ""
 
-#: utils/quick_whisper.py:2317
+#: utils/quick_whisper.py:2329
 msgid ""
 "Permission denied. Please ensure the script has read access to LICENSE.md."
 msgstr ""
 
-#: utils/quick_whisper.py:2319
+#: utils/quick_whisper.py:2331
 #, python-brace-format
 msgid "Error reading license file due to encoding issue: {error}"
 msgstr ""
 
-#: utils/quick_whisper.py:2322
+#: utils/quick_whisper.py:2334
 #, fuzzy, python-brace-format
 msgid "An unexpected error occurred while reading the license file: {error}"
 msgstr "GPT 처리 중 오류가 발생했습니다: {error}"
 
-#: utils/quick_whisper.py:2413 utils/quick_whisper.py:3246
+#: utils/quick_whisper.py:2425 utils/quick_whisper.py:3258
 #, fuzzy
 msgid "Quick Whisper"
 msgstr "Quick Whisper 정보"
 
-#: utils/quick_whisper.py:2423
+#: utils/quick_whisper.py:2435
 msgid "AI-Powered Speech-to-Copy-Edited-Text"
 msgstr "AI 기반 음성-편집 텍스트 변환"
 
-#: utils/quick_whisper.py:2433
+#: utils/quick_whisper.py:2445
 #, python-brace-format
 msgid "Version {version}"
 msgstr "버전 {version}"
 
-#: utils/quick_whisper.py:2445
+#: utils/quick_whisper.py:2457
 #, fuzzy
 msgid ""
 "Quick Whisper is a free and open-source speech-to-copy-edited-text software "
@@ -1466,11 +1518,11 @@ msgstr ""
 "Quick Whisper는 AI를 사용하여 음성을 편집된 전사로 변환하고 활성 응용 프로그"
 "램에 자동으로 붙여넣는 무료 오픈 소스 음성-텍스트 변환 소프트웨어 도구입니다."
 
-#: utils/quick_whisper.py:2468
+#: utils/quick_whisper.py:2480
 msgid "Key Features"
 msgstr "주요 기능"
 
-#: utils/quick_whisper.py:2506
+#: utils/quick_whisper.py:2518
 #, fuzzy, python-brace-format
 msgid ""
 "How to use: Press {edit_shortcut} to record and AI-edit, or "
@@ -1481,75 +1533,75 @@ msgstr ""
 "러 원시 전사를 수행하세요. 앱이 결과를 자동으로 복사하여 활성 응용 프로그램"
 "에 붙여넣습니다."
 
-#: utils/quick_whisper.py:2549
+#: utils/quick_whisper.py:2561
 msgid "Learn More on Our Website"
 msgstr "웹사이트에서 자세히 알아보기"
 
-#: utils/quick_whisper.py:2583 utils/ui_manager.py:1570
-#: utils/ui_manager.py:3022
+#: utils/quick_whisper.py:2595 utils/ui_manager.py:1656
+#: utils/ui_manager.py:3157
 msgid "Developed by Scorchsoft.com | App & AI Developers"
 msgstr "개발: Scorchsoft.com | 앱 & AI 개발자"
 
-#: utils/quick_whisper.py:2699 utils/quick_whisper.py:2787
+#: utils/quick_whisper.py:2711 utils/quick_whisper.py:2799
 msgid "No History"
 msgstr "기록 없음"
 
-#: utils/quick_whisper.py:2700
+#: utils/quick_whisper.py:2712
 msgid "There is nothing in your history yet."
 msgstr "기록에 아직 아무것도 없습니다."
 
-#: utils/quick_whisper.py:2713
+#: utils/quick_whisper.py:2725
 msgid "History Unavailable"
 msgstr "기록을 열 수 없음"
 
-#: utils/quick_whisper.py:2714
+#: utils/quick_whisper.py:2726
 #, python-brace-format
 msgid "The history browser could not be opened: {error}"
 msgstr "기록 보기를 열 수 없습니다: {error}"
 
-#: utils/quick_whisper.py:2787
+#: utils/quick_whisper.py:2799
 msgid "There is no history to save."
 msgstr "저장할 기록이 없습니다."
 
-#: utils/quick_whisper.py:2808
+#: utils/quick_whisper.py:2820
 #, fuzzy
 msgid "History saved"
 msgstr "기록을 열 수 없음"
 
-#: utils/quick_whisper.py:2812
+#: utils/quick_whisper.py:2824
 msgid "Save Error"
 msgstr "저장 오류"
 
-#: utils/quick_whisper.py:2813
+#: utils/quick_whisper.py:2825
 #, python-brace-format
 msgid "An error occurred while saving: {error}"
 msgstr "저장 중 오류가 발생했습니다: {error}"
 
-#: utils/quick_whisper.py:2856
+#: utils/quick_whisper.py:2868
 #, fuzzy, python-brace-format
 msgid "Failed to save prompts: {error}"
 msgstr "설정을 저장할 수 없습니다: {error}"
 
-#: utils/quick_whisper.py:2956 utils/quick_whisper.py:3010
+#: utils/quick_whisper.py:2968 utils/quick_whisper.py:3022
 #, python-brace-format
 msgid "Prompt: {name}"
 msgstr "프롬프트: {name}"
 
-#: utils/quick_whisper.py:2969
+#: utils/quick_whisper.py:2981
 #, python-brace-format
 msgid "Transcription: {model}"
 msgstr "전사: {model}"
 
-#: utils/quick_whisper.py:2981
+#: utils/quick_whisper.py:2993
 #, python-brace-format
 msgid "AI edit: {model}"
 msgstr "AI 편집: {model}"
 
-#: utils/quick_whisper.py:3209
+#: utils/quick_whisper.py:3221
 msgid "Delete Saved History?"
 msgstr "저장된 기록을 삭제할까요?"
 
-#: utils/quick_whisper.py:3210
+#: utils/quick_whisper.py:3222
 msgid ""
 "History will no longer be saved between sessions.\n"
 "\n"
@@ -1563,11 +1615,11 @@ msgstr ""
 "\n"
 "어느 쪽이든 현재 세션의 기록은 창에 그대로 남습니다."
 
-#: utils/quick_whisper.py:3224
+#: utils/quick_whisper.py:3236
 msgid "Could Not Delete History"
 msgstr "기록을 삭제하지 못했습니다"
 
-#: utils/quick_whisper.py:3225
+#: utils/quick_whisper.py:3237
 #, python-brace-format
 msgid ""
 "The saved history file could not be deleted:\n"
@@ -1580,165 +1632,155 @@ msgstr ""
 "\n"
 "자세한 내용: {error}"
 
-#: utils/quick_whisper.py:3245 utils/tray_manager.py:136
+#: utils/quick_whisper.py:3257 utils/tray_manager.py:160
 msgid "Quick Whisper - Recording..."
 msgstr "Quick Whisper - 녹음 중..."
 
-#: utils/quick_whisper.py:3353 utils/quick_whisper.py:3367
+#: utils/quick_whisper.py:3365 utils/quick_whisper.py:3379
 #, fuzzy
 msgid "System tray unavailable"
 msgstr "시스템 트레이 사용 불가"
 
-#: utils/ui_manager.py:1109 utils/ui_manager.py:2956
+#: utils/ui_manager.py:1172 utils/ui_manager.py:3091
 msgid "File"
 msgstr "파일"
 
-#: utils/ui_manager.py:1113 utils/ui_manager.py:2958
+#: utils/ui_manager.py:1176 utils/ui_manager.py:3093
 msgid "Settings"
 msgstr "설정"
 
-#: utils/ui_manager.py:1117 utils/ui_manager.py:2960
+#: utils/ui_manager.py:1180 utils/ui_manager.py:3095
 msgid "Actions"
 msgstr "작업"
 
-#: utils/ui_manager.py:1121 utils/ui_manager.py:2962
+#: utils/ui_manager.py:1184 utils/ui_manager.py:3097
 msgid "Help"
 msgstr "도움말"
 
-#: utils/ui_manager.py:1141 utils/ui_manager.py:2966
+#: utils/ui_manager.py:1204 utils/ui_manager.py:3101
 msgid "Input Device"
 msgstr "입력 장치"
 
-#: utils/ui_manager.py:1152
+#: utils/ui_manager.py:1217
 msgid "Re-scan for input devices"
 msgstr ""
 
-#: utils/ui_manager.py:1196 utils/ui_manager.py:2968
+#: utils/ui_manager.py:1261 utils/ui_manager.py:3103
 msgid "Transcription"
 msgstr "전사"
 
-#: utils/ui_manager.py:1257
+#: utils/ui_manager.py:1335
 msgid "Latest entry"
 msgstr "최신 항목"
 
-#: utils/ui_manager.py:1258
+#: utils/ui_manager.py:1336
 msgid "Newer"
 msgstr "최신"
 
-#: utils/ui_manager.py:1259
+#: utils/ui_manager.py:1337
 msgid "Older"
 msgstr "이전"
 
-#: utils/ui_manager.py:1260
+#: utils/ui_manager.py:1338
 msgid "Search everything you have dictated"
 msgstr "구술한 모든 내용 검색"
 
-#: utils/ui_manager.py:1262
+#: utils/ui_manager.py:1340
 msgid "Re-run the AI edit on the text above (right-click for another prompt)"
 msgstr ""
 "위 텍스트에 AI 편집을 다시 실행합니다 (마우스 오른쪽 버튼으로 다른 프롬프트 "
 "선택)"
 
-#: utils/ui_manager.py:1263
+#: utils/ui_manager.py:1341
 msgid "Copy to clipboard"
 msgstr "클립보드에 복사"
 
-#: utils/ui_manager.py:1367
+#: utils/ui_manager.py:1445
 msgid "Microphone input level"
 msgstr ""
 
-#: utils/ui_manager.py:1415
+#: utils/ui_manager.py:1501
 msgid "Click to change the transcription model"
 msgstr "클릭하여 전사 모델 변경"
 
-#: utils/ui_manager.py:1416
+#: utils/ui_manager.py:1502
 msgid "Click to change the AI copy-editing model"
 msgstr "클릭하여 AI 교정 모델 변경"
 
-#: utils/ui_manager.py:1431 utils/ui_manager.py:2991
+#: utils/ui_manager.py:1517 utils/ui_manager.py:3126
 #, fuzzy
 msgid "After transcription"
 msgstr "전사"
 
-#: utils/ui_manager.py:1444 utils/ui_manager.py:2993
-#, fuzzy
-msgid "Auto-copy result"
-msgstr "자동 복사 오류"
-
-#: utils/ui_manager.py:1450
+#: utils/ui_manager.py:1536
 msgid "Put the finished text on the clipboard automatically"
 msgstr ""
 
-#: utils/ui_manager.py:1454 utils/ui_manager.py:2995
-#, fuzzy
-msgid "Auto-paste result"
-msgstr "자동 붙여넣기"
-
-#: utils/ui_manager.py:1460
+#: utils/ui_manager.py:1546
 msgid "Paste the finished text into whichever app you are using"
 msgstr ""
 
-#: utils/ui_manager.py:1531 utils/ui_manager.py:2942
+#: utils/ui_manager.py:1617 utils/ui_manager.py:3077
 #, python-brace-format
 msgid "Record and transcribe audio ({shortcut})"
 msgstr ""
 
-#: utils/ui_manager.py:1534 utils/ui_manager.py:2944
+#: utils/ui_manager.py:1620 utils/ui_manager.py:3079
 #, python-brace-format
 msgid "Record and AI-edit transcription ({shortcut})"
 msgstr ""
 
-#: utils/ui_manager.py:1693
+#: utils/ui_manager.py:1829
 #, python-brace-format
 msgid "Click to change the prompt ({back} / {forward} to cycle)"
 msgstr "클릭하여 프롬프트 변경 ({back} / {forward} 로 순환)"
 
-#: utils/ui_manager.py:1695
+#: utils/ui_manager.py:1831
 msgid "Click to change the prompt"
 msgstr "클릭하여 프롬프트 변경"
 
-#: utils/ui_manager.py:1784
+#: utils/ui_manager.py:1920
 msgid "Manage Prompts..."
 msgstr "프롬프트 관리..."
 
-#: utils/ui_manager.py:1818 utils/ui_manager.py:1832
+#: utils/ui_manager.py:1954 utils/ui_manager.py:1968
 msgid "More Model Settings..."
 msgstr "추가 모델 설정..."
 
-#: utils/ui_manager.py:1903
+#: utils/ui_manager.py:2039
 #, fuzzy, python-brace-format
 msgid "Recording - {shortcut} to cancel"
 msgstr "녹음 단축키 동작"
 
-#: utils/ui_manager.py:2096
+#: utils/ui_manager.py:2231
 #, python-brace-format
 msgid "{n} word"
 msgid_plural "{n} words"
 msgstr[0] "{n}개 단어"
 
-#: utils/ui_manager.py:2302
+#: utils/ui_manager.py:2437
 #, python-brace-format
 msgid "Recording - stops at {minutes}:00"
 msgstr ""
 
-#: utils/ui_manager.py:2492
+#: utils/ui_manager.py:2627
 #, fuzzy
 msgid "No input devices found"
 msgstr "오디오 장치를 찾을 수 없습니다"
 
-#: utils/ui_manager.py:2513
+#: utils/ui_manager.py:2648
 #, fuzzy, python-brace-format
 msgid "{n} input device"
 msgid_plural "{n} input devices"
 msgstr[0] "입력 장치"
 
-#: utils/ui_manager.py:2688
+#: utils/ui_manager.py:2823
 #, python-brace-format
 msgid "{message} {seconds}s"
 msgstr ""
 
-#: utils/ui_manager.py:2846 utils/ui_manager.py:2864 utils/ui_manager.py:3003
-#: utils/ui_manager.py:3004
+#: utils/ui_manager.py:2981 utils/ui_manager.py:2999 utils/ui_manager.py:3138
+#: utils/ui_manager.py:3139
 msgid "Stop and Process"
 msgstr "중지 및 처리"
 
@@ -1762,51 +1804,87 @@ msgstr "프롬프트"
 msgid "Text"
 msgstr "텍스트"
 
-#: utils/history_dialog.py:160
+#: utils/history_dialog.py:168
 msgid "Show in Main Window"
 msgstr "메인 창에 표시"
 
-#: utils/history_dialog.py:216
+#: utils/history_dialog.py:228
 #, python-brace-format
 msgid "{shown} of {total} entries match '{query}'"
 msgstr "{total}개 항목 중 {shown}개가 '{query}'와 일치"
 
-#: utils/history_dialog.py:219
+#: utils/history_dialog.py:231
 #, python-brace-format
 msgid "{total} entries"
 msgstr "{total}개 항목"
 
-#: utils/history_dialog.py:221
+#: utils/history_dialog.py:233
 #, python-brace-format
 msgid "showing the newest {count}; narrow the search to see more"
 msgstr "최신 {count}개를 표시하고 있습니다. 더 보려면 검색어를 좁히세요"
 
-#: utils/history_dialog.py:283
+#: utils/history_dialog.py:276
 msgid "AI edit"
 msgstr "AI 편집"
 
-#: utils/history_dialog.py:285
+#: utils/history_dialog.py:278
 msgid "Transcript"
 msgstr "전사"
 
-#: utils/history_dialog.py:299
+#: utils/history_dialog.py:292
 #, python-brace-format
 msgid "Today {time}"
 msgstr "오늘 {time}"
 
-#: utils/history_dialog.py:301
+#: utils/history_dialog.py:294
 #, python-brace-format
 msgid "Yesterday {time}"
 msgstr "어제 {time}"
 
-#: utils/tray_manager.py:123
+#: utils/history_dialog.py:383
+msgid "Copied"
+msgstr ""
+
+#: utils/history_dialog.py:399
+#, fuzzy
+msgid "Delete Entry"
+msgstr "삭제"
+
+#: utils/history_dialog.py:400
+#, python-brace-format
+msgid ""
+"Delete this history entry?\n"
+"\n"
+"{preview}"
+msgstr ""
+
+#: utils/history_dialog.py:413
+msgid "Entry deleted"
+msgstr ""
+
+#: utils/tray_manager.py:144
 msgid "Show/Hide Window"
 msgstr ""
 
-#: utils/tray_manager.py:124
+#: utils/tray_manager.py:146
+#, fuzzy
+msgid "Settings..."
+msgstr "설정"
+
+#: utils/tray_manager.py:147
+#, fuzzy
+msgid "History..."
+msgstr "기록 살펴보기..."
+
+#: utils/tray_manager.py:149
 #, fuzzy
 msgid "Refresh Hotkeys Now"
 msgstr "단축키 새로고침"
+
+#: utils/tray_manager.py:162
+#, fuzzy
+msgid "Quick Whisper - Processing..."
+msgstr "Quick Whisper - 녹음 중..."
 
 #: utils/platform/__init__.py:129
 #, fuzzy
@@ -1856,6 +1934,42 @@ msgstr ""
 #: utils/platform/hotkey_base.py:815
 msgid "Please press one modifier key plus exactly one other key."
 msgstr ""
+
+#~ msgid "Display"
+#~ msgstr "디스플레이"
+
+#~ msgid "Language"
+#~ msgstr "언어"
+
+#~ msgid "Advanced"
+#~ msgstr "고급"
+
+#~ msgid "Recording Settings"
+#~ msgstr "녹음 설정"
+
+#, fuzzy
+#~ msgid "Output Settings"
+#~ msgstr "설정"
+
+#~ msgid "Display Settings"
+#~ msgstr "디스플레이 설정"
+
+#, fuzzy
+#~ msgid "Behavior Settings"
+#~ msgstr "녹음 설정"
+
+#~ msgid "Advanced Settings"
+#~ msgstr "고급 설정"
+
+#~ msgid "Feedback and Clipboard"
+#~ msgstr "피드백 및 클립보드"
+
+#~ msgid "Language Settings"
+#~ msgstr "언어 설정"
+
+#, fuzzy
+#~ msgid "AI Language Settings"
+#~ msgstr "언어 설정"
 
 #~ msgid "Save Selection and Exit"
 #~ msgstr "선택 저장 후 종료"

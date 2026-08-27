@@ -1257,6 +1257,7 @@ class QuickWhisper(tk.Tk):
         audio_file = self.audio_manager.stop_recording()
         if audio_file:
             self._processing = True
+            self._set_tray_processing(True)
             # Start transcription in a separate thread (daemon so a hung
             # request can never keep the application alive after close)
             threading.Thread(target=self.transcribe_audio, daemon=True,
@@ -1278,6 +1279,15 @@ class QuickWhisper(tk.Tk):
             self.abandon_processing()
             return "break"
         return None
+
+    def _set_tray_processing(self, processing):
+        """Mirror the processing state onto the tray icon."""
+        try:
+            tray = getattr(self, 'tray_manager', None)
+            if tray is not None:
+                tray.set_processing(processing)
+        except Exception as e:
+            logger.debug("Could not update the tray processing state: %s", e)
 
     def _toast(self, message):
         """Confirm something routine without a dialog to dismiss.
@@ -1342,6 +1352,7 @@ class QuickWhisper(tk.Tk):
             return
         self._processing_generation += 1
         self._processing = False
+        self._set_tray_processing(False)
         self._set_status(_("Stopped"), "idle")
         try:
             self.ui_manager.show_toast(_("Stopped waiting for the result"))
@@ -1685,6 +1696,7 @@ class QuickWhisper(tk.Tk):
             # since a newer recording may own it by now.
             if not self._is_abandoned(generation):
                 self._processing = False
+                self.after(0, lambda: self._set_tray_processing(False))
                 # Only replace the processing status when things went well -
                 # otherwise the error the user needs to see would be wiped out
                 # immediately.

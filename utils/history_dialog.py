@@ -12,7 +12,7 @@ from datetime import datetime, date, timedelta
 from utils.app_logging import get_logger
 from utils.dialog_utils import position_dialog, bind_dialog_keys, focus_first
 from utils.i18n import _
-from utils.theme import get_font, get_window_size, get_spacing
+from utils.theme import get_font, get_window_size, get_spacing, theme_colors
 
 logger = get_logger(__name__)
 
@@ -132,9 +132,13 @@ class HistoryDialog:
         self.tree.bind("<<TreeviewSelect>>", lambda e: self._show_selected())
         self.tree.bind("<Double-1>", lambda e: self.load_selected())
         self.tree.bind("<Return>", lambda e: self.load_selected())
+        self.tree.bind("<Control-c>", self.copy_selected)
+        self.tree.bind("<Control-C>", self.copy_selected)
+        self.tree.bind("<Delete>", lambda e: self.delete_selected())
 
         # ── Preview ──────────────────────────────────────────────────────
-        self.status_label = ttk.Label(container, text="", font=get_font('xxs'), foreground="#888888")
+        self.status_label = ttk.Label(container, text="", font=get_font('xxs'),
+                                      foreground=theme_colors().TEXT_MUTED)
         self.status_label.pack(anchor="w", pady=(get_spacing('sm'), 2))
 
         preview_frame = ttk.Frame(container)
@@ -143,7 +147,7 @@ class HistoryDialog:
         self.preview = tk.Text(
             preview_frame, height=6, wrap="word", font=get_font('sm'),
             relief="flat", borderwidth=0, highlightthickness=1,
-            highlightbackground="#404040", padx=10, pady=8)
+            highlightbackground=theme_colors().BORDER, padx=10, pady=8)
         preview_scroll = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=self.preview.yview)
         self.preview.configure(yscrollcommand=preview_scroll.set, state="disabled")
         self.preview.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -155,23 +159,31 @@ class HistoryDialog:
         button_row = ttk.Frame(container)
         button_row.pack(fill=tk.X, pady=(get_spacing('md'), 0))
 
-        ttk.Button(button_row, text=_("Close"), command=self.close).pack(side=tk.RIGHT)
+        # Delete sits on the left, away from the actions people mean to press.
+        self.delete_button = ttk.Button(
+            button_row, text=_("Delete"), command=self.delete_selected)
+        self.delete_button.pack(side=tk.LEFT)
+
         self.load_button = ttk.Button(
             button_row, text=_("Show in Main Window"), command=self.load_selected)
-        self.load_button.pack(side=tk.RIGHT, padx=(0, get_spacing('sm')))
+        self.load_button.pack(side=tk.RIGHT)
         self.copy_button = ttk.Button(
             button_row, text=_("Copy"), command=self.copy_selected)
         self.copy_button.pack(side=tk.RIGHT, padx=(0, get_spacing('sm')))
+        ttk.Button(button_row, text=_("Close"), command=self.close).pack(
+            side=tk.RIGHT, padx=(0, get_spacing('sm')))
         self._set_buttons_enabled(False)
 
     def _style_preview(self):
         """Match the preview box to the main transcription area."""
         try:
             from utils.config_manager import get_config
-            if get_config().dark_mode:
-                self.preview.configure(bg="#1c1c1c", fg="#ffffff", highlightbackground="#404040")
-            else:
-                self.preview.configure(bg="#ffffff", fg="#1c1c1c", highlightbackground="#d0d0d0")
+            colors = theme_colors()
+            is_dark = get_config().dark_mode
+            self.preview.configure(
+                bg=colors.BG_TERTIARY if is_dark else colors.BG_SECONDARY,
+                fg=colors.TEXT_PRIMARY,
+                highlightbackground=colors.BORDER)
         except Exception as e:
             logger.debug("Could not theme the history preview: %s", e)
 
@@ -259,25 +271,6 @@ class HistoryDialog:
         self._indexed_length = len(self.parent.history)
         return rows
 
-    def _matches(self, entry, query):
-        """Whether one entry matches a search query.
-
-        Kept as the single definition of "matches" - :meth:`_index_rows` builds
-        the same haystack up front for the list itself.
-        """
-        query = (query or "").strip().lower()
-        if not query:
-            return True
-        haystack = " ".join(filter(None, (
-            entry.get("text", ""),
-            entry.get("prompt") or "",
-            self._format_mode(entry.get("mode")),
-            self._format_when(entry.get("timestamp")),
-        ))).lower()
-        # Every word has to appear somewhere, so "email tuesday" narrows down
-        # rather than matching either term.
-        return all(word in haystack for word in query.split())
-
     def _format_mode(self, mode):
         if mode == self.parent.HISTORY_MODE_EDIT:
             return _("AI edit")
@@ -356,7 +349,7 @@ class HistoryDialog:
 
     def _set_buttons_enabled(self, enabled):
         state = "normal" if enabled else "disabled"
-        for button in (self.load_button, self.copy_button):
+        for button in (self.load_button, self.copy_button, self.delete_button):
             try:
                 button.configure(state=state)
             except Exception:
@@ -376,12 +369,54 @@ class HistoryDialog:
         self.parent.load_history_entry(index)
         self.close()
 
-    def copy_selected(self):
+    def copy_selected(self, _event=None):
+        """Copy the selected entry, and say so.
+
+        This used to no-op silently, so there was no way to tell a successful
+        copy from a click that missed.
+        """
         entry = self._selected_entry()
         text = (entry or {}).get("text", "")
         if not text:
-            return
+            return "break"
         self.parent.copy_to_clipboard(text)
+        self._toast(_("Copied"))
+        return "break"
+
+    def delete_selected(self):
+        """Remove one entry from the history.
+
+        There was previously no way to delete anything at all: the only route
+        was switching persistence off, which offered to wipe everything.
+        """
+        entry = self._selected_entry()
+        if entry is None:
+            return
+        preview = (entry.get("text") or "").strip().replace("\n", " ")
+        if len(preview) > 60:
+            preview = preview[:60] + "..."
+        if not messagebox.askyesno(
+                _("Delete Entry"),
+                _("Delete this history entry?\n\n{preview}").format(preview=preview),
+                parent=self.dialog, default="no"):
+            return
+        try:
+            self.parent.history.remove(entry)
+        except ValueError:
+            logger.debug("History entry was already gone")
+            return
+        try:
+            self.parent.save_history()
+        except Exception:
+            logger.error("Could not persist the history after a delete", exc_info=True)
+        self.refresh()
+        self._toast(_("Entry deleted"))
+
+    def _toast(self, message):
+        try:
+            self.parent.ui_manager.show_toast(message)
+        except Exception as e:
+            logger.debug("Could not show the '%s' toast: %s", message, e)
 
     def close(self):
         try:
