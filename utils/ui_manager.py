@@ -572,6 +572,9 @@ class GradientButton(tk.Canvas):
     # purple and red fills alike.
     SUBTEXT_TINT = "#dfe6f2"
 
+    # Width of the always-reserved focus ring.
+    FOCUS_RING_WIDTH = 2
+
     def __init__(self, parent, text="", command=None, width=200, height=50,
                  corner_radius=25, font=None,
                  gradient_start="#06b6d4", gradient_mid="#3b82f6", gradient_end="#8b5cf6",
@@ -581,8 +584,12 @@ class GradientButton(tk.Canvas):
                  text_color="#0d0d0d", bg_color="#0d0d0d",
                  subtext="", subtext_font=None, subtext_color=None, **kwargs):
 
+        # The focus ring is always reserved and only made visible on focus, so
+        # gaining focus cannot shift the layout or trigger a gradient redraw.
         super().__init__(parent, width=width, height=height,
-                        bg=bg_color, highlightthickness=0, cursor="hand2", **kwargs)
+                         bg=bg_color, highlightthickness=self.FOCUS_RING_WIDTH,
+                         highlightbackground=bg_color, highlightcolor=bg_color,
+                         takefocus=1, cursor="hand2", **kwargs)
 
         self.text = text
         self.command = command
@@ -615,6 +622,8 @@ class GradientButton(tk.Canvas):
         self.solid_hover = solid_hover
         
         self._is_hovered = False
+        self._is_pressed = False
+        self.focus_ring_color = theme_colors().ACCENT_PRIMARY
         self._gradient_image = None
         self._hover_gradient_image = None
         self._resize_pending = None  # For debouncing resize events
@@ -626,8 +635,16 @@ class GradientButton(tk.Canvas):
         # Bind events
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Configure>", self._on_resize)
+
+        # These are the app's two primary actions; before this they could only
+        # be reached with a mouse or a global hotkey.
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        for sequence in ("<Return>", "<KP_Enter>", "<space>"):
+            self.bind(sequence, self._on_click)
     
     def _hex_to_rgb(self, hex_color):
         """Convert hex color to RGB tuple."""
@@ -759,10 +776,12 @@ class GradientButton(tk.Canvas):
         """Draw the button."""
         self.delete("all")
         
-        # Choose image based on state
+        # Choose image based on state. A press reads as the hover fill, which
+        # is the only lit variant a canvas has to hand.
+        lit = self._is_hovered or self._is_pressed
         if self.solid_color:
             # Solid color mode (recording state)
-            if self._is_hovered and self.solid_hover:
+            if lit and self.solid_hover:
                 img = self._create_solid_image(self.solid_hover)
             else:
                 img = self._create_solid_image(self.solid_color)
@@ -770,7 +789,7 @@ class GradientButton(tk.Canvas):
             self.create_image(0, 0, anchor="nw", image=img)
         else:
             # Gradient mode
-            img = self._hover_gradient_image if self._is_hovered else self._gradient_image
+            img = self._hover_gradient_image if lit else self._gradient_image
             self.create_image(0, 0, anchor="nw", image=img)
         
         # Draw the label, with the shortcut caption beneath it when there is
@@ -814,11 +833,47 @@ class GradientButton(tk.Canvas):
     
     def _on_leave(self, event):
         self._is_hovered = False
+        # A press dragged off the button is abandoned, not fired.
+        self._is_pressed = False
         self._draw()
     
-    def _on_click(self, event):
+    def _on_click(self, event=None):
         if self.command:
             self.command()
+        return "break"
+
+    def _on_press(self, _event=None):
+        """Acknowledge the press before acting on it."""
+        self.focus_set()
+        self._is_pressed = True
+        self._draw()
+
+    def _on_release(self, event=None):
+        """Fire only if the pointer is still on the button.
+
+        The command used to run on press with no visual acknowledgement, so a
+        press dragged off the button still fired.
+        """
+        was_pressed = self._is_pressed
+        self._is_pressed = False
+        self._draw()
+        if not was_pressed:
+            return
+        if event is not None:
+            inside = (0 <= event.x <= self.winfo_width()
+                      and 0 <= event.y <= self.winfo_height())
+            if not inside:
+                return
+        if self.command:
+            self.command()
+
+    def _on_focus_in(self, _event=None):
+        self.configure(highlightbackground=self.focus_ring_color,
+                       highlightcolor=self.focus_ring_color)
+
+    def _on_focus_out(self, _event=None):
+        self.configure(highlightbackground=self.bg_color,
+                       highlightcolor=self.bg_color)
     
     def _on_resize(self, event):
         """Handle resize with debouncing to prevent expensive operations during drag."""
@@ -902,7 +957,15 @@ class GradientButton(tk.Canvas):
             regenerate_gradients = True
         if 'command' in kwargs:
             self.command = kwargs.pop('command')
-        
+        if 'bg' in kwargs:
+            # The unfocused ring is painted in the surrounding background, so
+            # it has to follow a theme change with it.
+            self.bg_color = kwargs['bg']
+            if self.focus_get() is not self:
+                kwargs.setdefault('highlightbackground', self.bg_color)
+                kwargs.setdefault('highlightcolor', self.bg_color)
+            self.focus_ring_color = theme_colors().ACCENT_PRIMARY
+
         if regenerate_gradients:
             self._create_gradient_images()
             redraw = True
@@ -1149,6 +1212,8 @@ class UIManager:
         )
         self.device_refresh_link.pack(side=tk.RIGHT, pady=(4, 0))
         self.device_refresh_link.bind("<Button-1>", lambda e: self.refresh_device_list(notify=True))
+        self.make_link_focusable(self.device_refresh_link,
+                                 lambda: self.refresh_device_list(notify=True))
         ToolTip(self.device_refresh_link, _("Re-scan for input devices"))
 
         devices = self._enumerate_devices()
@@ -1208,14 +1273,23 @@ class UIManager:
         self.button_first_page = ttk.Label(nav_frame, text="«", style="Nav.TLabel", cursor="hand2")
         self.button_first_page.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_first_page.bind("<Button-1>", lambda e: None if self._nav_button_disabled["first"] else self.parent.go_to_first_page())
+        self.make_link_focusable(self.button_first_page, self.parent.go_to_first_page,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["first"])
 
         self.button_arrow_left = ttk.Label(nav_frame, text="‹", style="Nav.TLabel", cursor="hand2")
         self.button_arrow_left.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_left.bind("<Button-1>", lambda e: None if self._nav_button_disabled["left"] else self.parent.navigate_left())
+        self.make_link_focusable(self.button_arrow_left, self.parent.navigate_left,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["left"])
 
         self.button_arrow_right = ttk.Label(nav_frame, text="›", style="Nav.TLabel", cursor="hand2")
         self.button_arrow_right.pack(side=tk.LEFT, padx=nav_btn_pad)
         self.button_arrow_right.bind("<Button-1>", lambda e: None if self._nav_button_disabled["right"] else self.parent.navigate_right())
+        self.make_link_focusable(self.button_arrow_right, self.parent.navigate_right,
+                                 font_key='nav_arrow',
+                                 is_enabled=lambda: not self._nav_button_disabled["right"])
 
         # Separator, history, re-run and copy - with padding to align baselines
         separator_label = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
@@ -1228,6 +1302,7 @@ class UIManager:
             foreground=self.theme.TEXT_SECONDARY)
         self.button_history.pack(side=tk.LEFT, pady=(8, 0))
         self.button_history.bind("<Button-1>", lambda e: self.parent.show_history())
+        self.make_link_focusable(self.button_history, self.parent.show_history)
 
         separator_label0 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label0.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1241,6 +1316,8 @@ class UIManager:
         # Right-click applies a different prompt for this run only, so trying
         # three tones on one dictation does not change the selected prompt.
         self.button_rerun.bind("<Button-3>", lambda e: self.show_rerun_prompt_menu())
+        self.make_link_focusable(self.button_rerun, self._rerun_ai_edit,
+                                 is_enabled=lambda: not self._rerun_disabled)
 
         separator_label2 = ttk.Label(nav_frame, text="|", style="Separator.TLabel", foreground=self.theme.TEXT_MUTED)
         separator_label2.pack(side=tk.LEFT, padx=(get_spacing('sm'), nav_btn_pad), pady=(5, 0))
@@ -1249,6 +1326,7 @@ class UIManager:
         self.button_copy = ttk.Label(nav_frame, text=f"  {_('Copy')}", style="Copy.TLabel", cursor="hand2", foreground=self.theme.TEXT_SECONDARY)
         self.button_copy.pack(side=tk.LEFT, pady=(8, 0))
         self.button_copy.bind("<Button-1>", lambda e: self._copy_transcription())
+        self.make_link_focusable(self.button_copy, self._copy_transcription)
         
         # Set initial disabled state (muted color)
         self.update_rerun_state()
@@ -1411,6 +1489,14 @@ class UIManager:
         self._bind_picker(self._picker_transcription, self._show_transcription_model_menu)
         self._bind_picker(self._picker_ai, self._show_ai_model_menu)
         self._bind_picker(self._picker_prompt, self._show_prompt_menu)
+
+        # The pickers are menus, so they belong in the tab order too.
+        self.make_link_focusable(self._picker_transcription,
+                                 self._show_transcription_model_menu, font_key='xxs')
+        self.make_link_focusable(self._picker_ai,
+                                 self._show_ai_model_menu, font_key='xxs')
+        self.make_link_focusable(self._picker_prompt,
+                                 self._show_prompt_menu, font_key='xxs')
 
         ToolTip(self._picker_transcription, _("Click to change the transcription model"))
         ToolTip(self._picker_ai, _("Click to change the AI copy-editing model"))
@@ -1652,6 +1738,56 @@ class UIManager:
         label.bind("<Button-1>", lambda e, fn=opener: fn())
         label.bind("<Enter>", lambda e, w=label: self._set_picker_hover(w, True), add="+")
         label.bind("<Leave>", lambda e, w=label: self._set_picker_hover(w, False), add="+")
+
+    def _link_font(self, font_key, underline):
+        """A cached label font, with or without an underline."""
+        cache_key = f"{font_key}:{1 if underline else 0}"
+        cached = self._picker_fonts.get(cache_key)
+        if cached is None:
+            family, size = get_font(font_key)[:2]
+            cached = tkfont.Font(family=family, size=size, underline=underline)
+            self._picker_fonts[cache_key] = cached
+        return cached
+
+    def _set_link_focus(self, widget, font_key, focused):
+        """Underline a link-label while it holds keyboard focus.
+
+        ttk gives a Label no focus ring of its own, so without this a keyboard
+        user tabbing through has no idea where they are.
+        """
+        if not self._widget_alive(widget):
+            return
+        try:
+            widget.configure(font=self._link_font(font_key, focused))
+        except tk.TclError:
+            pass
+
+    def make_link_focusable(self, widget, command, font_key='copy_link',
+                            is_enabled=None):
+        """Let a clickable label be reached and fired from the keyboard.
+
+        The nav arrows, History, AI Edit, Copy and Refresh are all ttk Labels
+        with a <Button-1> binding, which made them mouse-only: not in the tab
+        order, no response to Return or Space, no visible focus. Nothing about
+        them needs to be a mouse-only control.
+
+        ``is_enabled`` is consulted before firing so a disabled link does
+        nothing, matching its click behaviour.
+        """
+        widget.configure(takefocus=1)
+
+        def activate(_event=None):
+            if is_enabled is not None and not is_enabled():
+                return "break"
+            command()
+            return "break"
+
+        for sequence in ("<Return>", "<KP_Enter>", "<space>"):
+            widget.bind(sequence, activate)
+        widget.bind("<FocusIn>",
+                    lambda e: self._set_link_focus(widget, font_key, True), add="+")
+        widget.bind("<FocusOut>",
+                    lambda e: self._set_link_focus(widget, font_key, False), add="+")
 
     def _picker_font(self, underline):
         """The picker font, cached, with or without an underline."""
@@ -2026,18 +2162,17 @@ class UIManager:
         disabled_color = self.theme.TEXT_MUTED
         copy_color = self.theme.TEXT_SECONDARY
 
-        self.button_first_page.configure(
-            foreground=disabled_color if self._nav_button_disabled["first"] else enabled_color,
-            cursor="" if self._nav_button_disabled["first"] else "hand2"
-        )
-        self.button_arrow_left.configure(
-            foreground=disabled_color if self._nav_button_disabled["left"] else enabled_color,
-            cursor="" if self._nav_button_disabled["left"] else "hand2"
-        )
-        self.button_arrow_right.configure(
-            foreground=disabled_color if self._nav_button_disabled["right"] else enabled_color,
-            cursor="" if self._nav_button_disabled["right"] else "hand2"
-        )
+        for widget, key in ((self.button_first_page, "first"),
+                            (self.button_arrow_left, "left"),
+                            (self.button_arrow_right, "right")):
+            disabled = self._nav_button_disabled[key]
+            widget.configure(
+                foreground=disabled_color if disabled else enabled_color,
+                cursor="" if disabled else "hand2",
+                # Skipped in the tab order while disabled: landing on a dead
+                # control that does nothing is worse than not reaching it.
+                takefocus=0 if disabled else 1,
+            )
         
         # Update Copy button color for current theme
         if hasattr(self, 'button_copy') and self.button_copy:
