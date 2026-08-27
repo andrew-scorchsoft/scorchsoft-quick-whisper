@@ -34,7 +34,13 @@ Usage:
     bg = ThemeColors.BG_PRIMARY
 """
 
-from .colors import ThemeColors
+from .colors import (
+    ThemeColors,
+    LightThemeColors,
+    theme_colors,
+    set_theme_mode,
+    is_dark_mode,
+)
 from .fonts import (
     FontProvider,
     FONT_SIZES,
@@ -84,6 +90,10 @@ __all__ = [
     'init_theme',
     # Colors
     'ThemeColors',
+    'LightThemeColors',
+    'theme_colors',
+    'set_theme_mode',
+    'is_dark_mode',
     # Fonts
     'FontProvider',
     'FONT_SIZES',

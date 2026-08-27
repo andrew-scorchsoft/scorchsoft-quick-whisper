@@ -16,6 +16,9 @@ from utils.platform import open_url
 from utils.i18n import _, _n
 from utils.theme import (
     ThemeColors,
+    LightThemeColors,
+    theme_colors,
+    set_theme_mode,
     get_font,
     get_font_size,
     get_font_family,
@@ -71,65 +74,38 @@ def get_system_font():
 # SCORCHSOFT BRAND THEME
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class ModernTheme:
-    """Scorchsoft-branded dark theme with accessible typography.
+class _ThemeMeta(type):
+    """Resolves colour names against whichever palette is currently active.
 
-    This class provides backward compatibility by delegating to ThemeColors
-    and the new theme system. New code should use the theme module directly:
-
-        from utils.theme import ThemeColors, get_font, get_spacing, get_radius
+    Colour attributes are deliberately absent from the class body: Python only
+    consults ``__getattr__`` when normal lookup fails, so defining them as class
+    attributes would freeze them at import time and a theme switch would never
+    reach the ~90 ``self.theme.COLOUR`` call sites.
     """
 
-    # Background colors - delegate to ThemeColors
-    BG_PRIMARY = ThemeColors.BG_PRIMARY
-    BG_SECONDARY = ThemeColors.BG_SECONDARY
-    BG_TERTIARY = ThemeColors.BG_TERTIARY
-    BG_HOVER = ThemeColors.BG_HOVER
-    BG_MENU = ThemeColors.BG_MENU
+    def __getattr__(cls, name):
+        try:
+            return getattr(theme_colors(), name)
+        except AttributeError:
+            raise AttributeError(
+                f"{cls.__name__} has no attribute {name!r}"
+            ) from None
 
-    # Scorchsoft Red - reserved for recording/stop states
-    SCORCHSOFT_RED = ThemeColors.SCORCHSOFT_RED
-    SCORCHSOFT_RED_HOVER = ThemeColors.SCORCHSOFT_RED_HOVER
 
-    # Action buttons - gradient inspired by logo (cyan to purple)
-    ACCENT_PRIMARY = ThemeColors.ACCENT_PRIMARY
-    ACCENT_HOVER = ThemeColors.ACCENT_HOVER
+class ModernTheme(metaclass=_ThemeMeta):
+    """Scorchsoft-branded theme with accessible typography.
 
-    # Gradient colors (matching logo: cyan -> purple with glow)
-    GRADIENT_START = ThemeColors.GRADIENT_START
-    GRADIENT_MID = ThemeColors.GRADIENT_MID
-    GRADIENT_END = ThemeColors.GRADIENT_END
-    GRADIENT_HOVER_START = ThemeColors.GRADIENT_HOVER_START
-    GRADIENT_HOVER_MID = ThemeColors.GRADIENT_HOVER_MID
-    GRADIENT_HOVER_END = ThemeColors.GRADIENT_HOVER_END
+    Colour attributes are proxied to the active palette (``ThemeColors`` in
+    dark mode, ``LightThemeColors`` in light mode), so reading e.g.
+    ``theme.TEXT_PRIMARY`` always reflects the current theme. New code should
+    use the theme module directly:
 
-    # Recording status - lighter/brighter red for visibility
-    RECORDING_TEXT = ThemeColors.RECORDING_TEXT
+        from utils.theme import theme_colors, get_font, get_spacing, get_radius
+    """
 
-    # Recording button gradient (red tones)
-    RECORDING_GRADIENT_START = ThemeColors.RECORDING_GRADIENT_START
-    RECORDING_GRADIENT_MID = ThemeColors.RECORDING_GRADIENT_MID
-    RECORDING_GRADIENT_END = ThemeColors.RECORDING_GRADIENT_END
-    RECORDING_GRADIENT_HOVER_START = ThemeColors.RECORDING_GRADIENT_HOVER_START
-    RECORDING_GRADIENT_HOVER_MID = ThemeColors.RECORDING_GRADIENT_HOVER_MID
-    RECORDING_GRADIENT_HOVER_END = ThemeColors.RECORDING_GRADIENT_HOVER_END
-    RECORDING_BORDER = ThemeColors.RECORDING_BORDER
-
-    # Text - high contrast for accessibility
-    TEXT_PRIMARY = ThemeColors.TEXT_PRIMARY
-    TEXT_SECONDARY = ThemeColors.TEXT_SECONDARY
-    TEXT_TERTIARY = ThemeColors.TEXT_TERTIARY
-    TEXT_MUTED = ThemeColors.TEXT_MUTED
-
-    # Status
-    STATUS_IDLE = ThemeColors.STATUS_IDLE
-    STATUS_PROCESSING = ThemeColors.STATUS_PROCESSING
-    STATUS_RECORDING = ThemeColors.STATUS_RECORDING
-    STATUS_SUCCESS = ThemeColors.STATUS_SUCCESS
-
-    # Borders
-    BORDER = ThemeColors.BORDER
-    BORDER_STRONG = ThemeColors.BORDER_STRONG
+    def __getattr__(self, name):
+        # Instance lookups fall through to the metaclass proxy.
+        return getattr(type(self), name)
 
     # Typography - ACCESSIBLE SIZES (cross-platform font)
     # These are base sizes; the theme system handles HiDPI scaling
@@ -271,20 +247,14 @@ class StyledPopupMenu:
         if is_dark:
             set_dark_title_bar(self.popup)
         
-        # Theme-aware colors for the popup menu
-        if is_dark:
-            border_color = self.theme.BORDER
-            bg_color = self.theme.BG_SECONDARY
-            hover_color = self.theme.BG_HOVER
-            text_color = self.theme.TEXT_PRIMARY
-            text_muted = self.theme.TEXT_MUTED
-        else:
-            border_color = "#d0d0d0"
-            bg_color = "#ffffff"
-            hover_color = "#f0f0f0"
-            text_color = "#1c1c1c"
-            text_muted = "#666666"
-        
+        # Theme-aware colors for the popup menu. self.theme proxies the active
+        # palette, so the same names resolve correctly in either mode.
+        border_color = self.theme.BORDER
+        bg_color = self.theme.BG_SECONDARY
+        hover_color = self.theme.BG_HOVER
+        text_color = self.theme.TEXT_PRIMARY
+        text_muted = self.theme.TEXT_MUTED
+
         # Store colors for use in menu item creation
         self._current_bg = bg_color
         self._current_hover = hover_color
@@ -1047,14 +1017,21 @@ class UIManager:
         # Get dark mode setting from config
         config = get_config()
         is_dark = config.dark_mode
-        
+
+        # Select the palette before anything is styled or built, so every
+        # widget paints in the right colours on its first render rather than
+        # being created dark and corrected only when the theme is toggled.
+        set_theme_mode(is_dark)
+
         # Apply title bar styling based on theme
         if is_dark:
             set_dark_title_bar(self.parent)
-        
+        else:
+            self._set_light_title_bar(self.parent)
+
         # Apply Sun Valley theme based on setting
         sv_ttk.set_theme("dark" if is_dark else "light")
-        
+
         # Setup custom styles
         self._setup_styles()
         
@@ -1261,8 +1238,8 @@ class UIManager:
             relief="flat",
             borderwidth=0,
             highlightthickness=1,
-            highlightbackground="#404040",
-            highlightcolor="#505050",
+            highlightbackground=self.theme.BORDER,
+            highlightcolor=self.theme.BORDER_STRONG,
             padx=12,  # Internal horizontal padding
             pady=10,  # Internal vertical padding
             yscrollcommand=on_scroll_changed
@@ -1424,7 +1401,7 @@ class UIManager:
         btn_width = 200  # Default, will resize
         
         # Use theme-appropriate background color for buttons
-        btn_bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        btn_bg_color = self._surface_color(is_dark)
         
         self.record_button_transcribe = GradientButton(
             buttons_frame,
@@ -1440,7 +1417,7 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
-            text_color=self.theme.TEXT_PRIMARY,
+            text_color=self.theme.TEXT_ON_ACCENT,
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("transcribe")
         )
@@ -1461,7 +1438,7 @@ class UIManager:
             hover_start=self.theme.GRADIENT_HOVER_START,
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
-            text_color=self.theme.TEXT_PRIMARY,
+            text_color=self.theme.TEXT_ON_ACCENT,
             bg_color=btn_bg_color,
             command=lambda: self.parent.toggle_recording("edit")
         )
@@ -1604,11 +1581,7 @@ class UIManager:
     def _set_picker_hover(self, label, hovering):
         if not self._widget_alive(label):
             return
-        is_dark = get_config().dark_mode
-        if hovering:
-            colour = self.theme.ACCENT_PRIMARY if is_dark else self.theme.GRADIENT_END
-        else:
-            colour = self.theme.TEXT_TERTIARY if is_dark else "#666666"
+        colour = self.theme.ACCENT_PRIMARY if hovering else self.theme.TEXT_TERTIARY
         label.configure(foreground=colour)
 
     def _refresh_picker_colours(self):
@@ -1921,20 +1894,10 @@ class UIManager:
         
     def _update_nav_button_appearance(self):
         """Update navigation button colors based on disabled state and theme."""
-        # Get current theme setting
-        config = get_config()
-        is_dark = config.dark_mode
-        
-        # Use appropriate colors for current theme
-        if is_dark:
-            enabled_color = self.theme.TEXT_SECONDARY  # Light gray on dark background
-            disabled_color = self.theme.TEXT_MUTED     # Darker gray (muted)
-            copy_color = self.theme.TEXT_SECONDARY     # Light gray for clickable Copy
-        else:
-            enabled_color = "#333333"   # Dark gray on light background (clickable)
-            disabled_color = "#b0b0b0"  # Lighter gray (muted/disabled)
-            copy_color = "#333333"      # Dark gray for clickable Copy
-        
+        enabled_color = self.theme.TEXT_SECONDARY
+        disabled_color = self.theme.TEXT_MUTED
+        copy_color = self.theme.TEXT_SECONDARY
+
         self.button_first_page.configure(
             foreground=disabled_color if self._nav_button_disabled["first"] else enabled_color,
             cursor="" if self._nav_button_disabled["first"] else "hand2"
@@ -2055,7 +2018,8 @@ class UIManager:
         """Background colour matching the themed window surface."""
         if is_dark is None:
             is_dark = get_config().dark_mode
-        return "#1c1c1c" if is_dark else "#fafafa"
+        colors = ThemeColors if is_dark else LightThemeColors
+        return colors.BG_TERTIARY if is_dark else colors.BG_PRIMARY
 
     # ═════════════════════════════════════════════════════════════════════════
     # INPUT LEVEL METER + ELAPSED TIMER (QW-13b)
@@ -2514,12 +2478,14 @@ class UIManager:
         toast.overrideredirect(True)  # Remove window decorations
         toast.attributes('-topmost', True)
         
-        # Style the toast
-        toast.configure(bg=self.theme.BG_TERTIARY)
-        
+        # Style the toast. The outer background shows through as a hairline
+        # border, which is what separates the toast from the window in light
+        # mode where its fill and the window behind it are both pale.
+        toast.configure(bg=self.theme.BORDER)
+
         # Create rounded frame effect with border
         frame = tk.Frame(toast, bg=self.theme.BG_TERTIARY, padx=16, pady=10)
-        frame.pack()
+        frame.pack(padx=1, pady=1)
         
         # Toast label
         label = tk.Label(
@@ -2606,7 +2572,7 @@ class UIManager:
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
                 border_color=self.theme.RECORDING_BORDER,
-                text_color=self.theme.TEXT_PRIMARY  # White text on red
+                text_color=self.theme.TEXT_ON_ACCENT  # White label on the red fill
             )
             self.record_button_edit.configure(
                 text=_("Stop and Process"),
@@ -2619,7 +2585,7 @@ class UIManager:
                 hover_mid=self.theme.RECORDING_GRADIENT_HOVER_MID,
                 hover_end=self.theme.RECORDING_GRADIENT_HOVER_END,
                 border_color=self.theme.RECORDING_BORDER,
-                text_color=self.theme.TEXT_PRIMARY  # White text on red
+                text_color=self.theme.TEXT_ON_ACCENT  # White label on the red fill
             )
         else:
             self.update_button_shortcuts()
@@ -2648,7 +2614,7 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             border_color="#6d9dc5",  # Original cyan border
-            text_color=self.theme.TEXT_PRIMARY
+            text_color=self.theme.TEXT_ON_ACCENT
         )
         self.record_button_edit.configure(
             text=_("Record + AI Edit"),
@@ -2661,7 +2627,7 @@ class UIManager:
             hover_mid=self.theme.GRADIENT_HOVER_MID,
             hover_end=self.theme.GRADIENT_HOVER_END,
             border_color="#6d9dc5",  # Original cyan border
-            text_color=self.theme.TEXT_PRIMARY
+            text_color=self.theme.TEXT_ON_ACCENT
         )
         
         # TTK labels use configure with text
@@ -2756,6 +2722,10 @@ class UIManager:
             is_dark: True for dark mode, False for light mode
         """
         theme_name = "dark" if is_dark else "light"
+
+        # Swap the palette first: _setup_styles and every widget updated below
+        # resolve their colours through it.
+        set_theme_mode(is_dark)
         sv_ttk.set_theme(theme_name)
 
         # Reapply custom ttk styles after theme change
@@ -2770,7 +2740,7 @@ class UIManager:
             self._set_light_title_bar(self.parent)
         
         # Update gradient buttons background color to match theme
-        bg_color = "#1c1c1c" if is_dark else "#fafafa"
+        bg_color = theme_colors().BG_TERTIARY if is_dark else theme_colors().BG_PRIMARY
         if self.record_button_transcribe:
             self.record_button_transcribe.configure(bg=bg_color)
             self.record_button_transcribe.bg_color = bg_color
@@ -2782,22 +2752,14 @@ class UIManager:
         
         # Update text widget colors based on theme
         if self.transcription_text:
-            if is_dark:
-                self.transcription_text.configure(
-                    bg="#1c1c1c",
-                    fg="#ffffff",
-                    insertbackground="#ffffff",
-                    highlightbackground="#404040",
-                    highlightcolor="#505050"
-                )
-            else:
-                self.transcription_text.configure(
-                    bg="#ffffff",
-                    fg="#1c1c1c",
-                    insertbackground="#1c1c1c",
-                    highlightbackground="#d0d0d0",
-                    highlightcolor="#a0a0a0"
-                )
+            colors = theme_colors()
+            self.transcription_text.configure(
+                bg=colors.BG_TERTIARY if is_dark else colors.BG_SECONDARY,
+                fg=colors.TEXT_PRIMARY,
+                insertbackground=colors.TEXT_PRIMARY,
+                highlightbackground=colors.BORDER,
+                highlightcolor=colors.BORDER_STRONG,
+            )
         
         # Update the level meter surface and repaint it for the new theme
         if self._widget_alive(self.level_meter):
