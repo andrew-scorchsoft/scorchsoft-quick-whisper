@@ -3,7 +3,7 @@
 You can find more information about Quick Whisper here:
 [Scorchsoft Quick Whisper - Free Speech-to-Copy-Edited-Text AI App for Desktop](https://www.scorchsoft.com/blog/speech-to-copyedited-text-app/)
 
-QuickWhisper is a user-friendly, voice-to-text transcription app that leverages OpenAI's Whisper model for accurate audio transcription. With QuickWhisper, users can start recording their voice, automatically transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. Additionally, the transcription text can be processed through OpenAI ChatGPT for a polished, copy-edited output.
+QuickWhisper is a user-friendly, voice-to-text transcription app that uses OpenAI's speech models. Record your voice, transcribe it to text, copy it to the clipboard, and optionally paste it into other applications. The transcription can also be run through an AI copy-editor for a polished result.
 
 ## Cross-Platform Support
 
@@ -14,11 +14,11 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
 - **Simple Recording & Transcription**: Quickly record audio and transcribe it to text with a single click or a hotkey (`Ctrl+Alt+J` for edit, `Ctrl+Alt+Shift+J` for transcription).
 - **Toggle or Push-to-Talk**: Press once to start and again to stop, or hold the shortcut and release to send - whichever suits the length of what you are dictating.
 - **Auto Copy & Paste**: Automatically copy transcriptions to the clipboard and paste them into other applications if desired. When auto-copy is off, whatever you had copied before is put back once the paste is done.
-- **Optional OpenAI ChatGPT Editing**: Enhance your transcriptions using OpenAI ChatGPT for a polished, copy-edited text output.
+- **Optional AI Copy-Editing**: Run a transcription through an AI copy-editor for a polished result, or keep the raw transcript.
 - **One-click Prompt and Model Switching**: The line under the transcript names the transcription model, the copy-editing model and the selected prompt - click any of them to change it.
 - **Searchable History**: Everything you dictate is kept with the time, the prompt used and how long you spoke, and can be searched from **File > Browse History**.
 - **Recording Feedback**: A live input level meter and timer while recording, plus a red tray icon so you can tell you are recording even when the window is hidden.
-- **Customizable Settings**: Enable or disable auto-copy and auto-paste, choose from available input devices, and toggle OpenAI ChatGPT editing.
+- **Customizable Settings**: Recording mode, clipboard behaviour, history, theme, models and more, under **Settings > Configuration**.
 
 ## Screenshot
 
@@ -53,7 +53,7 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
    pip install -r requirements.txt
    ```
 
-4. The app will prompt you for your OpenAI API key on first run. Alternatively, you can pre-configure it in `config/credentials.json`:
+4. The app will prompt you for your OpenAI API key on first run. Alternatively, you can put a plaintext key in `config/credentials.json` and it will be encrypted the first time the app starts:
 
    ```json
    {
@@ -102,15 +102,15 @@ While QuickWhisper was originally developed for Windows, **the codebase has been
    - `⌘+Alt+R` to Retry the Last Recording
    - `⌘+[` / `⌘+]` to cycle through prompts
 
-   `Escape` also cancels a recording while the Quick Whisper window has focus.
+   `Escape` cancels a recording, or abandons a stuck transcription or AI edit, while the Quick Whisper window has focus.
 
 3. After recording, the app will transcribe the audio and display the text in the transcription area. The text can be automatically copied to the clipboard or pasted into other applications, depending on the settings.
 
-4. Enable "Auto Copy-edit with OpenAI ChatGPT" for advanced text processing, allowing OpenAI ChatGPT to edit the transcription for improved readability and structure.
+4. Use **Record + AI Edit** when you want a copy-edited result, or **Record + Transcribe** for the raw transcript. You can also click **AI Edit** on text already on screen, or right-click it to try a different prompt for that run only.
 
 ## Configuration
 
-QuickWhisper includes a configuration system that allows you to customize recording behavior. Access it via **Settings > Config**.
+QuickWhisper includes a configuration system that allows you to customize recording behavior. Access it via **Settings > Configuration**.
 
 ### Recording Location
 
@@ -145,18 +145,21 @@ Control how recording files are managed:
 - **While recording**: whether to show the live input level meter, and whether
   the short feedback sounds are played.
 
-Related settings live in the categories they belong to: **History & Storage**
-holds where recordings are saved, how long they are kept and how much
-dictation history is remembered; **Output & Clipboard** holds auto-copy,
-auto-paste, whether the previous clipboard contents are restored afterwards,
-and the paste method to use if auto-paste misbehaves.
+Related settings live in the categories they belong to:
+
+- **History & Storage**: where recordings are saved, how long they are kept, and how much dictation history is remembered
+- **Output & Clipboard**: auto-copy, auto-paste, whether the previous clipboard contents are restored afterwards, and the paste method if auto-paste misbehaves
+- **AI Models**: transcription and copy-editing models, plus the language being spoken
+- **Appearance**: dark or light theme, HiDPI, and the interface language
+- **System**: close to tray, background shortcut refresh, and update checks
 
 ### Config Files
 
 All configuration settings are saved to JSON files in the `config/` folder:
 - `settings.json`: User preferences, model settings, shortcuts, recording options
-- `credentials.json`: API key (to be encrypted in a future release)
+- `credentials.json`: OpenAI API key, stored encrypted
 - `prompts.json`: Custom AI prompts
+- `logs/`: Rotating application log (also opened from **Help > Open Log Folder**)
 
 Settings will persist between application restarts. If you're upgrading from an older version that used `.env` files, your settings will be automatically migrated to the new JSON format.
 
@@ -178,12 +181,14 @@ QuickWhisper supports multiple languages for the user interface:
 ### Changing the Language
 
 1. Go to **Settings > Configuration**
-2. Select the **Language** category
-3. Choose between:
+2. Select the **Appearance** category
+3. Under **Application Language**, choose:
    - **Auto-detect from system**: Uses your operating system's language setting
    - **Manual selection**: Choose a specific language from the dropdown
 
 The interface will update immediately when you save the settings - no restart required.
+
+The language you are speaking (for transcription) is set separately under **AI Models**.
 
 ### Linux Users: Chinese Font Support
 
@@ -250,7 +255,9 @@ This project is licensed under the terms specified in the LICENSE.md file.
 
 ## Memory Diagnostics
 
-QuickWhisper logs resource usage to the console every 60 seconds. To use this, run the app from a terminal rather than double-clicking the executable:
+Windowed builds write a rotating log file. **Help > Open Log Folder** opens it, which is the usual place to look when filing a bug report.
+
+When run from a terminal, QuickWhisper also logs resource usage to the console every 60 seconds:
 
 ```bash
 python quick_whisper.py
