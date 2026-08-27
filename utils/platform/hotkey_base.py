@@ -238,6 +238,16 @@ class HotkeyManagerBase(ABC):
             self._on_main_thread(self.parent.toggle_recording, mode)
             return
 
+        # Only claim the hold if this press will actually start a recording.
+        # start_push_to_talk deliberately refuses when a recording is already
+        # running (the user may have started it from the buttons) or while the
+        # previous one is still processing - but the hold was being claimed
+        # before it got a say, so releasing the key then stopped a recording
+        # this press never started.
+        if self._press_would_be_refused():
+            logger.debug("Push-to-talk press ignored - the app is busy")
+            return
+
         with self._hold_lock:
             if self._held_combo is not None:
                 # Key auto-repeat while the combination is held. Already
@@ -247,6 +257,19 @@ class HotkeyManagerBase(ABC):
 
         logger.info("Push-to-talk started (mode=%s)", mode)
         self._on_main_thread(self.parent.start_push_to_talk, mode)
+
+    def _press_would_be_refused(self):
+        """Whether the app would ignore a new push-to-talk press right now.
+
+        Read from the listener thread, so it only touches thread-safe state:
+        ``recording`` is backed by an Event and ``_processing`` by a bool.
+        """
+        try:
+            if self.parent.audio_manager.recording:
+                return True
+            return bool(getattr(self.parent, '_processing', False))
+        except Exception:
+            return False
 
     def _note_key_released(self, key_name):
         """Tell the base class a key came up, so push-to-talk can end.

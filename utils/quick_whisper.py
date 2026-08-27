@@ -265,7 +265,7 @@ class QuickWhisper(tk.Tk):
             self._set_status(
                 _("Ready - press {shortcut} to dictate").format(shortcut=shortcut),
                 "success")
-            self.after(8000, lambda: self._set_status(_("Idle"), "idle"))
+            self._clear_status_later(8000)
 
         # Add binding for window state changes
         self.bind('<Unmap>', self._handle_minimize)
@@ -1501,21 +1501,32 @@ class QuickWhisper(tk.Tk):
         else:
             message = _("Done - {chars} chars").format(chars=chars)
 
+        self._ui_status(message, "success")
+        self._clear_status_later(self.RECEIPT_DURATION_MS)
+
+    def _clear_status_later(self, delay_ms):
+        """Return the status line to Idle after a delay, unless it is in use.
+
+        A bare timer is not enough: four seconds is long enough for the user to
+        have started dictating again, and firing then would wipe "Recording..."
+        and stop the pulse and level meter with it.
+        """
         self._receipt_token += 1
         token = self._receipt_token
-        self._ui_status(message, "success")
 
         def revert():
-            # Only clear our own receipt: anything that happened since (a new
-            # recording, an error) owns the status line now.
+            # Superseded by a newer transient message.
             if token != self._receipt_token:
+                return
+            # Something is happening now and owns the status line.
+            if self.audio_manager.recording or self._processing:
                 return
             self._set_status(_("Idle"), "idle")
 
         try:
-            self.after(self.RECEIPT_DURATION_MS, revert)
+            self.after(delay_ms, revert)
         except Exception as e:
-            logger.debug("Could not schedule the completion receipt reset: %s", e)
+            logger.debug("Could not schedule the status reset: %s", e)
 
     def _show_error_async(self, title, message):
         """Show an error dialog from any thread without blocking the caller."""
@@ -1639,6 +1650,9 @@ class QuickWhisper(tk.Tk):
                 self._ui_status(_("Processing - AI Editing..."), "processing")
 
                 edited_text = self.process_with_gpt_model(transcription_text)
+                if self._is_abandoned(generation):
+                    logger.info("Discarding AI edit - the user stopped waiting for it")
+                    return
                 if edited_text is None or not edited_text.strip():
                     # The edit failed (the user has already been told why) - keep
                     # the raw transcript rather than pasting nothing.
@@ -3364,7 +3378,7 @@ class QuickWhisper(tk.Tk):
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
             self._set_status(_("System tray unavailable"), "warning")
             # Leave the message up briefly, then return to the normal status.
-            self.after(6000, lambda: self._set_status(_("Idle"), "idle"))
+            self._clear_status_later(6000)
             return
 
         success = self.tray_manager.show_tray()
@@ -3377,7 +3391,7 @@ class QuickWhisper(tk.Tk):
                            "closing the window will exit the application")
             self.protocol("WM_DELETE_WINDOW", self.on_closing)
             self._set_status(_("System tray unavailable"), "warning")
-            self.after(6000, lambda: self._set_status(_("Idle"), "idle"))
+            self._clear_status_later(6000)
         else:
             # Set up close button behavior based on user preference
             self.update_close_behavior()

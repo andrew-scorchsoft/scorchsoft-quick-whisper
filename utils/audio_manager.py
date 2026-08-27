@@ -190,10 +190,17 @@ class AudioManager:
                 tray.set_recording(recording)
         except Exception as e:
             logger.debug("Could not update the tray recording state: %s", e)
+        # The title bar is Tk. This setter is on the main thread in every
+        # normal path, so it is called directly there; only the error paths
+        # can reach it from the capture thread, and those marshal instead.
+        # (The tray above is pystray, which is safe from any thread.)
         try:
             set_title = getattr(self.parent, 'set_title_recording', None)
             if callable(set_title):
-                set_title(recording)
+                if threading.current_thread() is threading.main_thread():
+                    set_title(recording)
+                else:
+                    self.parent.after(0, set_title, recording)
         except Exception as e:
             logger.debug("Could not update the title recording state: %s", e)
 

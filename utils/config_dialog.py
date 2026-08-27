@@ -84,7 +84,13 @@ class ScrollableSettingsFrame(ttk.Frame):
         self._canvas.bind_all("<Button-4>", self._on_wheel)
         self._canvas.bind_all("<Button-5>", self._on_wheel)
 
-    def _unbind_wheel(self, _event=None):
+    def _unbind_wheel(self, event=None):
+        # The body frame is a child of the canvas, so moving the pointer onto
+        # any setting fires <Leave> on the canvas with detail NotifyInferior.
+        # Unbinding then would kill the wheel the moment the pointer reached
+        # something worth scrolling to. Only a real exit counts.
+        if event is not None and str(getattr(event, 'detail', '')) == 'NotifyInferior':
+            return
         for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             try:
                 self._canvas.unbind_all(sequence)

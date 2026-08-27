@@ -49,7 +49,7 @@ class HistoryDialog:
         # trim the oldest entries and shift every index down.
         self._row_to_entry = {}
         self._rows = None
-        self._indexed_length = 0
+        self._indexed_signature = None
         self._search_after_id = None
         self._search_var = tk.StringVar()
 
@@ -252,7 +252,7 @@ class HistoryDialog:
         recording started before this dialog opened can still finish while it
         is up.
         """
-        if self._rows is not None and self._indexed_length == len(self.parent.history):
+        if self._rows is not None and self._index_signature() == self._indexed_signature:
             return self._rows
 
         rows = []
@@ -268,8 +268,19 @@ class HistoryDialog:
             rows.append((entry, haystack, (when, mode, prompt, self._format_preview(text))))
 
         self._rows = rows
-        self._indexed_length = len(self.parent.history)
+        self._indexed_signature = self._index_signature()
         return rows
+
+    def _index_signature(self):
+        """Cheap fingerprint of the history, for cache invalidation.
+
+        Length alone is not enough: once the history is at its limit every new
+        entry appends and trims, leaving the length identical while the
+        contents have moved on.
+        """
+        history = self.parent.history
+        newest = history[-1] if history else None
+        return (len(history), id(newest))
 
     def _format_mode(self, mode):
         if mode == self.parent.HISTORY_MODE_EDIT:
@@ -379,8 +390,9 @@ class HistoryDialog:
         text = (entry or {}).get("text", "")
         if not text:
             return "break"
+        # copy_to_clipboard raises its own toast on success and its own error
+        # on failure, so adding one here would claim success either way.
         self.parent.copy_to_clipboard(text)
-        self._toast(_("Copied"))
         return "break"
 
     def delete_selected(self):
@@ -409,6 +421,17 @@ class HistoryDialog:
             self.parent.save_history()
         except Exception:
             logger.error("Could not persist the history after a delete", exc_info=True)
+
+        # The main window may be showing the entry that has just gone, and its
+        # navigation index now points past the end of a shorter list.
+        try:
+            self.parent.history_index = min(
+                self.parent.history_index, len(self.parent.history) - 1)
+            self.parent.ui_manager.update_navigation_buttons()
+        except Exception:
+            logger.debug("Could not resync the main window after a delete",
+                         exc_info=True)
+
         self.refresh()
         self._toast(_("Entry deleted"))
 
